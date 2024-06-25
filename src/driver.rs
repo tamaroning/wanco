@@ -18,7 +18,7 @@ pub fn run(args: &Args) -> Result<()> {
     let buf: Vec<u8> = std::fs::read(&args.input_file)
         .with_context(|| format!("Failed to open {:?}", args.input_file))?;
     // Parse the input file into a wasm module binary
-    let wasm = wat::parse_bytes(&buf).with_context(|| "Failed to parse input wat file")?;
+    let wasm = wat::parse_bytes(&buf)?;
     assert!(wasm.starts_with(b"\0asm"));
 
     compile::compile(&wasm, args)

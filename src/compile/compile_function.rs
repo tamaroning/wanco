@@ -98,6 +98,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 }
                 Operator::Else => {
                     if ctx.unreachable_depth == 1 {
+                        gen_else(ctx).context("error gen Else")?;
                         ctx.unreachable_depth -= 1;
                         ctx.unreachable_reason = UnreachableReason::Reachable;
                         log::debug!("- end of unreachable");
@@ -117,7 +118,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                         log::debug!("- end of unreachable");
                         continue;
                     }
-                    2_u32..=u32::MAX => {
+                    _ => {
                         ctx.unreachable_depth -= 1;
                         continue;
                     }
@@ -225,6 +226,39 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 )
                 .expect("error gen I32Clz");
             }
+            Operator::I64Clz => {
+                let v1 = ctx.stack.pop().expect("stack empty");
+                let function = ctx.inkwell_intrs.ctlz_i64;
+                let clz = ctx
+                    .builder
+                    .build_call(
+                        function,
+                        &[v1.into(), ctx.inkwell_types.bool_type.const_zero().into()],
+                        "",
+                    )
+                    .expect("fail build_call llvm_insts")
+                    .try_as_basic_value()
+                    .left()
+                    .expect("fail build_call llvm_insts");
+                let res = ctx
+                    .builder
+                    .build_int_sub(
+                        ctx.inkwell_types.i64_type.const_int(63, false),
+                        clz.into_int_value(),
+                        "",
+                    )
+                    .expect("fail build_int_sub llvm_insts");
+                ctx.stack.push(res.as_basic_value_enum());
+            }
+            Operator::I32Ctz => {
+                let v1 = ctx.stack.pop().expect("stack empty");
+                gen_llvm_intrinsic(
+                    ctx,
+                    ctx.inkwell_intrs.cttz_i32,
+                    &[v1.into(), ctx.inkwell_types.bool_type.const_zero().into()],
+                )
+                .context("error gen I32Ctz")?;
+            }
             Operator::I64Ctz => {
                 let v1 = ctx.stack.pop().expect("stack empty");
                 gen_llvm_intrinsic(
@@ -232,7 +266,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                     ctx.inkwell_intrs.cttz_i64,
                     &[v1.into(), ctx.inkwell_types.bool_type.const_zero().into()],
                 )
-                .expect("error gen I64Ctz");
+                .context("error gen I64Ctz")?;
             }
             Operator::I32Popcnt => {
                 let v1 = ctx.stack.pop().expect("stack empty");
@@ -766,10 +800,10 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
               Memory instructions
             ******************************/
             Operator::MemorySize { mem: _ } => {
-                todo!("TODO: MemorySize")
+                compile_op_memory_size(ctx).context("error gen MemorySize")?;
             }
             Operator::MemoryGrow { mem: _ } => {
-                todo!("TODO: MemoryGrow")
+                compile_op_memory_grow(ctx).context("error gen MemoryGrow")?;
             }
             Operator::MemoryCopy { dst_mem, src_mem } => {
                 compile_op_memcpy(ctx, dst_mem, src_mem).context("error gen MemoryCopy")?;
@@ -1053,6 +1087,61 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         }
         num_op += 1;
     }
+    Ok(())
+}
+
+pub fn compile_op_memory_size(ctx: &mut Context<'_, '_>) -> Result<()> {
+    let size = ctx
+        .builder
+        .build_load(
+            ctx.inkwell_types.i32_type,
+            ctx.global_memory_size
+                .expect("should defined global_memory_size")
+                .as_pointer_value(),
+            "mem_size",
+        )
+        .expect("should build load");
+    ctx.stack.push(size);
+    Ok(())
+}
+
+pub fn compile_op_memory_grow(ctx: &mut Context<'_, '_>) -> Result<()> {
+    // Request to OS
+    let delta = ctx.stack.pop().expect("stack empty");
+    ctx.builder
+        .build_call(
+            ctx.fn_memory_grow.expect("shold define fn_memory_grow"),
+            &[delta.into()],
+            "memory_grow",
+        )
+        .expect("should build call");
+
+    // Load old memory size
+    let size_old = ctx
+        .builder
+        .build_load(
+            ctx.inkwell_types.i32_type,
+            ctx.global_memory_size
+                .expect("should define global_memory_size")
+                .as_pointer_value(),
+            "mem_size_old",
+        )
+        .expect("should build load");
+    ctx.stack.push(size_old);
+
+    // Update new memory size
+    let size_new = ctx
+        .builder
+        .build_int_add(size_old.into_int_value(), delta.into_int_value(), "")
+        .expect("should build int add");
+    ctx.builder
+        .build_store(
+            ctx.global_memory_size
+                .expect("shold define global_memory_size")
+                .as_pointer_value(),
+            size_new,
+        )
+        .expect("should build store");
     Ok(())
 }
 

@@ -23,7 +23,7 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .build_unconditional_branch(wanco_init_block)
         .expect("should build unconditional branch (entry -> init)");
 
-    // Define memory_base as Global
+    // Define memory_base as global
     let memory_base_global = ctx.module.add_global(
         ctx.inkwell_types.i8_ptr_type,
         Some(AddressSpace::default()),
@@ -32,7 +32,15 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     memory_base_global.set_initializer(&ctx.inkwell_types.i8_ptr_type.const_zero());
     ctx.global_memory_base = Some(memory_base_global);
 
-    // TODO: how to grow memory?
+    // Declare memory_grow function
+    let fn_type_memory_grow = ctx
+        .inkwell_types
+        .i32_type
+        .fn_type(&[ctx.inkwell_types.i32_type.into()], false);
+    let fn_memory_grow = ctx
+        .module
+        .add_function("memory_grow", fn_type_memory_grow, None);
+    ctx.fn_memory_grow = Some(fn_memory_grow);
 
     define_aux_functions(ctx)?;
 

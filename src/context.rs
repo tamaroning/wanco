@@ -39,6 +39,7 @@ pub struct Context<'a, 'b> {
 
     pub global_memory_size: Option<GlobalValue<'a>>,
     pub global_memory_base: Option<GlobalValue<'a>>,
+    pub fn_memory_grow: Option<FunctionValue<'a>>,
 
     pub global_table: Option<GlobalValue<'a>>,
 
@@ -82,6 +83,7 @@ impl<'a> Context<'a, '_> {
             wanco_main_block: None,
             global_memory_size: None,
             global_memory_base: None,
+            fn_memory_grow: None,
             global_table: None,
 
             signatures: Vec::new(),
