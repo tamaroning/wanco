@@ -4,10 +4,32 @@
 
 wanco is a WebAssembly AOT compiler.
 
+## Build
+
+Prerequisites:
+- GCC
+- Makefile
+- Cargo
+
+## Run
+
+Specify an input file which is a WebAssembly text or binary format.
+
+```
+cargo run module.wat -o module.o
+```
+
+## Test
+
+```
+RUST_LOG="info" cargo t -- --nocapture
+```
+
 ## TODO
 
 - wasi support
 - support sqlite-wasm
+- compiler driver
 
 ## LICENSE
 

@@ -24,3 +24,10 @@ wrt.o: WebAssembly Nativeランタイム
     2. wanco_mainを呼び出す
 - memory_grow (func): linear memoryの拡張
 - memory_size (func): linear memoryのページ数取得
+
+## PIE
+
+PIEを作成する場合は、Inkwell側にRelocationMode::PICを指定する必要がある。
+(gccのデフォルトはPIE)
+
+gcc -no-pie でリンクする場合はInkwellはRelocationMode::DefaultでOK
