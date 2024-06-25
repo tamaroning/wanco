@@ -26,8 +26,12 @@ typedef enum {
 } WasiError;
 
 WasiError fd_write(int fd, int buf_iovec_addr, int vec_len, int size_addr) {
-    char* iovec_ptr = (char *)(memory_base + buf_iovec_addr);
+    printf("fd_write: fd: %d, buf_iovec_addr: 0x%x, vec_len: %d, size_addr: %d\n", fd, buf_iovec_addr, vec_len, size_addr);
+    char* iovec_ptr = (char*) &memory_base[buf_iovec_addr];
+    printf("iovec_ptr: %p\n", iovec_ptr);
     IoVec* iovec = (IoVec*)iovec_ptr;
+
+    printf("iov_base: 0x%x, iov_len: %d\n", iovec->iov_base, iovec->iov_len);
 
     int len = 0;
     for (int i = 0; i < vec_len; i++){
