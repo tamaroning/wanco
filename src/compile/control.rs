@@ -387,7 +387,7 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
     Ok(())
 }
 
-pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: FunctionValue<'a>) -> Result<()> {
+pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) -> Result<()> {
     let current_block = ctx
         .builder
         .get_insert_block()
@@ -626,7 +626,7 @@ pub fn gen_drop(ctx: &mut Context<'_, '_>) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_return(ctx: &mut Context<'_, '_>, current_fn: FunctionValue<'_>) -> Result<()> {
+pub fn gen_return(ctx: &mut Context<'_, '_>, current_fn: &FunctionValue<'_>) -> Result<()> {
     // Phi
     ctx.unreachable_depth += 1;
     ctx.unreachable_reason = UnreachableReason::Return;
