@@ -34,7 +34,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         .print_to_file(ll_path.to_str().expect("error ll_path"))
         .map_err(|e| anyhow!(e.to_string()))
         .context("Failed to write to the ll file")?;
-    log::info!("Successfully wrote to {}", ll_path.display());
+    log::debug!("wrote to {}", ll_path.display());
 
     log::debug!("write to {}", obj_path.display());
     let target = get_host_target_machine().expect("Failed to get host architecture");
@@ -47,7 +47,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         )
         .map_err(|e| anyhow!(e.to_string()))
         .context("Failed to write to the object file")?;
-    log::info!("Successfully wrote to {}", obj_path.display());
+    log::debug!("wrote to {}", obj_path.display());
 
     Ok(())
 }

@@ -16,7 +16,7 @@ fn main() {
     env_logger::builder().init();
     let args = driver::Args::parse();
 
-    if let Err(e) = driver::run(&args) {
+    if let Err(e) = driver::run_compiler(&args) {
         log::error!("{}", e);
         std::process::exit(1);
     }

@@ -55,7 +55,7 @@ pub struct Context<'a, 'b> {
 
     pub globals: Vec<Global<'a>>,
 
-    // compiler state
+    // builder state
     pub current_function_idx: u32,
     pub control_frames: Vec<ControlFrame<'a>>,
     /// Wasm value stack for the current builder position

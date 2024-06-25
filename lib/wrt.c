@@ -11,7 +11,7 @@ int32_t memory_size() {
     return global_mem_size;
 }
 
-int32_t memory_glow(int32_t inc_pages) {
+int32_t memory_grow(int32_t inc_pages) {
     int32_t old_size = global_mem_size;
     int32_t new_size = old_size + inc_pages;
     
