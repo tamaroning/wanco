@@ -22,7 +22,7 @@ pub(super) fn compile_type_section(
         // Convert wasmparser type to inkwell type
         let mut params_llty: Vec<BasicMetadataTypeEnum> = Vec::new();
         for param in params.iter() {
-            let param_llty = wasmty_to_llvmty(ctx, *param)?;
+            let param_llty = wasmty_to_llvmty(ctx, param)?;
             params_llty.push(param_llty.into());
         }
 
@@ -32,7 +32,7 @@ pub(super) fn compile_type_section(
                 return_llty.fn_type(&params_llty, false)
             }
             1 => {
-                let return_llty = wasmty_to_llvmty(ctx, returns[0]).expect("convert return type");
+                let return_llty = wasmty_to_llvmty(ctx, &returns[0]).expect("convert return type");
                 return_llty.fn_type(&params_llty, false)
             }
             _ => {
@@ -46,7 +46,7 @@ pub(super) fn compile_type_section(
 
 pub(super) fn wasmty_to_llvmty<'a>(
     ctx: &Context<'a, '_>,
-    wasmty: ValType,
+    wasmty: &ValType,
 ) -> Result<BasicTypeEnum<'a>> {
     match wasmty {
         ValType::I32 => Ok(BasicTypeEnum::IntType(ctx.inkwell_types.i32_type)),

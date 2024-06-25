@@ -20,7 +20,7 @@ pub(super) fn compile_global_section(
     for (i, global) in globals.into_iter().enumerate() {
         let global = global?;
         let gname = format!("global_{}", i);
-        let ty = wasmty_to_llvmty(ctx, global.ty.content_type)?;
+        let ty = wasmty_to_llvmty(ctx, &global.ty.content_type)?;
 
         // Get initial value
         let init_expr_binary_reader = &mut global.init_expr.get_binary_reader();

@@ -70,7 +70,7 @@ impl<'a> ControlFrame<'a> {
     }
 }
 
-pub fn gen_block(ctx: &mut Context<'_, '_>, blockty: BlockType) -> Result<()> {
+pub fn gen_block(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     let current_block = ctx.builder.get_insert_block().unwrap();
     let next_block = ctx.ictx.append_basic_block(
         ctx.function_values[ctx.current_function_idx as usize],
@@ -104,7 +104,7 @@ pub fn gen_block(ctx: &mut Context<'_, '_>, blockty: BlockType) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_loop(ctx: &mut Context<'_, '_>, blockty: BlockType) -> Result<()> {
+pub fn gen_loop(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     let current_block = ctx.builder.get_insert_block().unwrap();
 
     // Create blocks
@@ -153,7 +153,7 @@ pub fn gen_loop(ctx: &mut Context<'_, '_>, blockty: BlockType) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: BlockType) -> Result<()> {
+pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     let current_block = ctx
         .builder
         .get_insert_block()
@@ -335,7 +335,7 @@ pub fn gen_brif(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: BrTable) -> Result<()> {
+pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> {
     let current_block = ctx
         .builder
         .get_insert_block()

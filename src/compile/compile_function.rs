@@ -67,7 +67,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     let num_locals = local_reader.get_count();
     for _ in 0..num_locals {
         let (count, valty) = local_reader.read()?;
-        let valty = wasmty_to_llvmty(ctx, valty)?;
+        let valty = wasmty_to_llvmty(ctx, &valty)?;
         for _ in 0..count {
             let alloca = ctx
                 .builder
@@ -129,7 +129,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
             }
         }
 
-        match op {
+        match &op {
             /******************************
               Control flow instructions
             ******************************/
@@ -146,10 +146,10 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 gen_else(ctx).context("error gen Else")?;
             }
             Operator::Br { relative_depth } => {
-                gen_br(ctx, relative_depth).context("error gen Br")?;
+                gen_br(ctx, *relative_depth).context("error gen Br")?;
             }
             Operator::BrIf { relative_depth } => {
-                gen_brif(ctx, relative_depth).context("errpr gen BrIf")?;
+                gen_brif(ctx, *relative_depth).context("errpr gen BrIf")?;
             }
             Operator::BrTable { targets } => {
                 gen_br_table(ctx, targets).context("error gen BrTable")?;
@@ -163,13 +163,13 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 gen_end(ctx, current_fn).context("error gen End")?;
             }
             Operator::Call { function_index } => {
-                gen_call(ctx, function_index).context("error gen Call")?;
+                gen_call(ctx, *function_index).context("error gen Call")?;
             }
             Operator::CallIndirect {
                 type_index,
                 table_index,
             } => {
-                gen_call_indirect(ctx, type_index, table_index)
+                gen_call_indirect(ctx, *type_index, *table_index)
                     .context("error gen CallIndirect")?;
             }
             Operator::Drop => {
@@ -191,11 +191,11 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
               Numeric instructions
             ******************************/
             Operator::I32Const { value } => {
-                let i = ctx.inkwell_types.i32_type.const_int(value as u64, false);
+                let i = ctx.inkwell_types.i32_type.const_int(*value as u64, false);
                 ctx.stack.push(i.as_basic_value_enum());
             }
             Operator::I64Const { value } => {
-                let i = ctx.inkwell_types.i64_type.const_int(value as u64, false);
+                let i = ctx.inkwell_types.i64_type.const_int(*value as u64, false);
                 ctx.stack.push(i.as_basic_value_enum());
             }
             Operator::F32Const { value } => {
@@ -739,8 +739,8 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
             ******************************/
             // Loads the value of local variable to stack
             Operator::LocalGet { local_index } => {
-                assert!(local_index < locals.len() as u32);
-                let (value_ptr, ty) = locals[local_index as usize];
+                assert!(*local_index < locals.len() as u32);
+                let (value_ptr, ty) = locals[*local_index as usize];
                 let v = ctx
                     .builder
                     .build_load(ty, value_ptr, "")
@@ -749,16 +749,16 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
             }
             // Sets the value of the local variable
             Operator::LocalSet { local_index } => {
-                assert!(local_index < locals.len() as u32);
-                let (value_ptr, _) = locals[local_index as usize];
+                assert!(*local_index < locals.len() as u32);
+                let (value_ptr, _) = locals[*local_index as usize];
                 let v = ctx.stack.pop().expect("stack empty");
                 ctx.builder
                     .build_store(value_ptr, v)
                     .expect("should build store");
             }
             Operator::LocalTee { local_index } => {
-                assert!(local_index < locals.len() as u32);
-                let (value_ptr, _) = locals[local_index as usize];
+                assert!(*local_index < locals.len() as u32);
+                let (value_ptr, _) = locals[*local_index as usize];
                 let v = ctx.stack.pop().expect("stack empty");
                 ctx.builder
                     .build_store(value_ptr, v)
@@ -766,8 +766,8 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 ctx.stack.push(v);
             }
             Operator::GlobalGet { global_index } => {
-                assert!(global_index < ctx.globals.len() as u32);
-                let global = &ctx.globals[global_index as usize];
+                assert!(*global_index < ctx.globals.len() as u32);
+                let global = &ctx.globals[*global_index as usize];
                 match global {
                     Global::Const { value } => {
                         ctx.stack.push(*value);
@@ -782,8 +782,8 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 };
             }
             Operator::GlobalSet { global_index } => {
-                assert!(global_index < ctx.globals.len() as u32);
-                let global = &ctx.globals[global_index as usize];
+                assert!(*global_index < ctx.globals.len() as u32);
+                let global = &ctx.globals[*global_index as usize];
                 match global {
                     Global::Const { value: _ } => {
                         bail!("Global.Set to const value");
@@ -806,10 +806,10 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 compile_op_memory_grow(ctx).context("error gen MemoryGrow")?;
             }
             Operator::MemoryCopy { dst_mem, src_mem } => {
-                compile_op_memcpy(ctx, dst_mem, src_mem).context("error gen MemoryCopy")?;
+                compile_op_memcpy(ctx, *dst_mem, *src_mem).context("error gen MemoryCopy")?;
             }
             Operator::MemoryFill { mem } => {
-                compile_op_memory_fill(ctx, mem).context("error gen MemoryFill")?;
+                compile_op_memory_fill(ctx, *mem).context("error gen MemoryFill")?;
             }
             // TODO: memarg
             Operator::I32Load { memarg } => {
@@ -1229,7 +1229,7 @@ fn resolve_pointer<'a>(
 
 pub fn compile_op_load<'a>(
     ctx: &mut Context<'a, '_>,
-    memarg: MemArg,
+    memarg: &MemArg,
     extended_type: inkwell::types::BasicTypeEnum<'a>,
     load_type: inkwell::types::BasicTypeEnum<'a>,
     signed: bool,
@@ -1285,7 +1285,7 @@ pub fn compile_op_load<'a>(
 
 pub fn compile_op_store<'a>(
     ctx: &mut Context<'a, '_>,
-    memarg: MemArg,
+    memarg: &MemArg,
     store_type: inkwell::types::BasicTypeEnum<'a>,
     require_narrow: bool,
 ) -> Result<()> {
