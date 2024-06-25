@@ -11,12 +11,37 @@ Prerequisites:
 - Makefile
 - Cargo
 
+First you need to clone the project:
+```
+git clone git@github.com:tamaroning/wanco.git
+cd wanco
+```
+
+Build the library and runtime:
+```
+cd lib && make
+```
+
+Build the wanco compiler:
+```
+cargo build --release
+cp target/release/wanco .
+```
+
 ## Run
 
 Specify an input file which is a WebAssembly text or binary format.
-
 ```
-cargo run module.wat -o module.o
+wanco examples/hello.wat -o hello.o
+```
+Then link it with the runtime and library together:
+```
+gcc -no-pie hello.o lib/lib.o lib/wrt.o -o module -o hello
+```
+Finally, run the compiled module:
+```
+$ ./hello
+Hello World!
 ```
 
 ## Test
@@ -27,7 +52,8 @@ RUST_LOG="info" cargo t -- --nocapture
 
 ## TODO
 
-- wasi support
+- WASI preview1 (https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md#modules)
+    - use wasi-libc? (https://github.com/WebAssembly/wasi-libc)
 - support sqlite-wasm
 - compiler driver
 
