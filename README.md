@@ -36,7 +36,7 @@ wanco examples/hello.wat -o hello.o
 ```
 Then link it with the runtime and library together:
 ```
-gcc -no-pie hello.o lib/lib.o lib/wrt.o -o module -o hello
+gcc -no-pie hello.o lib/lib.o lib/wrt.o -o hello
 ```
 Finally, run the compiled module:
 ```
