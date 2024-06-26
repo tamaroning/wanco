@@ -176,7 +176,7 @@
     ;; iov.iov_base and iov.iov_len for "success"
     (i32.store (i32.const 0) (i32.const 16)) 
     (i32.store (i32.const 4) (i32.const 12))
-    ;; iov.iov_base and iov.iov_len for "success"
+    ;; iov.iov_base and iov.iov_len for "fail"
     (i32.store (i32.const 8) (i32.const 32)) 
     (i32.store (i32.const 12) (i32.const 13))
     (call $assert_test_i32 (call $type-i32-value) (i32.const 1))

@@ -1,6 +1,3 @@
-# write makefile to compile lib.c to lib.o
-# you need to add clean
-
 CC = gcc
 CFLAGS = -Wall -g
 LDFLAGS = -lm
