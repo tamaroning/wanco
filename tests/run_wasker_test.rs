@@ -1,8 +1,10 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, process::Command};
 
 use wanco::*;
 
-const TEST_DIR: &'static str = "tests/wasker/wat/";
+const TEST_DIR: &'static str = "tests/wasker/";
+const WRT_PATH: &'static str = "lib/wrt.o";
+const LIB_PATH: &'static str = "lib/lib.o";
 
 macro_rules! ident_to_str {
     ($ident:ident) => {
@@ -31,17 +33,40 @@ fn wasker_test(test_name: &str) {
 
 fn run_test(path: &PathBuf) {
     let _ = env_logger::builder().try_init();
+    let rand = rand::random::<u64>();
+    let filename = format!("wasm_{}", rand);
+    let obj = std::path::PathBuf::from("/tmp")
+        .join(&filename)
+        .with_extension("o");
+    let exe = std::path::PathBuf::from("/tmp").join(filename);
+
     let test_name = path.to_str().unwrap().to_string();
 
     let args = Args {
         input_file: std::path::PathBuf::from(path),
-        output_file: std::path::PathBuf::from("/tmp/wasm.o"),
+        // /tmp/<filename>.o
+        output_file: obj.clone(),
     };
     log::info!("Running test {:?}", &test_name);
     if let Err(e) = run_compiler(&args) {
         log::error!("Could not compile {:?} ({})", &args.input_file, e);
         panic!();
     }
+    let res = Command::new("cc")
+        .arg(obj)
+        .arg(WRT_PATH)
+        .arg(LIB_PATH)
+        .arg("-o")
+        .arg(exe.clone())
+        .output()
+        .unwrap();
+    let output = Command::new(exe).output().unwrap();
+    let output = String::from_utf8(output.stdout).unwrap();
+    // "#Test Failed" means "should fail"
+    let output = output.replace("#Test Failed", "");
+    //assert!(output.contains("Test Passed"));
+    assert!(!output.contains("Test Failed"));
+    //log::error!("Output: {}", output);
 }
 
 wasker_test!(address32);

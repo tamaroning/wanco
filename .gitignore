@@ -4,3 +4,4 @@
 **/a.out
 **/*.wat
 **/*.wasm
+!tests/**/*
