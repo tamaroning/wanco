@@ -6,12 +6,15 @@ use anyhow::{Context as _, Result};
 
 use crate::compile;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Default)]
 pub struct Args {
     pub input_file: path::PathBuf,
 
     #[arg(short, long, default_value = "./wasm.o")]
     pub output_file: path::PathBuf,
+
+    #[arg(long)]
+    pub checkpoint: bool,
 }
 
 pub fn run_compiler(args: &Args) -> Result<()> {

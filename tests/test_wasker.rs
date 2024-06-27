@@ -39,8 +39,8 @@ fn run_test(test_name: &str) {
     // Compile
     let args = Args {
         input_file: std::path::PathBuf::from(path),
-        // /tmp/<filename>.o
         output_file: obj.clone(),
+        ..Default::default()
     };
     if let Err(e) = run_compiler(&args) {
         panic!("Could not compile {:?} ({})", &args.input_file, e);
