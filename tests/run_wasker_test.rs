@@ -4,36 +4,33 @@ use wanco::*;
 
 const TEST_DIR: &'static str = "tests/wasker/wat/";
 
-struct Context {
-    pub success: Vec<String>,
-    pub fail: Vec<String>,
-}
-
-#[test]
-fn wasker_test() {
-    env_logger::builder().init();
-
-    let mut ctx = &mut Context {
-        success: Vec::new(),
-        fail: Vec::new(),
+macro_rules! ident_to_str {
+    ($ident:ident) => {
+        match stringify!($ident) {
+            s if s.starts_with("r#") => s.trim_start_matches("r#"),
+            other => other,
+        }
     };
-
-    let entries = std::fs::read_dir(TEST_DIR).unwrap();
-    for entry in entries {
-        let entry = entry.unwrap();
-        run_test(&mut ctx, &entry.path());
-    }
-
-    log::info!("### Summary ###");
-    log::info!("Success: {} tests", ctx.success.len());
-    log::info!("Fail: {} tests", ctx.fail.len());
-    for f in &ctx.fail {
-        log::error!("  - {:?}", f);
-    }
-    assert_eq!(ctx.fail.len(), 0);
 }
 
-fn run_test(ctx: &mut Context, path: &PathBuf) {
+macro_rules! wasker_test {
+    ($name:ident) => {
+        #[test]
+        fn $name() {
+            wasker_test(ident_to_str!($name));
+        }
+    };
+}
+
+fn wasker_test(test_name: &str) {
+    let wat_path = PathBuf::from(TEST_DIR)
+        .join(test_name)
+        .with_extension("wat");
+    run_test(&wat_path);
+}
+
+fn run_test(path: &PathBuf) {
+    let _ = env_logger::builder().try_init();
     let test_name = path.to_str().unwrap().to_string();
 
     let args = Args {
@@ -43,8 +40,33 @@ fn run_test(ctx: &mut Context, path: &PathBuf) {
     log::info!("Running test {:?}", &test_name);
     if let Err(e) = run_compiler(&args) {
         log::error!("Could not compile {:?} ({})", &args.input_file, e);
-        ctx.fail.push(test_name);
-    } else {
-        ctx.success.push(test_name);
+        panic!();
     }
 }
+
+wasker_test!(address32);
+wasker_test!(address64);
+wasker_test!(align);
+wasker_test!(block);
+wasker_test!(br);
+wasker_test!(br_if);
+wasker_test!(br_table);
+wasker_test!(bulk);
+wasker_test!(call);
+wasker_test!(call_indirect);
+wasker_test!(convert);
+wasker_test!(endianness);
+wasker_test!(example);
+wasker_test!(r#f64);
+wasker_test!(f64_bitwise);
+wasker_test!(f64_cmp);
+wasker_test!(r#i64);
+wasker_test!(local_get);
+wasker_test!(memory_copy);
+wasker_test!(memory_fill);
+wasker_test!(memory_size);
+wasker_test!(r#if);
+wasker_test!(r#loop);
+wasker_test!(r#return);
+wasker_test!(select);
+wasker_test!(switch);

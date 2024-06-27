@@ -46,8 +46,9 @@ Hello World!
 
 ## Test
 
+Run
 ```
-RUST_LOG="info" cargo t -- --nocapture
+cargo test
 ```
 
 ## TODO
