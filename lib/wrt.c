@@ -14,7 +14,7 @@ int32_t memory_size() {
 int32_t memory_grow(int32_t inc_pages) {
     int32_t old_size = global_mem_size;
     int32_t new_size = old_size + inc_pages;
-    
+
     void* res = realloc(memory_base, new_size * PAGE_SIZE);
     if (res == NULL)
         return -1;

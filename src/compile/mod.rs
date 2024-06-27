@@ -26,19 +26,18 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     log::debug!("Start compilation");
     compile_module(wasm, &mut ctx)?;
 
-    let obj_path = path::Path::new(&args.output_file);
-    let ll_path = obj_path.with_extension("ll");
+    let obj_path = path::Path::new(&args.output_file).with_extension("o");
+    let asm_path = path::Path::new(&args.output_file).with_extension("ll");
 
-    log::debug!("write to {}", ll_path.display());
+    log::debug!("write to {}", asm_path.display());
     ctx.module
-        .print_to_file(ll_path.to_str().expect("error ll_path"))
+        .print_to_file(asm_path.to_str().expect("error ll_path"))
         .map_err(|e| anyhow!(e.to_string()))
         .context("Failed to write to the ll file")?;
-    log::debug!("wrote to {}", ll_path.display());
+    log::debug!("wrote to {}", asm_path.display());
 
     log::debug!("write to {}", obj_path.display());
     let target = get_host_target_machine().expect("Failed to get host architecture");
-    log::debug!("target = {:?}", target.get_cpu());
     target
         .write_to_file(
             ctx.module,
