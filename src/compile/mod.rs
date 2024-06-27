@@ -21,7 +21,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     let ictx = inkwell::context::Context::create();
     let module = ictx.create_module("wanco_aot");
     let builder = ictx.create_builder();
-    let mut ctx = Context::new(&ictx, &module, builder);
+    let mut ctx = Context::new(args, &ictx, &module, builder);
 
     log::debug!("Start compilation");
     compile_module(wasm, &mut ctx)?;

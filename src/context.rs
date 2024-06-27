@@ -1,3 +1,5 @@
+use std::sync::atomic::AtomicU64;
+
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
@@ -9,6 +11,7 @@ use inkwell::{
 
 use crate::{
     compile::control::{ControlFrame, UnreachableReason},
+    driver::Args,
     inkwell::{init_inkwell, InkwellIntrinsics, InkwellTypes},
 };
 
@@ -25,7 +28,35 @@ pub enum Global<'a> {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StackMapId(u64);
+
+impl StackMapId {
+    pub fn next() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let id = StackMapId(COUNTER.load(core::sync::atomic::Ordering::SeqCst));
+        COUNTER.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
+        id
+    }
+
+    pub fn get(self) -> u64 {
+        self.0
+    }
+}
+
+pub struct StackFrame<'a> {
+    pub stack: Vec<BasicValueEnum<'a>>,
+}
+
+impl<'a> StackFrame<'a> {
+    pub fn new() -> StackFrame<'a> {
+        StackFrame { stack: Vec::new() }
+    }
+}
+
 pub struct Context<'a, 'b> {
+    pub config: &'a Args,
+
     // Inkwell related
     pub ictx: &'a InkwellContext,
     pub module: &'b Module<'a>,
@@ -59,13 +90,16 @@ pub struct Context<'a, 'b> {
     pub current_function_idx: u32,
     pub control_frames: Vec<ControlFrame<'a>>,
     /// Wasm value stack for the current builder position
-    pub stack: Vec<BasicValueEnum<'a>>,
+    pub stack_frames: Vec<StackFrame<'a>>,
     pub unreachable_depth: u32,
     pub unreachable_reason: UnreachableReason,
+    // checkpoint/restore related
+    // TODO:
 }
 
 impl<'a> Context<'a, '_> {
     pub fn new<'b>(
+        args: &'a Args,
         ictx: &'a InkwellContext,
         module: &'b Module<'a>,
         builder: Builder<'a>,
@@ -73,6 +107,7 @@ impl<'a> Context<'a, '_> {
         let (inkwell_types, inkwell_intrs) = init_inkwell(ictx, module);
 
         Context {
+            config: args,
             ictx,
             module,
             builder,
@@ -96,36 +131,62 @@ impl<'a> Context<'a, '_> {
 
             current_function_idx: u32::MAX,
             control_frames: Vec::new(),
-            stack: Vec::new(),
+            stack_frames: Vec::new(),
             unreachable_depth: 0,
             unreachable_reason: UnreachableReason::Reachable,
         }
     }
 
-    /// Pop two values from the stack
+    /// Push a value to the current stack frame
+    pub fn push(&mut self, value: BasicValueEnum<'a>) {
+        let frame = self.stack_frames.last_mut().expect("frame empty");
+        frame.stack.push(value);
+    }
+
+    /// Pop a value from the current stack frame
+    pub fn pop(&mut self) -> Option<BasicValueEnum<'a>> {
+        let frame = self.stack_frames.last_mut().expect("frame empty");
+        frame.stack.pop()
+    }
+
+    /// Pop two values from the current stack frame
     pub fn pop2(&mut self) -> (BasicValueEnum<'a>, BasicValueEnum<'a>) {
-        let v2 = self.stack.pop().expect("stack empty");
-        let v1 = self.stack.pop().expect("stack empty");
+        let frame = self.stack_frames.last_mut().expect("frame empty");
+        let v2 = frame.stack.pop().expect("stack empty");
+        let v1 = frame.stack.pop().expect("stack empty");
         (v1, v2)
     }
 
     /// Peek n values from the stack
     pub fn peekn(&self, n: usize) -> Result<&[BasicValueEnum<'a>]> {
-        if self.stack.len() < n {
-            bail!("stack length too short {} vs {}", self.stack.len(), n);
+        let frame = self.stack_frames.last().expect("frame empty");
+        if frame.stack.len() < n {
+            bail!(
+                "stack length too short. Expected {} but found {}",
+                n,
+                frame.stack.len()
+            );
         }
-        let index = self.stack.len() - n;
-        Ok(&self.stack[index..])
+        let index = frame.stack.len() - n;
+        Ok(&frame.stack[index..])
     }
 
-    /// Restore the stack to the specified size
+    /// Get size of the current stack frame
+    pub fn current_frame_size(&self) -> usize {
+        let frame = self.stack_frames.last().expect("frame empty");
+        frame.stack.len()
+    }
+
+    /// Restore the current stack frame to the specified size
     pub fn reset_stack(&mut self, stack_size: usize) {
-        self.stack.truncate(stack_size);
+        let frame = self.stack_frames.last_mut().expect("frame empty");
+        frame.stack.truncate(stack_size);
     }
 
     /// Pop the stack and load the value if it is a pointer.
     pub fn pop_and_load(&mut self) -> BasicValueEnum<'a> {
-        let pop = self.stack.pop().expect("stack empty");
+        let frame = self.stack_frames.last_mut().expect("frame empty");
+        let pop = frame.stack.pop().expect("stack empty");
         if pop.is_pointer_value() {
             self.builder
                 .build_load(
