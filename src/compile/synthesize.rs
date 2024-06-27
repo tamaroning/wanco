@@ -42,8 +42,6 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .add_function("memory_grow", fn_type_memory_grow, None);
     ctx.fn_memory_grow = Some(fn_memory_grow);
 
-    define_aux_functions(ctx)?;
-
     Ok(())
 }
 
@@ -75,57 +73,6 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .expect("should build call");
 
     ctx.builder.build_return(None).expect("should build return");
-
-    Ok(())
-}
-
-fn define_aux_functions(_ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
-    // Define print(linm_offset: i32, len: i32)
-    /*
-    let print_fn_type = ctx.inkwell_types.void_type.fn_type(
-        &[
-            ctx.inkwell_types.i32_type.into(),
-            ctx.inkwell_types.i32_type.into(),
-        ],
-        false,
-    );
-    let print_fn = ctx.module.add_function("print", print_fn_type, None);
-        let print_block = ctx.ictx.append_basic_block(print_fn, "entry");
-        ctx.builder.position_at_end(print_block);
-        let mut params = vec![];
-        for idx in 0..print_fn.count_params() {
-            let v = print_fn.get_nth_param(idx).expect("fail to get_nth_param");
-            let ty = print_fn.get_type().get_param_types()[idx as usize];
-            let alloca = ctx
-                .builder
-                .build_alloca(ty, "param")
-                .expect("should build alloca");
-            ctx.builder
-                .build_store(alloca, v)
-                .expect("should build store");
-            params.push((alloca, ty));
-        }
-        let linm_offset = ctx
-            .builder
-            .build_load(params[0].1, params[0].0, "linm_offset")
-            .expect("should build load");
-        unsafe {
-            ctx.builder
-                .build_gep(
-                    ctx.inkwell_types.i8_ptr_type,
-                    ctx.global_memory_base
-                        .expect("should define global_memory_base")
-                        .as_pointer_value(),
-                    &[linm_offset.into_int_value()],
-                    "string_ptr",
-                )
-                .expect("should build gep");
-        }
-
-        // TODO: print string
-
-        ctx.builder.build_return(None).expect("should build return");
-    */
 
     Ok(())
 }

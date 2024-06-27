@@ -28,26 +28,5 @@ pub(super) fn compile_memory_section(
         ctx.wanco_init_block
             .expect("should define wasker_init_block"),
     );
-    // malloc memory
-    /*
-    let memory_ptr = ctx
-        .builder
-        .build_array_malloc(
-            ctx.inkwell_types.i8_type,
-            ctx.inkwell_types
-                .i32_type
-                .const_int((size * PAGE_SIZE) as u64, false),
-            "memory_ptr",
-        )
-        .expect("should build malloc");
-    ctx.builder
-        .build_store::<PointerValue>(
-            ctx.global_memory_base
-                .expect("should define global_memory_base")
-                .as_pointer_value(),
-            memory_ptr,
-        )
-        .expect("should build store");
-    */
     Ok(())
 }

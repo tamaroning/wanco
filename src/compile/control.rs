@@ -517,43 +517,10 @@ pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
 
     // collect args from stack
     let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
-
-    /*
-    if fn_called.get_name().to_str() == anyhow::Result::Ok("print") {
-        args.push(ctx.pop_and_load().into());
-
-        let arg0 = ctx.pop_and_load();
-        let memory_base_local = ctx
-            .builder
-            .build_load(
-                ctx.inkwell_types.i8_ptr_type,
-                ctx.global_memory_base
-                    .expect("should define global_memory_base")
-                    .as_pointer_value(),
-                "memory_base_local",
-            )
-            .expect("should build load");
-        let memory_base_int = ctx
-            .builder
-            .build_ptr_to_int(
-                memory_base_local.into_pointer_value(),
-                ctx.inkwell_types.i64_type,
-                "memory_base_int",
-            )
-            .expect("should build ptr to int");
-        let offset = arg0.into_int_value();
-        let translated_address = ctx
-            .builder
-            .build_int_add(memory_base_int, offset, "transed_addr")
-            .expect("should build int add");
-        args.push(translated_address.into());
-    } else
-    */
-    {
-        for _ in 0..fn_called.count_params() {
-            args.push(ctx.stack.pop().expect("stack empty").into());
-        }
+    for _ in 0..fn_called.count_params() {
+        args.push(ctx.stack.pop().expect("stack empty").into());
     }
+
     // call
     args.reverse();
     let call_site = ctx

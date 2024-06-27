@@ -1202,23 +1202,15 @@ fn resolve_pointer<'a>(
     offset: IntValue<'a>,
     ptr_type: PointerType<'a>,
 ) -> PointerValue<'a> {
-    // get base addr of linear memory from global variable
-    let memory_base_local = ctx
-        .builder
-        .build_load(
-            ctx.inkwell_types.i8_ptr_type,
-            ctx.global_memory_base
-                .expect("stack empty")
-                .as_pointer_value(),
-            "memory_base_local",
-        )
-        .expect("should build load")
-        .into_pointer_value();
+    let memory_base = ctx
+        .global_memory_base
+        .expect("should defined global_memory_base")
+        .as_pointer_value();
     // calculate base + offset
     let dst_addr = unsafe {
         ctx.builder.build_gep(
             ctx.inkwell_types.i8_type,
-            memory_base_local,
+            memory_base,
             &[offset],
             "resolved_addr",
         )
@@ -1293,6 +1285,8 @@ pub fn compile_op_store<'a>(
     store_type: inkwell::types::BasicTypeEnum<'a>,
     require_narrow: bool,
 ) -> Result<()> {
+    dbg!(&ctx.stack[ctx.stack.len() - 1]);
+    dbg!(&ctx.stack[ctx.stack.len() - 2]);
     // value
     let value = ctx.stack.pop().expect("stack empty");
 
