@@ -28,8 +28,6 @@ WasiError fd_write(int fd, int buf_iovec_addr, int vec_len, int size_addr) {
     char* iovec_ptr = (char*) &memory_base[buf_iovec_addr];
     IoVec* iovec = (IoVec*)iovec_ptr;
 
-    printf("iov_base: 0x%x, iov_len: %d\n", iovec->iov_base, iovec->iov_len);
-
     int len = 0;
     for (int i = 0; i < vec_len; i++){
         char* buf_ptr = (char *)(memory_base + iovec[i].iov_base);

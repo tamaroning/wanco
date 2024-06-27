@@ -8,12 +8,11 @@
   ;; Define a single page memory of 64KB.
   (memory $0 1)
 
-  ;; Store the Hello World (null terminated) string at byte offset 0
-  (data (i32.const 16) "Test Passed\n")
-  (data (i32.const 32) "#Test Failed\n")
+  ;; Store the Hello World (null terminated) string at byte offset 16
+  (data (i32.const 16) "Hello, World\n")
 
   ;; Debug function
-  (func $printSuccess
+  (func $printHello
     (call $fd_write
             (i32.const 1) ;; file_descriptor - 1 for stdout
             (i32.const 0) ;; *iovs - The pointer to the iov array, which is stored at memory location 0
@@ -23,8 +22,11 @@
   )
 
   (func (export "_start")
+    ;; iov_base
     (i32.store (i32.const 0) (i32.const 16)) 
-    (i32.store (i32.const 4) (i32.const 12))
-    (call $printSuccess)
+    ;; iov_len
+    (i32.store (i32.const 4) (i32.const 13))
+    ;; Call the print function
+    (call $printHello)
   )
 )

@@ -30,24 +30,22 @@ fn run_test(test_name: &str) {
     let path = PathBuf::from(TEST_DIR)
         .join(test_name)
         .with_extension("wat");
-    let filename = format!("wanco_wasker_{}", test_name);
+    let tmp_filename = format!("wanco_wasker_{}", test_name);
     let obj = std::path::PathBuf::from("/tmp")
-        .join(&filename)
+        .join(&tmp_filename)
         .with_extension("o");
-    let exe = std::path::PathBuf::from("/tmp").join(filename);
+    let exe = std::path::PathBuf::from("/tmp").join(tmp_filename);
 
-    let test_name = path.to_str().unwrap().to_string();
-
+    // Compile
     let args = Args {
         input_file: std::path::PathBuf::from(path),
         // /tmp/<filename>.o
         output_file: obj.clone(),
     };
-    log::info!("Running test {:?}", &test_name);
     if let Err(e) = run_compiler(&args) {
-        log::error!("Could not compile {:?} ({})", &args.input_file, e);
-        panic!();
+        panic!("Could not compile {:?} ({})", &args.input_file, e);
     }
+    // Link
     Command::new("cc")
         .arg(obj)
         .arg(WRT_PATH)
@@ -57,7 +55,11 @@ fn run_test(test_name: &str) {
         .arg(exe.clone())
         .output()
         .unwrap();
+
+    // Execute
     let output = Command::new(exe).output().unwrap();
+
+    // Assert
     // "#Test Failed" means "should fail"
     let stdout = String::from_utf8(output.stdout)
         .unwrap()
