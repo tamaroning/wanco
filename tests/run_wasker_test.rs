@@ -19,22 +19,18 @@ macro_rules! wasker_test {
     ($name:ident) => {
         #[test]
         fn $name() {
-            wasker_test(ident_to_str!($name));
+            run_test(ident_to_str!($name));
         }
     };
 }
 
-fn wasker_test(test_name: &str) {
-    let wat_path = PathBuf::from(TEST_DIR)
+fn run_test(test_name: &str) {
+    let _ = env_logger::builder().try_init();
+
+    let path = PathBuf::from(TEST_DIR)
         .join(test_name)
         .with_extension("wat");
-    run_test(&wat_path);
-}
-
-fn run_test(path: &PathBuf) {
-    let _ = env_logger::builder().try_init();
-    let rand = rand::random::<u64>();
-    let filename = format!("wasm_{}", rand);
+    let filename = format!("wanco_wasker_{}", test_name);
     let obj = std::path::PathBuf::from("/tmp")
         .join(&filename)
         .with_extension("o");
@@ -52,21 +48,21 @@ fn run_test(path: &PathBuf) {
         log::error!("Could not compile {:?} ({})", &args.input_file, e);
         panic!();
     }
-    let res = Command::new("cc")
+    Command::new("cc")
         .arg(obj)
         .arg(WRT_PATH)
         .arg(LIB_PATH)
+        .arg("-no-pie")
         .arg("-o")
         .arg(exe.clone())
         .output()
         .unwrap();
     let output = Command::new(exe).output().unwrap();
-    let output = String::from_utf8(output.stdout).unwrap();
     // "#Test Failed" means "should fail"
-    let output = output.replace("#Test Failed", "");
-    //assert!(output.contains("Test Passed"));
-    assert!(!output.contains("Test Failed"));
-    //log::error!("Output: {}", output);
+    let stdout = String::from_utf8(output.stdout)
+        .unwrap()
+        .replace("#Test Failed", "");
+    assert!(!stdout.contains("Test Failed"));
 }
 
 wasker_test!(address32);

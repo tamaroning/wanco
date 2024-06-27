@@ -7,7 +7,7 @@
 
   ;; Store the Hello World (null terminated) string at byte offset 0
   (data (i32.const 0) "Test Passed\n")
-  (data (i32.const 16) "# Test Failed\n")
+  (data (i32.const 16) "#Test Failed\n")
 
   ;; Debug function
   (func $printd (param $len i32)
