@@ -1,6 +1,6 @@
 use inkwell::{
     types::{BasicType, BasicTypeEnum, PointerType},
-    values::{BasicValue, FunctionValue, IntValue, PhiValue, PointerValue},
+    values::{AnyValue, BasicValue, FunctionValue, IntValue, PhiValue, PointerValue},
     AddressSpace,
 };
 use wasmparser::{FunctionBody, MemArg, Operator};
@@ -1110,42 +1110,20 @@ pub fn compile_op_memory_size(ctx: &mut Context<'_, '_>) -> Result<()> {
 }
 
 pub fn compile_op_memory_grow(ctx: &mut Context<'_, '_>) -> Result<()> {
-    // Request to OS
     let delta = ctx.stack.pop().expect("stack empty");
-    ctx.builder
+    let ret = ctx
+        .builder
         .build_call(
             ctx.fn_memory_grow.expect("shold define fn_memory_grow"),
             &[delta.into()],
             "memory_grow",
         )
-        .expect("should build call");
-
-    // Load old memory size
-    let size_old = ctx
-        .builder
-        .build_load(
-            ctx.inkwell_types.i32_type,
-            ctx.global_memory_size
-                .expect("should define global_memory_size")
-                .as_pointer_value(),
-            "mem_size_old",
-        )
-        .expect("should build load");
-    ctx.stack.push(size_old);
-
-    // Update new memory size
-    let size_new = ctx
-        .builder
-        .build_int_add(size_old.into_int_value(), delta.into_int_value(), "")
-        .expect("should build int add");
-    ctx.builder
-        .build_store(
-            ctx.global_memory_size
-                .expect("shold define global_memory_size")
-                .as_pointer_value(),
-            size_new,
-        )
-        .expect("should build store");
+        .expect("should build call")
+        .as_any_value_enum()
+        .into_int_value()
+        .as_basic_value_enum();
+    // TODO: should update global_mem_size here?
+    ctx.stack.push(ret);
     Ok(())
 }
 
@@ -1285,8 +1263,6 @@ pub fn compile_op_store<'a>(
     store_type: inkwell::types::BasicTypeEnum<'a>,
     require_narrow: bool,
 ) -> Result<()> {
-    dbg!(&ctx.stack[ctx.stack.len() - 1]);
-    dbg!(&ctx.stack[ctx.stack.len() - 2]);
     // value
     let value = ctx.stack.pop().expect("stack empty");
 
