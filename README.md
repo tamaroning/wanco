@@ -19,7 +19,7 @@ cd wanco
 
 Build the library and runtime:
 ```
-cd lib && make
+(cd lib && make)
 ```
 
 Build the wanco compiler:
