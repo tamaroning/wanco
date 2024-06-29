@@ -22,6 +22,6 @@ pub(super) fn compile_memory_section(
 
     // move position to aot_main %init
     ctx.builder
-        .position_at_end(ctx.wanco_init_block.expect("should define aot_main %init"));
+        .position_at_end(ctx.aot_init_block.expect("should define aot_main %init"));
     Ok(())
 }

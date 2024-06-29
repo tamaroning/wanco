@@ -86,7 +86,7 @@ pub(super) fn compile_data_section<'a>(
 ) -> Result<()> {
     // Move position to aot_main %init
     ctx.builder
-        .position_at_end(ctx.wanco_init_block.expect("should define aot_main %init"));
+        .position_at_end(ctx.aot_init_block.expect("should define aot_main %init"));
 
     for data in data_segs {
         let data = data?;
@@ -136,15 +136,13 @@ pub(super) fn compile_data_section<'a>(
                 log::debug!("- offset = 0x{:x}", offset);
                 let offset_int = ctx.inkwell_types.i64_type.const_int(offset as u64, false);
 
-                // move position to wanco_main init
-                ctx.builder.position_at_end(
-                    ctx.wanco_init_block
-                        .expect("should define wanco_init_block"),
-                );
+                // move position to aot_main init
+                ctx.builder
+                    .position_at_end(ctx.aot_init_block.expect("should define aot_init_block"));
                 let exec_env_ptr = ctx
                     .module
-                    .get_function("wanco_main")
-                    .expect("should define wanco_main")
+                    .get_function("aot_main")
+                    .expect("should define aot_main")
                     .get_first_param()
                     .expect("should have &exec_env")
                     .into_pointer_value();

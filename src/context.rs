@@ -65,11 +65,13 @@ pub struct Context<'a, 'b> {
     pub inkwell_intrs: InkwellIntrinsics<'a>,
 
     // synthesized stuffs
-    pub wanco_init_block: Option<BasicBlock<'a>>,
-    pub wanco_main_block: Option<BasicBlock<'a>>,
+    /// aot_main %init block
+    pub aot_init_block: Option<BasicBlock<'a>>,
+    /// aot_main %main block
+    pub aot_main_block: Option<BasicBlock<'a>>,
 
     pub fn_memory_grow: Option<FunctionValue<'a>>,
-
+    // TODO: should move to ExecEnv?
     pub global_table: Option<GlobalValue<'a>>,
 
     pub exec_env_type: Option<StructType<'a>>,
@@ -115,8 +117,8 @@ impl<'a> Context<'a, '_> {
             inkwell_types,
             inkwell_intrs,
 
-            wanco_init_block: None,
-            wanco_main_block: None,
+            aot_init_block: None,
+            aot_main_block: None,
             fn_memory_grow: None,
             exec_env_type: None,
             exec_env_fields: HashMap::new(),
