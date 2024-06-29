@@ -2,7 +2,10 @@ use crate::context::{Context, StackMapId};
 use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
-    values::{BasicMetadataValueEnum, BasicValue, FunctionValue, PhiValue, PointerValue},
+    types::BasicTypeEnum,
+    values::{
+        BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PhiValue, PointerValue,
+    },
 };
 use wasmparser::{BlockType, BrTable};
 
@@ -58,6 +61,12 @@ pub enum ControlFrame<'a> {
         end_phis: Vec<PhiValue<'a>>,
         stack_size: usize,
     },
+    /*
+    CallWithCheckpoint {
+        next: BasicBlock<'a>,
+        landingpad: BasicBlock<'a>,
+    }
+    */
 }
 
 impl<'a> ControlFrame<'a> {
@@ -534,6 +543,8 @@ pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) ->
 pub fn gen_call<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
+    current_fn: &FunctionValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
     function_index: u32,
 ) -> Result<()> {
     let stackmap_args = if ctx.config.checkpoint {
@@ -564,25 +575,66 @@ pub fn gen_call<'a>(
     let fn_called = ctx.function_values[function_index as usize];
 
     // args
-    let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
+    let mut args: Vec<BasicValueEnum> = Vec::new();
     for _ in 1..fn_called.count_params() {
-        args.push(ctx.pop().expect("stack empty").into());
+        args.push(ctx.pop().expect("stack empty"));
     }
+    args.reverse();
+    args.insert(0, exec_env_ptr.as_basic_value_enum());
 
     // call
-    args.reverse();
-    args.insert(0, exec_env_ptr.as_basic_value_enum().into());
-    let call_site = ctx
-        .builder
-        .build_call(fn_called, &args[..], "")
-        .expect("should build call");
-    if call_site.try_as_basic_value().is_left() {
-        ctx.push(
-            call_site
-                .try_as_basic_value()
-                .left()
-                .expect("fail translate call_site"),
-        );
+    if ctx.config.unwind {
+        let then_block = ctx.ictx.append_basic_block(*current_fn, "invoke.then");
+        let catch_block = ctx.ictx.append_basic_block(*current_fn, "invoke.catch");
+        let call_site = ctx
+            .builder
+            .build_invoke(fn_called, &args, then_block, catch_block, "")
+            .expect("should build invoke");
+        if call_site.try_as_basic_value().is_left() {
+            ctx.push(
+                call_site
+                    .try_as_basic_value()
+                    .left()
+                    .expect("fail translate call_site"),
+            );
+        }
+        // Catch BB
+        ctx.builder.position_at_end(catch_block);
+        let null = ctx.inkwell_types.i8_ptr_type.const_null();
+        ctx.builder
+            .build_landing_pad(
+                ctx.exception_type,
+                ctx.personality_function,
+                &[null.into()],
+                false,
+                "res",
+            )
+            .expect("should build landing pad");
+        gen_store_wasm_stack(ctx, exec_env_ptr, locals).expect("should build store wasm stack");
+        // TODO: unreachable for now
+        ctx.builder
+            .build_unreachable()
+            .expect("should build unreachable");
+
+        // Continue codegen from then block
+        ctx.builder.position_at_end(then_block);
+    } else {
+        let args = args
+            .iter()
+            .map(|arg| arg.as_basic_value_enum().into())
+            .collect::<Vec<_>>();
+        let call_site = ctx
+            .builder
+            .build_call(fn_called, &args, "")
+            .expect("should build call");
+        if call_site.try_as_basic_value().is_left() {
+            ctx.push(
+                call_site
+                    .try_as_basic_value()
+                    .left()
+                    .expect("fail translate call_site"),
+            );
+        }
     }
 
     if ctx.config.checkpoint {
@@ -597,6 +649,8 @@ pub fn gen_call<'a>(
 pub fn gen_call_indirect<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
+    current_fn: &FunctionValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
     type_index: u32,
     table_index: u32,
 ) -> Result<()> {
@@ -623,26 +677,75 @@ pub fn gen_call_indirect<'a>(
 
     // args
     let func_type = ctx.signatures[type_index as usize];
-    let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
+    let mut args: Vec<BasicValueEnum> = Vec::new();
     for _ in 1..func_type.get_param_types().len() {
-        args.push(ctx.pop().expect("stack empty").into());
+        args.push(ctx.pop().expect("stack empty"));
     }
+    args.reverse();
+    args.insert(0, exec_env_ptr.as_basic_value_enum());
 
     // call and push result
-    args.reverse();
-    args.insert(0, exec_env_ptr.as_basic_value_enum().into());
-    let call_site = ctx
-        .builder
-        .build_indirect_call(func_type, fptr.into_pointer_value(), &args, "call_site")
-        .expect("should build indirect call");
-    if call_site.try_as_basic_value().is_left() {
-        ctx.push(
-            call_site
-                .try_as_basic_value()
-                .left()
-                .expect("fail translate call_site"),
-        );
+    if ctx.config.unwind {
+        let then_block = ctx.ictx.append_basic_block(*current_fn, "invoke.then");
+        let catch_block = ctx.ictx.append_basic_block(*current_fn, "invoke.catch");
+        let call_site = ctx
+            .builder
+            .build_indirect_invoke(
+                func_type,
+                fptr.into_pointer_value(),
+                &args,
+                then_block,
+                catch_block,
+                "",
+            )
+            .expect("should build indirect invoke");
+        if call_site.try_as_basic_value().is_left() {
+            ctx.push(
+                call_site
+                    .try_as_basic_value()
+                    .left()
+                    .expect("fail translate call_site"),
+            );
+        }
+        // Catch BB
+        ctx.builder.position_at_end(catch_block);
+        let null = ctx.inkwell_types.i8_ptr_type.const_null();
+        ctx.builder
+            .build_landing_pad(
+                ctx.exception_type,
+                ctx.personality_function,
+                &[null.into()],
+                false,
+                "res",
+            )
+            .expect("should build landing pad");
+        gen_store_wasm_stack(ctx, exec_env_ptr, locals).expect("should build store wasm stack");
+        // TODO: unreachable for now
+        ctx.builder
+            .build_unreachable()
+            .expect("should build unreachable");
+
+        // Continue codegen from then block
+        ctx.builder.position_at_end(then_block);
+    } else {
+        let args = args
+            .iter()
+            .map(|arg| arg.as_basic_value_enum().into())
+            .collect::<Vec<_>>();
+        let call_site = ctx
+            .builder
+            .build_indirect_call(func_type, fptr.into_pointer_value(), &args, "call_site")
+            .expect("should build indirect call");
+        if call_site.try_as_basic_value().is_left() {
+            ctx.push(
+                call_site
+                    .try_as_basic_value()
+                    .left()
+                    .expect("fail translate call_site"),
+            );
+        }
     }
+
     Ok(())
 }
 
@@ -697,5 +800,27 @@ pub fn gen_unreachable(ctx: &mut Context<'_, '_>) -> Result<()> {
     ctx.builder
         .build_unreachable()
         .expect("should build unreachable");
+    Ok(())
+}
+
+pub fn gen_store_wasm_stack<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+) -> Result<()> {
+    // Store frame
+    for (ptr, ty) in locals {
+        // TODO: store this frame to exec_env
+        let val = ty.into_int_type().const_zero();
+        ctx.builder
+            .build_store(*ptr, val)
+            .expect("should build store");
+    }
+    // Store stack values associated to the current function
+    let frame = ctx.stack_frames.last().expect("frame empty");
+    for _ in frame.stack.iter().rev() {
+        // TODO:
+    }
+
     Ok(())
 }

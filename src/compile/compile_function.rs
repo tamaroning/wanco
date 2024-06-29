@@ -190,14 +190,22 @@ fn compile_op<'a>(
             gen_end(ctx, current_fn).context("error gen End")?;
         }
         Operator::Call { function_index } => {
-            gen_call(ctx, exec_env_ptr, *function_index).context("error gen Call")?;
+            gen_call(ctx, exec_env_ptr, current_fn, locals, *function_index)
+                .context("error gen Call")?;
         }
         Operator::CallIndirect {
             type_index,
             table_index,
         } => {
-            gen_call_indirect(ctx, exec_env_ptr, *type_index, *table_index)
-                .context("error gen CallIndirect")?;
+            gen_call_indirect(
+                ctx,
+                exec_env_ptr,
+                current_fn,
+                locals,
+                *type_index,
+                *table_index,
+            )
+            .context("error gen CallIndirect")?;
         }
         Operator::Drop => {
             gen_drop(ctx).context("error gen Drop")?;

@@ -4,9 +4,9 @@ use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     context::Context as InkwellContext,
-    module::Module,
-    types::{AnyTypeEnum, BasicTypeEnum, FunctionType, StructType},
-    values::{BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
+    module::{Linkage, Module},
+    types::{BasicTypeEnum, FunctionType, StructType},
+    values::{BasicValueEnum, FunctionValue, GlobalValue},
 };
 
 use crate::{
@@ -96,8 +96,10 @@ pub struct Context<'a, 'b> {
     pub stack_frames: Vec<StackFrame<'a>>,
     pub unreachable_depth: u32,
     pub unreachable_reason: UnreachableReason,
+
     // checkpoint/restore related
-    // TODO:
+    pub exception_type: StructType<'a>,
+    pub personality_function: FunctionValue<'a>,
 }
 
 impl<'a> Context<'a, '_> {
@@ -108,6 +110,20 @@ impl<'a> Context<'a, '_> {
         builder: Builder<'a>,
     ) -> Context<'a, 'b> {
         let (inkwell_types, inkwell_intrs) = init_inkwell(ictx, module);
+
+        // Exception type in C++
+        let exception_type = ictx.struct_type(
+            &[
+                inkwell_types.i8_ptr_type.into(),
+                inkwell_types.i32_type.into(),
+            ],
+            false,
+        );
+        let personality_function = module.add_function(
+            "__gxx_personality_v0",
+            ictx.i64_type().fn_type(&[], false),
+            Some(Linkage::External),
+        );
 
         Context {
             config: args,
@@ -137,6 +153,9 @@ impl<'a> Context<'a, '_> {
             stack_frames: Vec::new(),
             unreachable_depth: 0,
             unreachable_reason: UnreachableReason::Reachable,
+
+            exception_type,
+            personality_function,
         }
     }
 
