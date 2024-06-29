@@ -1,12 +1,12 @@
-use std::sync::atomic::AtomicU64;
+use std::{collections::HashMap, sync::atomic::AtomicU64};
 
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     context::Context as InkwellContext,
     module::Module,
-    types::{BasicTypeEnum, FunctionType},
-    values::{BasicValueEnum, FunctionValue, GlobalValue},
+    types::{BasicTypeEnum, FunctionType, StructType},
+    values::{BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
 };
 
 use crate::{
@@ -74,6 +74,11 @@ pub struct Context<'a, 'b> {
 
     pub global_table: Option<GlobalValue<'a>>,
 
+    pub exec_env_type: Option<StructType<'a>>,
+    pub exec_env_fields: HashMap<&'static str, u32>,
+    /// Only used in aot_main
+    pub exec_env_local: Option<PointerValue<'a>>,
+
     // module info
     pub signatures: Vec<FunctionType<'a>>,
     /// List of (function, index)
@@ -119,6 +124,9 @@ impl<'a> Context<'a, '_> {
             global_memory_size: None,
             global_memory_base: None,
             fn_memory_grow: None,
+            exec_env_type: None,
+            exec_env_fields: HashMap::new(),
+            exec_env_local: None,
             global_table: None,
 
             signatures: Vec::new(),

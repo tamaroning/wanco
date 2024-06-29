@@ -283,6 +283,9 @@ fn declare_functions(ctx: &mut Context<'_, '_>) -> Result<()> {
         let fn_value = f.unwrap_or({
             let sig = ctx.signatures[*sig as usize];
             let f = ctx.module.add_function(name, sig, None);
+            f.get_first_param()
+                .expect("should have &exec_env as the first param")
+                .set_name("exec_env_ptr");
             // add attribute
             // create noredzone attribute
             let attr_noredzone = ctx

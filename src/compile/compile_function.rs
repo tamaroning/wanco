@@ -46,9 +46,19 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         stack_size: ctx.current_frame_size(),
     });
 
-    // params
+    // Alloca &exec_env
+    let exec_env_ptr = current_fn
+        .get_first_param()
+        .expect("should have &exec_env as a first param");
+    let exec_env_ptr = exec_env_ptr.into_pointer_value();
+
+    // Register all wasm locals (WASM params, WASM locals)
     let mut locals = vec![];
-    for idx in 0..current_fn.count_params() {
+
+    // params (&exec_env first, then WASM params)
+    // Skip first param (i.e. &exec_env)
+    assert!(current_fn.get_first_param().unwrap().is_pointer_value());
+    for idx in 1..current_fn.count_params() {
         let v = current_fn
             .get_nth_param(idx)
             .expect("fail to get_nth_param");
@@ -88,7 +98,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         let op = op_reader.read_operator()?;
         log::debug!("- op[{}]: {:?}", num_op, &op);
 
-        compile_op(ctx, &op, &current_fn, &locals)?;
+        compile_op(ctx, &op, &current_fn, &exec_env_ptr, &locals)?;
 
         num_op += 1;
     }
@@ -99,6 +109,7 @@ fn compile_op<'a>(
     ctx: &mut Context<'a, '_>,
     op: &Operator,
     current_fn: &FunctionValue<'a>,
+    exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     if ctx.unreachable_depth != 0 {
@@ -177,13 +188,14 @@ fn compile_op<'a>(
             gen_end(ctx, current_fn).context("error gen End")?;
         }
         Operator::Call { function_index } => {
-            gen_call(ctx, *function_index).context("error gen Call")?;
+            gen_call(ctx, exec_env_ptr, *function_index).context("error gen Call")?;
         }
         Operator::CallIndirect {
             type_index,
             table_index,
         } => {
-            gen_call_indirect(ctx, *type_index, *table_index).context("error gen CallIndirect")?;
+            gen_call_indirect(ctx, exec_env_ptr, *type_index, *table_index)
+                .context("error gen CallIndirect")?;
         }
         Operator::Drop => {
             gen_drop(ctx).context("error gen Drop")?;

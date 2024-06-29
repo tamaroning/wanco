@@ -2,7 +2,7 @@ use crate::context::{Context, StackMapId};
 use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
-    values::{BasicMetadataValueEnum, BasicValue, FunctionValue, PhiValue},
+    values::{BasicMetadataValueEnum, BasicValue, FunctionValue, PhiValue, PointerValue},
 };
 use wasmparser::{BlockType, BrTable};
 
@@ -531,7 +531,11 @@ pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) ->
     Ok(())
 }
 
-pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
+pub fn gen_call<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    function_index: u32,
+) -> Result<()> {
     let stackmap_args = if ctx.config.checkpoint {
         let stackmap_id = StackMapId::next();
         let mut stackmap_args: Vec<BasicMetadataValueEnum> = vec![
@@ -559,14 +563,15 @@ pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
 
     let fn_called = ctx.function_values[function_index as usize];
 
-    // collect args from stack
+    // args
     let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
-    for _ in 0..fn_called.count_params() {
+    for _ in 1..fn_called.count_params() {
         args.push(ctx.pop().expect("stack empty").into());
     }
 
     // call
     args.reverse();
+    args.insert(0, exec_env_ptr.as_basic_value_enum().into());
     let call_site = ctx
         .builder
         .build_call(fn_called, &args[..], "")
@@ -579,7 +584,7 @@ pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
                 .expect("fail translate call_site"),
         );
     }
-    
+
     if ctx.config.checkpoint {
         ctx.builder
             .build_call(ctx.inkwell_intrs.experimental_stackmap, &stackmap_args, "")
@@ -589,8 +594,9 @@ pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_call_indirect(
-    ctx: &mut Context<'_, '_>,
+pub fn gen_call_indirect<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     type_index: u32,
     table_index: u32,
 ) -> Result<()> {
@@ -618,12 +624,13 @@ pub fn gen_call_indirect(
     // args
     let func_type = ctx.signatures[type_index as usize];
     let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
-    for _ in 0..func_type.get_param_types().len() {
+    for _ in 1..func_type.get_param_types().len() {
         args.push(ctx.pop().expect("stack empty").into());
     }
 
     // call and push result
     args.reverse();
+    args.insert(0, exec_env_ptr.as_basic_value_enum().into());
     let call_site = ctx
         .builder
         .build_indirect_call(func_type, fptr.into_pointer_value(), &args, "call_site")

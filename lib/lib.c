@@ -1,10 +1,11 @@
 #include <stdint.h>
 #include <stdio.h>
+#include "exec_env.h"
 
 extern const int8_t memory_base[];
 
 /* Print a string from memory */
-void print(int64_t offset, int32_t len) {
+void print(ExecEnv* exec_env, int64_t offset, int32_t len) {
     for (int i = 0; i < len; i++) {
         putchar(memory_base[offset + i]);
     }
@@ -24,7 +25,7 @@ typedef enum {
     // Add other error types here
 } WasiError;
 
-WasiError fd_write(int fd, int buf_iovec_addr, int vec_len, int size_addr) {
+WasiError fd_write(ExecEnv* exec_env, int fd, int buf_iovec_addr, int vec_len, int size_addr) {
     char* iovec_ptr = (char*) &memory_base[buf_iovec_addr];
     IoVec* iovec = (IoVec*)iovec_ptr;
 
