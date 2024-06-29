@@ -7,7 +7,7 @@ use inkwell::{
 use wasmparser::{DataKind, DataSectionReader, GlobalSectionReader, Operator};
 
 use crate::{
-    compile::compile_type::wasmty_to_llvmty,
+    compile::{compile_type::wasmty_to_llvmty, helper::gen_memory_base},
     context::{Context, Global},
 };
 
@@ -80,15 +80,13 @@ pub(super) fn compile_global_section(
     Ok(())
 }
 
-pub(super) fn compile_data_section(
-    ctx: &mut Context<'_, '_>,
+pub(super) fn compile_data_section<'a>(
+    ctx: &mut Context<'a, '_>,
     data_segs: DataSectionReader,
 ) -> Result<()> {
-    // Move position to init block
-    ctx.builder.position_at_end(
-        ctx.wanco_init_block
-            .expect("should define wasker_init_block"),
-    );
+    // Move position to aot_main %init
+    ctx.builder
+        .position_at_end(ctx.aot_init_block.expect("should define aot_main %init"));
 
     for data in data_segs {
         let data = data?;
@@ -138,20 +136,21 @@ pub(super) fn compile_data_section(
                 log::debug!("- offset = 0x{:x}", offset);
                 let offset_int = ctx.inkwell_types.i64_type.const_int(offset as u64, false);
 
-                // move position to wanco_main init
-                ctx.builder.position_at_end(
-                    ctx.wanco_init_block
-                        .expect("should define wanco_init_block"),
-                );
+                // move position to aot_main init
+                ctx.builder
+                    .position_at_end(ctx.aot_init_block.expect("should define aot_init_block"));
+                let exec_env_ptr = ctx
+                    .module
+                    .get_function("aot_main")
+                    .expect("should define aot_main")
+                    .get_first_param()
+                    .expect("should have &exec_env")
+                    .into_pointer_value();
+                let memory_base =
+                    gen_memory_base(ctx, &exec_env_ptr).expect("should gen memory_base");
                 let memory_base_int = ctx
                     .builder
-                    .build_ptr_to_int(
-                        ctx.global_memory_base
-                            .expect("should define memory_base")
-                            .as_pointer_value(),
-                        ctx.inkwell_types.i64_type,
-                        "memory_base_int",
-                    )
+                    .build_ptr_to_int(memory_base, ctx.inkwell_types.i64_type, "memory_base_int")
                     .expect("should build ptr to int");
                 let dest_int =
                     ctx.builder

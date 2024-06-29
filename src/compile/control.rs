@@ -1,8 +1,8 @@
-use crate::context::Context;
+use crate::context::{Context, StackMapId};
 use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
-    values::{BasicMetadataValueEnum, FunctionValue, PhiValue},
+    values::{BasicMetadataValueEnum, BasicValue, FunctionValue, PhiValue, PointerValue},
 };
 use wasmparser::{BlockType, BrTable};
 
@@ -99,7 +99,7 @@ pub fn gen_block(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     ctx.control_frames.push(ControlFrame::Block {
         next: next_block,
         end_phis: phis,
-        stack_size: ctx.stack.len(),
+        stack_size: ctx.current_frame_size(),
     });
     Ok(())
 }
@@ -141,7 +141,7 @@ pub fn gen_loop(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
         loop_next: next_block,
         body_phis,
         end_phis: phis,
-        stack_size: ctx.stack.len(),
+        stack_size: ctx.current_frame_size(),
     });
 
     // Move to loop_body
@@ -199,15 +199,16 @@ pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
         if_end: end_block,
         ifelse_state: IfElseState::If,
         end_phis,
-        stack_size: ctx.stack.len(),
+        stack_size: ctx.current_frame_size(),
     });
 
     // Compare stack value vs zero
+    let cond_value = ctx.pop().expect("stack empty").into_int_value();
     let cond_value = ctx
         .builder
         .build_int_compare(
             inkwell::IntPredicate::NE,
-            ctx.stack.pop().expect("stack empty").into_int_value(),
+            cond_value,
             ctx.inkwell_types.i32_type.const_int(0, false),
             "",
         )
@@ -244,7 +245,13 @@ pub fn gen_else(ctx: &mut Context<'_, '_>) -> Result<()> {
             if ctx.unreachable_depth == 0 {
                 // Phi
                 for phi in end_phis {
-                    let value = ctx.stack.pop().expect("stack empty");
+                    let value = ctx
+                        .stack_frames
+                        .last_mut()
+                        .expect("frame empty")
+                        .stack
+                        .pop()
+                        .expect("stack empty");
                     phi.add_incoming(&[(&value, current_block)]);
                 }
             }
@@ -278,7 +285,13 @@ pub fn gen_br(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
         ControlFrame::Loop { body_phis, .. } => body_phis,
     };
     for phi in phis {
-        let value = ctx.stack.pop().expect("stack empty");
+        let value = ctx
+            .stack_frames
+            .last_mut()
+            .expect("frame empty")
+            .stack
+            .pop()
+            .expect("stack empty");
         phi.add_incoming(&[(&value, current_block)]);
     }
 
@@ -298,7 +311,13 @@ pub fn gen_brif(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
     let frame = &ctx.control_frames[ctx.control_frames.len() - 1 - relative_depth as usize];
 
     // Branch condition: whether the top value of stack is not zero
-    let cond = ctx.stack.pop().expect("stack empty");
+    let cond = ctx
+        .stack_frames
+        .last_mut()
+        .expect("frame empty")
+        .stack
+        .pop()
+        .expect("stack empty");
     let cond_value = ctx
         .builder
         .build_int_compare(
@@ -340,7 +359,7 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
         .builder
         .get_insert_block()
         .expect("error get_insert_block");
-    let idx = ctx.stack.pop().expect("stack empty");
+    let idx = ctx.pop().expect("stack empty");
 
     // default frame
     let default = targets.default();
@@ -432,7 +451,7 @@ pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) ->
                     // Collect Phi
                     if ctx.unreachable_reason == UnreachableReason::Reachable {
                         for phi in phis {
-                            let value = ctx.stack.pop().expect("stack empty");
+                            let value = ctx.pop().expect("stack empty");
                             phi.add_incoming(&[(&value, current_block)]);
                         }
                     }
@@ -481,7 +500,7 @@ pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) ->
         if ctx.unreachable_reason == UnreachableReason::Reachable {
             // Collect Phi
             for phi in &end_phis {
-                let value = ctx.stack.pop().expect("stack empty");
+                let value = ctx.pop().expect("stack empty");
                 phi.add_incoming(&[(&value, current_block)]);
             }
             // Jump
@@ -500,46 +519,84 @@ pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) ->
                 log::debug!("- no phi");
                 let basic_ty = phi.as_basic_value().get_type();
                 let placeholder_value = basic_ty.const_zero();
-                ctx.stack.push(placeholder_value);
+                ctx.push(placeholder_value);
                 phi.as_instruction().erase_from_basic_block();
             } else {
                 log::debug!("- phi.incoming = {}", phi.count_incoming());
                 let value = phi.as_basic_value();
-                ctx.stack.push(value);
+                ctx.push(value);
             }
         }
     }
     Ok(())
 }
 
-pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
+pub fn gen_call<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    function_index: u32,
+) -> Result<()> {
+    let stackmap_args = if ctx.config.checkpoint {
+        let stackmap_id = StackMapId::next();
+        let mut stackmap_args: Vec<BasicMetadataValueEnum> = vec![
+            // stackmap id
+            ctx.inkwell_types
+                .i64_type
+                .const_int(stackmap_id.get(), false)
+                .into(),
+            // num shadow bytes
+            ctx.inkwell_types.i32_type.const_int(0, false).into(),
+        ];
+        for stack_value in &ctx.stack_frames.last().expect("frame empty").stack {
+            stackmap_args.push(stack_value.as_basic_value_enum().into());
+        }
+        stackmap_args
+    } else {
+        vec![]
+    };
+
+    if ctx.config.checkpoint {
+        ctx.builder
+            .build_call(ctx.inkwell_intrs.experimental_stackmap, &stackmap_args, "")
+            .expect("should build stackmap");
+    }
+
     let fn_called = ctx.function_values[function_index as usize];
 
-    // collect args from stack
+    // args
     let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
-    for _ in 0..fn_called.count_params() {
-        args.push(ctx.stack.pop().expect("stack empty").into());
+    for _ in 1..fn_called.count_params() {
+        args.push(ctx.pop().expect("stack empty").into());
     }
 
     // call
     args.reverse();
+    args.insert(0, exec_env_ptr.as_basic_value_enum().into());
     let call_site = ctx
         .builder
         .build_call(fn_called, &args[..], "")
         .expect("should build call");
     if call_site.try_as_basic_value().is_left() {
-        ctx.stack.push(
+        ctx.push(
             call_site
                 .try_as_basic_value()
                 .left()
                 .expect("fail translate call_site"),
         );
     }
+
+    if ctx.config.checkpoint {
+        ctx.builder
+            .build_call(ctx.inkwell_intrs.experimental_stackmap, &stackmap_args, "")
+            .expect("should build stackmap");
+    }
+
     Ok(())
 }
 
-pub fn gen_call_indirect(
-    ctx: &mut Context<'_, '_>,
+pub fn gen_call_indirect<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     type_index: u32,
     table_index: u32,
 ) -> Result<()> {
@@ -547,7 +604,7 @@ pub fn gen_call_indirect(
     assert_eq!(table_index, 0);
 
     // Load function pointer
-    let idx = ctx.stack.pop().expect("stack empty").into_int_value();
+    let idx = ctx.pop().expect("stack empty").into_int_value();
     let dst_addr = unsafe {
         ctx.builder.build_gep(
             ctx.inkwell_types.i8_ptr_type,
@@ -567,18 +624,19 @@ pub fn gen_call_indirect(
     // args
     let func_type = ctx.signatures[type_index as usize];
     let mut args: Vec<BasicMetadataValueEnum> = Vec::new();
-    for _ in 0..func_type.get_param_types().len() {
-        args.push(ctx.stack.pop().expect("stack empty").into());
+    for _ in 1..func_type.get_param_types().len() {
+        args.push(ctx.pop().expect("stack empty").into());
     }
 
     // call and push result
     args.reverse();
+    args.insert(0, exec_env_ptr.as_basic_value_enum().into());
     let call_site = ctx
         .builder
         .build_indirect_call(func_type, fptr.into_pointer_value(), &args, "call_site")
         .expect("should build indirect call");
     if call_site.try_as_basic_value().is_left() {
-        ctx.stack.push(
+        ctx.push(
             call_site
                 .try_as_basic_value()
                 .left()
@@ -589,7 +647,7 @@ pub fn gen_call_indirect(
 }
 
 pub fn gen_drop(ctx: &mut Context<'_, '_>) -> Result<()> {
-    ctx.stack.pop().expect("stack empty");
+    ctx.pop().expect("stack empty");
     Ok(())
 }
 
@@ -603,7 +661,7 @@ pub fn gen_return(ctx: &mut Context<'_, '_>, current_fn: &FunctionValue<'_>) -> 
     } else {
         // Return value
         // TODO: support multiple phis
-        let ret = ctx.stack.pop().expect("stack empty");
+        let ret = ctx.pop().expect("stack empty");
         ctx.builder
             .build_return(Some(&ret))
             .expect("should build return");
@@ -613,9 +671,9 @@ pub fn gen_return(ctx: &mut Context<'_, '_>, current_fn: &FunctionValue<'_>) -> 
 }
 
 pub fn gen_select(ctx: &mut Context<'_, '_>) -> Result<()> {
-    let v3 = ctx.stack.pop().expect("stack empty");
-    let v2 = ctx.stack.pop().expect("stack empty");
-    let v1 = ctx.stack.pop().expect("stack empty");
+    let v3 = ctx.pop().expect("stack empty");
+    let v2 = ctx.pop().expect("stack empty");
+    let v1 = ctx.pop().expect("stack empty");
     let cond = ctx
         .builder
         .build_int_compare(
@@ -629,7 +687,7 @@ pub fn gen_select(ctx: &mut Context<'_, '_>) -> Result<()> {
         .builder
         .build_select(cond, v1, v2, "")
         .expect("should build select");
-    ctx.stack.push(res);
+    ctx.push(res);
     Ok(())
 }
 

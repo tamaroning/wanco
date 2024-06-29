@@ -1,3 +1,4 @@
+pub mod checkpoint;
 mod compile_function;
 mod compile_global;
 mod compile_memory;
@@ -10,7 +11,8 @@ mod synthesize;
 use std::path;
 
 use anyhow::{anyhow, Context as _, Result};
-use inkwell::targets;
+use checkpoint::stackmap;
+use inkwell::targets::{self, FileType};
 
 use compile_module::compile_module;
 
@@ -21,7 +23,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     let ictx = inkwell::context::Context::create();
     let module = ictx.create_module("wanco_aot");
     let builder = ictx.create_builder();
-    let mut ctx = Context::new(&ictx, &module, builder);
+    let mut ctx = Context::new(args, &ictx, &module, builder);
 
     log::debug!("Start compilation");
     compile_module(wasm, &mut ctx)?;
@@ -47,6 +49,30 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         .map_err(|e| anyhow!(e.to_string()))
         .context("Failed to write to the object file")?;
     log::debug!("wrote to {}", obj_path.display());
+
+    if ctx.config.checkpoint {
+        let buf = target
+            .write_to_memory_buffer(ctx.module, FileType::Object)
+            .map_err(|e| anyhow!(e.to_string()))?;
+        let obj = buf
+            .create_object_file()
+            .map_err(|()| anyhow!("Failed to create object file"))?;
+        let sections = obj.get_sections();
+        for section in sections {
+            let Some(name) = section.get_name() else {
+                continue;
+            };
+            let name = name.to_str().expect("error get section name");
+            if name != ".llvm_stackmaps" && name != "__llvm_stackmaps" {
+                continue;
+            }
+            let data = section.get_contents();
+            let res = stackmap::parse(data);
+            let stkmap = res.map_err(|e| anyhow!(e))?;
+            //dbg!(&stkmap);
+            stackmap::prettyprint(&stkmap);
+        }
+    }
 
     Ok(())
 }

@@ -15,9 +15,11 @@ use crate::{
         },
         helper::{self, gen_float_compare, gen_int_compare, gen_llvm_intrinsic},
     },
-    context::{Context, Global},
+    context::{Context, Global, StackFrame},
 };
 use anyhow::{anyhow, bail, Context as _, Result};
+
+use super::helper::{gen_memory_base, gen_memory_size};
 
 pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Result<()> {
     log::debug!("Compile function (idx = {})", ctx.current_function_idx);
@@ -25,6 +27,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     let current_fn = ctx.function_values[ctx.current_function_idx as usize];
     let entry_bb = ctx.ictx.append_basic_block(current_fn, "entry");
     let ret_bb = ctx.ictx.append_basic_block(current_fn, "ret");
+    ctx.stack_frames.push(StackFrame::new());
 
     ctx.builder.position_at_end(ret_bb);
     let ret = current_fn.get_type().get_return_type();
@@ -42,12 +45,22 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     ctx.control_frames.push(ControlFrame::Block {
         next: ret_bb,
         end_phis,
-        stack_size: ctx.stack.len(),
+        stack_size: ctx.current_frame_size(),
     });
 
-    // params
+    // Alloca &exec_env
+    let exec_env_ptr = current_fn
+        .get_first_param()
+        .expect("should have &exec_env as a first param");
+    let exec_env_ptr = exec_env_ptr.into_pointer_value();
+
+    // Register all wasm locals (WASM params, WASM locals)
     let mut locals = vec![];
-    for idx in 0..current_fn.count_params() {
+
+    // params (&exec_env first, then WASM params)
+    // Skip first param (i.e. &exec_env)
+    assert!(current_fn.get_first_param().unwrap().is_pointer_value());
+    for idx in 1..current_fn.count_params() {
         let v = current_fn
             .get_nth_param(idx)
             .expect("fail to get_nth_param");
@@ -87,7 +100,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         let op = op_reader.read_operator()?;
         log::debug!("- op[{}]: {:?}", num_op, &op);
 
-        compile_op(ctx, &op, &current_fn, &locals)?;
+        compile_op(ctx, &op, &current_fn, &exec_env_ptr, &locals)?;
 
         num_op += 1;
     }
@@ -98,6 +111,7 @@ fn compile_op<'a>(
     ctx: &mut Context<'a, '_>,
     op: &Operator,
     current_fn: &FunctionValue<'a>,
+    exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     if ctx.unreachable_depth != 0 {
@@ -176,13 +190,14 @@ fn compile_op<'a>(
             gen_end(ctx, current_fn).context("error gen End")?;
         }
         Operator::Call { function_index } => {
-            gen_call(ctx, *function_index).context("error gen Call")?;
+            gen_call(ctx, exec_env_ptr, *function_index).context("error gen Call")?;
         }
         Operator::CallIndirect {
             type_index,
             table_index,
         } => {
-            gen_call_indirect(ctx, *type_index, *table_index).context("error gen CallIndirect")?;
+            gen_call_indirect(ctx, exec_env_ptr, *type_index, *table_index)
+                .context("error gen CallIndirect")?;
         }
         Operator::Drop => {
             gen_drop(ctx).context("error gen Drop")?;
@@ -204,11 +219,11 @@ fn compile_op<'a>(
         ******************************/
         Operator::I32Const { value } => {
             let i = ctx.inkwell_types.i32_type.const_int(*value as u64, false);
-            ctx.stack.push(i.as_basic_value_enum());
+            ctx.push(i.as_basic_value_enum());
         }
         Operator::I64Const { value } => {
             let i = ctx.inkwell_types.i64_type.const_int(*value as u64, false);
-            ctx.stack.push(i.as_basic_value_enum());
+            ctx.push(i.as_basic_value_enum());
         }
         Operator::F32Const { value } => {
             let bits = ctx
@@ -219,7 +234,7 @@ fn compile_op<'a>(
                 .builder
                 .build_bitcast(bits, ctx.inkwell_types.f32_type, "")
                 .expect("should build bitcast");
-            ctx.stack.push(i);
+            ctx.push(i);
         }
         Operator::F64Const { value } => {
             let bits = ctx.inkwell_types.i64_type.const_int(value.bits(), false);
@@ -227,10 +242,10 @@ fn compile_op<'a>(
                 .builder
                 .build_bitcast(bits, ctx.inkwell_types.f64_type, "")
                 .expect("should build bitcast");
-            ctx.stack.push(i);
+            ctx.push(i);
         }
         Operator::I32Clz => {
-            let v1 = ctx.stack.pop().expect("stack empty");
+            let v1 = ctx.pop().expect("stack empty");
             gen_llvm_intrinsic(
                 ctx,
                 ctx.inkwell_intrs.ctlz_i32,
@@ -239,7 +254,7 @@ fn compile_op<'a>(
             .expect("error gen I32Clz");
         }
         Operator::I64Clz => {
-            let v1 = ctx.stack.pop().expect("stack empty");
+            let v1 = ctx.pop().expect("stack empty");
             let function = ctx.inkwell_intrs.ctlz_i64;
             let clz = ctx
                 .builder
@@ -260,10 +275,10 @@ fn compile_op<'a>(
                     "",
                 )
                 .expect("fail build_int_sub llvm_insts");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::I32Ctz => {
-            let v1 = ctx.stack.pop().expect("stack empty");
+            let v1 = ctx.pop().expect("stack empty");
             gen_llvm_intrinsic(
                 ctx,
                 ctx.inkwell_intrs.cttz_i32,
@@ -272,7 +287,7 @@ fn compile_op<'a>(
             .context("error gen I32Ctz")?;
         }
         Operator::I64Ctz => {
-            let v1 = ctx.stack.pop().expect("stack empty");
+            let v1 = ctx.pop().expect("stack empty");
             gen_llvm_intrinsic(
                 ctx,
                 ctx.inkwell_intrs.cttz_i64,
@@ -281,12 +296,12 @@ fn compile_op<'a>(
             .context("error gen I64Ctz")?;
         }
         Operator::I32Popcnt => {
-            let v1 = ctx.stack.pop().expect("stack empty");
+            let v1 = ctx.pop().expect("stack empty");
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.ctpop_i32, &[v1.into()])
                 .expect("error gen I32Popcnt");
         }
         Operator::I64Popcnt => {
-            let v1 = ctx.stack.pop().expect("stack empty");
+            let v1 = ctx.pop().expect("stack empty");
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.ctpop_i64, &[v1.into()])
                 .expect("error gen I64Popcnt");
         }
@@ -296,7 +311,7 @@ fn compile_op<'a>(
                 .builder
                 .build_int_add(v1.into_int_value(), v2.into_int_value(), "")
                 .expect("should build int add");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::I32Sub | Operator::I64Sub => {
             let (v1, v2) = ctx.pop2();
@@ -304,7 +319,7 @@ fn compile_op<'a>(
                 .builder
                 .build_int_sub(v1.into_int_value(), v2.into_int_value(), "")
                 .expect("should build int sub");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::I32Mul | Operator::I64Mul => {
             let (v1, v2) = ctx.pop2();
@@ -312,7 +327,7 @@ fn compile_op<'a>(
                 .builder
                 .build_int_mul(v1.into_int_value(), v2.into_int_value(), "")
                 .expect("should build int mul");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::I32DivS | Operator::I64DivS => {
             let (v1, v2) = ctx.pop2();
@@ -320,7 +335,7 @@ fn compile_op<'a>(
                 .builder
                 .build_int_signed_div(v1.into_int_value(), v2.into_int_value(), "")
                 .expect("should build int signed div");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::I32DivU | Operator::I64DivU => {
             let (v1, v2) = ctx.pop2();
@@ -328,7 +343,7 @@ fn compile_op<'a>(
                 .builder
                 .build_int_unsigned_div(v1.into_int_value(), v2.into_int_value(), "")
                 .expect("should build int unsigned div");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         /* % operator */
         Operator::I32RemS | Operator::I64RemS => {
@@ -337,7 +352,7 @@ fn compile_op<'a>(
                 .builder
                 .build_int_signed_rem(v1.into_int_value(), v2.into_int_value(), "")
                 .expect("should build int signed rem");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::I32RemU | Operator::I64RemU => {
             let (v1, v2) = ctx.pop2();
@@ -345,7 +360,7 @@ fn compile_op<'a>(
                 .builder
                 .build_int_unsigned_rem(v1.into_int_value(), v2.into_int_value(), "")
                 .expect("should build int unsigned rem");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         /******************************
             bitwise instructions
@@ -384,15 +399,15 @@ fn compile_op<'a>(
           Conversion instructions
         ******************************/
         Operator::I32WrapI64 => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let wraped = ctx
                 .builder
                 .build_int_truncate(v, ctx.inkwell_types.i32_type, "")
                 .expect("error build int truncate");
-            ctx.stack.push(wraped.as_basic_value_enum());
+            ctx.push(wraped.as_basic_value_enum());
         }
         Operator::I64Extend32S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let narrow_value = ctx
                 .builder
                 .build_int_truncate(v, ctx.inkwell_types.i32_type, "")
@@ -401,10 +416,10 @@ fn compile_op<'a>(
                 .builder
                 .build_int_s_extend(narrow_value, ctx.inkwell_types.i64_type, "i64extend32s")
                 .expect("error build int s extend");
-            ctx.stack.push(extended.as_basic_value_enum());
+            ctx.push(extended.as_basic_value_enum());
         }
         Operator::I64Extend16S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let narrow_value = ctx
                 .builder
                 .build_int_truncate(v, ctx.inkwell_types.i16_type, "")
@@ -413,10 +428,10 @@ fn compile_op<'a>(
                 .builder
                 .build_int_s_extend(narrow_value, ctx.inkwell_types.i64_type, "i64extend16s")
                 .expect("error build int s extend");
-            ctx.stack.push(extended.as_basic_value_enum());
+            ctx.push(extended.as_basic_value_enum());
         }
         Operator::I64Extend8S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let narrow_value = ctx
                 .builder
                 .build_int_truncate(v, ctx.inkwell_types.i8_type, "")
@@ -425,10 +440,10 @@ fn compile_op<'a>(
                 .builder
                 .build_int_s_extend(narrow_value, ctx.inkwell_types.i64_type, "i64extend8s")
                 .expect("error build int s extend");
-            ctx.stack.push(extended.as_basic_value_enum());
+            ctx.push(extended.as_basic_value_enum());
         }
         Operator::I32Extend16S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let narrow_value = ctx
                 .builder
                 .build_int_truncate(v, ctx.inkwell_types.i16_type, "")
@@ -437,10 +452,10 @@ fn compile_op<'a>(
                 .builder
                 .build_int_s_extend(narrow_value, ctx.inkwell_types.i32_type, "i32extend16s")
                 .expect("error build int s extend");
-            ctx.stack.push(extended.as_basic_value_enum());
+            ctx.push(extended.as_basic_value_enum());
         }
         Operator::I32Extend8S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let narrow_value = ctx
                 .builder
                 .build_int_truncate(v, ctx.inkwell_types.i8_type, "")
@@ -449,135 +464,135 @@ fn compile_op<'a>(
                 .builder
                 .build_int_s_extend(narrow_value, ctx.inkwell_types.i32_type, "i32extend8s")
                 .expect("error build int s extend");
-            ctx.stack.push(extended.as_basic_value_enum());
+            ctx.push(extended.as_basic_value_enum());
         }
         Operator::I64ExtendI32U => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let extended = ctx
                 .builder
                 .build_int_z_extend(v, ctx.inkwell_types.i64_type, "i64extendi32u")
                 .expect("error build int z extend");
-            ctx.stack.push(extended.as_basic_value_enum());
+            ctx.push(extended.as_basic_value_enum());
         }
         Operator::I64ExtendI32S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let extended = ctx
                 .builder
                 .build_int_s_extend(v, ctx.inkwell_types.i64_type, "i64extendi32s")
                 .expect("error build int s extend");
-            ctx.stack.push(extended.as_basic_value_enum());
+            ctx.push(extended.as_basic_value_enum());
         }
         Operator::F32DemoteF64 => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let demoted = ctx
                 .builder
                 .build_float_trunc(v, ctx.inkwell_types.f32_type, "f32demotef64")
                 .expect("error build float trunc");
-            ctx.stack.push(demoted.as_basic_value_enum());
+            ctx.push(demoted.as_basic_value_enum());
         }
         Operator::F64PromoteF32 => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let promoted = ctx
                 .builder
                 .build_float_ext(v, ctx.inkwell_types.f64_type, "f64promotef32")
                 .expect("error build float ext");
-            ctx.stack.push(promoted.as_basic_value_enum());
+            ctx.push(promoted.as_basic_value_enum());
         }
         Operator::F64ConvertI64S | Operator::F64ConvertI32S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let converted = ctx
                 .builder
                 .build_signed_int_to_float(v, ctx.inkwell_types.f64_type, "f64converti64s")
                 .expect("error build signed int to float");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::F64ConvertI64U | Operator::F64ConvertI32U => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let converted = ctx
                 .builder
                 .build_unsigned_int_to_float(v, ctx.inkwell_types.f64_type, "f64converti64u")
                 .expect("error build unsigned int to float");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::F32ConvertI32S | Operator::F32ConvertI64S => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let converted = ctx
                 .builder
                 .build_signed_int_to_float(v, ctx.inkwell_types.f32_type, "f32converti32s")
                 .expect("error build signed int to float");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::F32ConvertI32U | Operator::F32ConvertI64U => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let converted = ctx
                 .builder
                 .build_unsigned_int_to_float(v, ctx.inkwell_types.f32_type, "f32converti32u")
                 .expect("error build unsigned int to float");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::I64TruncF64S | Operator::I64TruncF32S => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let converted = ctx
                 .builder
                 .build_float_to_signed_int(v, ctx.inkwell_types.i64_type, "i64truncf64s")
                 .expect("error build float to signed int");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::I32TruncF32S | Operator::I32TruncF64S => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let converted = ctx
                 .builder
                 .build_float_to_signed_int(v, ctx.inkwell_types.i32_type, "i32truncf32s")
                 .expect("error build float to signed int");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::I64TruncF64U | Operator::I64TruncF32U => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let converted = ctx
                 .builder
                 .build_float_to_unsigned_int(v, ctx.inkwell_types.i64_type, "i64truncf64u")
                 .expect("error build float to unsigned int");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::I32TruncF32U | Operator::I32TruncF64U => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let converted = ctx
                 .builder
                 .build_float_to_unsigned_int(v, ctx.inkwell_types.i32_type, "i32truncf32u")
                 .expect("error build float to unsigned int");
-            ctx.stack.push(converted.as_basic_value_enum());
+            ctx.push(converted.as_basic_value_enum());
         }
         Operator::F64ReinterpretI64 => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let reinterpreted = ctx
                 .builder
                 .build_bitcast(v, ctx.inkwell_types.f64_type, "")
                 .expect("error build bitcast");
-            ctx.stack.push(reinterpreted);
+            ctx.push(reinterpreted);
         }
         Operator::F32ReinterpretI32 => {
-            let v = ctx.stack.pop().expect("stack empty").into_int_value();
+            let v = ctx.pop().expect("stack empty").into_int_value();
             let reinterpreted = ctx
                 .builder
                 .build_bitcast(v, ctx.inkwell_types.f32_type, "")
                 .expect("error build bitcast");
-            ctx.stack.push(reinterpreted);
+            ctx.push(reinterpreted);
         }
         Operator::I64ReinterpretF64 => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let reinterpreted = ctx
                 .builder
                 .build_bitcast(v, ctx.inkwell_types.i64_type, "")
                 .expect("error build bitcast");
-            ctx.stack.push(reinterpreted);
+            ctx.push(reinterpreted);
         }
         Operator::I32ReinterpretF32 => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let reinterpreted = ctx
                 .builder
                 .build_bitcast(v, ctx.inkwell_types.i32_type, "")
                 .expect("error build bitcast");
-            ctx.stack.push(reinterpreted);
+            ctx.push(reinterpreted);
         }
         /******************************
             Floating
@@ -601,78 +616,78 @@ fn compile_op<'a>(
             gen_float_compare(ctx, inkwell::FloatPredicate::OGE).expect("error gen compare float");
         }
         Operator::F64Abs => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.fabs_f64, &[v.into()])
                 .context("error gen F64Abs")?;
         }
         Operator::F32Abs => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.fabs_f32, &[v.into()])
                 .context("error gen F32Abs")?;
         }
         Operator::F64Neg => {
-            let v1 = ctx.stack.pop().expect("stack empty");
+            let v1 = ctx.pop().expect("stack empty");
             let res = ctx
                 .builder
                 .build_float_neg(v1.into_float_value(), "f64neg")
                 .expect("should build float neg");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::F32Neg => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             let res = ctx
                 .builder
                 .build_float_neg(v, "f32neg")
                 .expect("should build float neg");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::F64Ceil => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.ceil_f64, &[v.into()])
                 .context("error gen F64Ceil")?;
         }
         Operator::F32Ceil => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.ceil_f32, &[v.into()])
                 .context("error gen F32Ceil")?;
         }
         Operator::F64Floor => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.floor_f64, &[v.into()])
                 .context("error gen F64Floor")?;
         }
         Operator::F32Floor => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.floor_f32, &[v.into()])
                 .context("error gen F32Floor")?;
         }
         Operator::F64Trunc => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.trunc_f64, &[v.into()])
                 .context("error gen F64Trunc")?;
         }
         Operator::F32Trunc => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.trunc_f32, &[v.into()])
                 .context("error gen F32Trunc")?;
         }
         Operator::F64Nearest => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.nearbyint_f64, &[v.into()])
                 .context("error gen F64Nearest")?;
         }
         Operator::F32Nearest => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.nearbyint_f32, &[v.into()])
                 .context("error gen F32Nearest")?;
         }
         Operator::F64Sqrt => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.sqrt_f64, &[v.into()])
                 .context("error gen F64Sqrt")?;
         }
         Operator::F32Sqrt => {
-            let v = ctx.stack.pop().expect("stack empty").into_float_value();
+            let v = ctx.pop().expect("stack empty").into_float_value();
             gen_llvm_intrinsic(ctx, ctx.inkwell_intrs.sqrt_f32, &[v.into()])
                 .context("error gen F64Sqrt")?;
         }
@@ -682,7 +697,7 @@ fn compile_op<'a>(
                 .builder
                 .build_float_add(v1.into_float_value(), v2.into_float_value(), "")
                 .expect("should build float add");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::F64Sub | Operator::F32Sub => {
             let (v1, v2) = ctx.pop2();
@@ -690,7 +705,7 @@ fn compile_op<'a>(
                 .builder
                 .build_float_sub(v1.into_float_value(), v2.into_float_value(), "")
                 .expect("should build float sub");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
         Operator::F64Mul | Operator::F32Mul => {
             let (v1, v2) = ctx.pop2();
@@ -698,7 +713,7 @@ fn compile_op<'a>(
                 .builder
                 .build_float_mul(v1.into_float_value(), v2.into_float_value(), "")
                 .expect("should build float mul");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
 
         Operator::F64Div | Operator::F32Div => {
@@ -707,7 +722,7 @@ fn compile_op<'a>(
                 .builder
                 .build_float_div(v1.into_float_value(), v2.into_float_value(), "")
                 .expect("should build float div");
-            ctx.stack.push(res.as_basic_value_enum());
+            ctx.push(res.as_basic_value_enum());
         }
 
         Operator::F64Min => {
@@ -751,13 +766,13 @@ fn compile_op<'a>(
                 .builder
                 .build_load(ty, value_ptr, "")
                 .expect("should build load");
-            ctx.stack.push(v);
+            ctx.push(v);
         }
         // Sets the value of the local variable
         Operator::LocalSet { local_index } => {
             assert!(*local_index < locals.len() as u32);
             let (value_ptr, _) = locals[*local_index as usize];
-            let v = ctx.stack.pop().expect("stack empty");
+            let v = ctx.pop().expect("stack empty");
             ctx.builder
                 .build_store(value_ptr, v)
                 .expect("should build store");
@@ -765,25 +780,25 @@ fn compile_op<'a>(
         Operator::LocalTee { local_index } => {
             assert!(*local_index < locals.len() as u32);
             let (value_ptr, _) = locals[*local_index as usize];
-            let v = ctx.stack.pop().expect("stack empty");
+            let v = ctx.pop().expect("stack empty");
             ctx.builder
                 .build_store(value_ptr, v)
                 .expect("should build store");
-            ctx.stack.push(v);
+            ctx.push(v);
         }
         Operator::GlobalGet { global_index } => {
             assert!(*global_index < ctx.globals.len() as u32);
             let global = &ctx.globals[*global_index as usize];
             match global {
                 Global::Const { value } => {
-                    ctx.stack.push(*value);
+                    ctx.push(*value);
                 }
                 Global::Mut { ptr, ty } => {
                     let value = ctx
                         .builder
                         .build_load(*ty, ptr.as_pointer_value(), "")
                         .expect("should build load");
-                    ctx.stack.push(value);
+                    ctx.push(value);
                 }
             };
         }
@@ -795,7 +810,13 @@ fn compile_op<'a>(
                     bail!("Global.Set to const value");
                 }
                 Global::Mut { ptr, ty: _ } => {
-                    let value = ctx.stack.pop().expect("stack empty");
+                    let value = ctx
+                        .stack_frames
+                        .last_mut()
+                        .expect("frame empty")
+                        .stack
+                        .pop()
+                        .expect("stack empty");
                     ctx.builder
                         .build_store(ptr.as_pointer_value(), value)
                         .expect("should build store");
@@ -806,21 +827,23 @@ fn compile_op<'a>(
           Memory instructions
         ******************************/
         Operator::MemorySize { mem: _ } => {
-            compile_op_memory_size(ctx).context("error gen MemorySize")?;
+            compile_op_memory_size(ctx, exec_env_ptr).context("error gen MemorySize")?;
         }
         Operator::MemoryGrow { mem: _ } => {
-            compile_op_memory_grow(ctx).context("error gen MemoryGrow")?;
+            compile_op_memory_grow(ctx, exec_env_ptr).context("error gen MemoryGrow")?;
         }
         Operator::MemoryCopy { dst_mem, src_mem } => {
-            compile_op_memcpy(ctx, *dst_mem, *src_mem).context("error gen MemoryCopy")?;
+            compile_op_memcpy(ctx, exec_env_ptr, *dst_mem, *src_mem)
+                .context("error gen MemoryCopy")?;
         }
         Operator::MemoryFill { mem } => {
-            compile_op_memory_fill(ctx, *mem).context("error gen MemoryFill")?;
+            compile_op_memory_fill(ctx, exec_env_ptr, *mem).context("error gen MemoryFill")?;
         }
         // TODO: memarg
         Operator::I32Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
@@ -832,6 +855,7 @@ fn compile_op<'a>(
         Operator::I64Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
@@ -843,6 +867,7 @@ fn compile_op<'a>(
         Operator::F32Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f32_type.as_basic_type_enum(),
                 ctx.inkwell_types.f32_type.as_basic_type_enum(),
@@ -854,6 +879,7 @@ fn compile_op<'a>(
         Operator::F64Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f64_type.as_basic_type_enum(),
                 ctx.inkwell_types.f64_type.as_basic_type_enum(),
@@ -865,6 +891,7 @@ fn compile_op<'a>(
         Operator::I32Load8S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -876,6 +903,7 @@ fn compile_op<'a>(
         Operator::I32Load8U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -887,6 +915,7 @@ fn compile_op<'a>(
         Operator::I32Load16S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -898,6 +927,7 @@ fn compile_op<'a>(
         Operator::I32Load16U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -909,6 +939,7 @@ fn compile_op<'a>(
         Operator::I64Load8S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -920,6 +951,7 @@ fn compile_op<'a>(
         Operator::I64Load8U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -931,6 +963,7 @@ fn compile_op<'a>(
         Operator::I64Load16S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -942,6 +975,7 @@ fn compile_op<'a>(
         Operator::I64Load16U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -953,6 +987,7 @@ fn compile_op<'a>(
         Operator::I64Load32S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
@@ -964,6 +999,7 @@ fn compile_op<'a>(
         Operator::I64Load32U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
@@ -975,6 +1011,7 @@ fn compile_op<'a>(
         Operator::I32Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 false,
@@ -984,6 +1021,7 @@ fn compile_op<'a>(
         Operator::I64Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 false,
@@ -993,6 +1031,7 @@ fn compile_op<'a>(
         Operator::F32Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f32_type.as_basic_type_enum(),
                 false,
@@ -1002,6 +1041,7 @@ fn compile_op<'a>(
         Operator::F64Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f64_type.as_basic_type_enum(),
                 false,
@@ -1011,6 +1051,7 @@ fn compile_op<'a>(
         Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
                 true,
@@ -1020,6 +1061,7 @@ fn compile_op<'a>(
         Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
                 true,
@@ -1029,6 +1071,7 @@ fn compile_op<'a>(
         Operator::I64Store32 { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 true,
@@ -1039,7 +1082,7 @@ fn compile_op<'a>(
           Comparison instructions
         ******************************/
         Operator::I32Eqz => {
-            ctx.stack.push(
+            ctx.push(
                 ctx.inkwell_types
                     .i32_type
                     .const_zero()
@@ -1048,7 +1091,7 @@ fn compile_op<'a>(
             gen_int_compare(ctx, inkwell::IntPredicate::EQ).context("error gen I32Eqz")?;
         }
         Operator::I64Eqz => {
-            ctx.stack.push(
+            ctx.push(
                 ctx.inkwell_types
                     .i64_type
                     .const_zero()
@@ -1094,54 +1137,57 @@ fn compile_op<'a>(
     Ok(())
 }
 
-pub fn compile_op_memory_size(ctx: &mut Context<'_, '_>) -> Result<()> {
-    let size = ctx
-        .builder
-        .build_load(
-            ctx.inkwell_types.i32_type,
-            ctx.global_memory_size
-                .expect("should defined global_memory_size")
-                .as_pointer_value(),
-            "mem_size",
-        )
-        .expect("should build load");
-    ctx.stack.push(size);
+pub fn compile_op_memory_size<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let size = gen_memory_size(ctx, exec_env_ptr).expect("error gen memory size");
+    ctx.push(size);
     Ok(())
 }
 
-pub fn compile_op_memory_grow(ctx: &mut Context<'_, '_>) -> Result<()> {
-    let delta = ctx.stack.pop().expect("stack empty");
+pub fn compile_op_memory_grow<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let delta = ctx.pop().expect("stack empty");
     let ret = ctx
         .builder
         .build_call(
             ctx.fn_memory_grow.expect("shold define fn_memory_grow"),
-            &[delta.into()],
+            &[exec_env_ptr.as_basic_value_enum().into(), delta.into()],
             "memory_grow",
         )
         .expect("should build call")
         .as_any_value_enum()
         .into_int_value()
         .as_basic_value_enum();
-    // TODO: should update global_mem_size here?
-    ctx.stack.push(ret);
+    ctx.push(ret);
     Ok(())
 }
 
-pub fn compile_op_memcpy(ctx: &mut Context<'_, '_>, dst_mem: u32, src_mem: u32) -> Result<()> {
+pub fn compile_op_memcpy<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    dst_mem: u32,
+    src_mem: u32,
+) -> Result<()> {
     // TODO: multi memory
     assert_eq!(dst_mem, 0);
     assert_eq!(src_mem, 0);
 
-    let len = ctx.stack.pop().expect("stack empty");
-    let src = ctx.stack.pop().expect("stack empty");
-    let dst = ctx.stack.pop().expect("stack empty");
+    let len = ctx.pop().expect("stack empty");
+    let src = ctx.pop().expect("stack empty");
+    let dst = ctx.pop().expect("stack empty");
     let src_addr = resolve_pointer(
         ctx,
+        exec_env_ptr,
         src.into_int_value(),
         ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
     );
     let dst_addr = resolve_pointer(
         ctx,
+        exec_env_ptr,
         dst.into_int_value(),
         ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
     );
@@ -1152,15 +1198,20 @@ pub fn compile_op_memcpy(ctx: &mut Context<'_, '_>, dst_mem: u32, src_mem: u32) 
     Ok(())
 }
 
-pub fn compile_op_memory_fill(ctx: &mut Context<'_, '_>, mem: u32) -> Result<()> {
+pub fn compile_op_memory_fill<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    mem: u32,
+) -> Result<()> {
     // TODO: multi memory
     assert_eq!(mem, 0);
 
-    let len = ctx.stack.pop().expect("stack empty");
-    let val = ctx.stack.pop().expect("stack empty");
-    let dst = ctx.stack.pop().expect("stack empty");
+    let len = ctx.pop().expect("stack empty");
+    let val = ctx.pop().expect("stack empty");
+    let dst = ctx.pop().expect("stack empty");
     let dst_addr = resolve_pointer(
         ctx,
+        exec_env_ptr,
         dst.into_int_value(),
         ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
     );
@@ -1177,13 +1228,11 @@ pub fn compile_op_memory_fill(ctx: &mut Context<'_, '_>, mem: u32) -> Result<()>
 
 fn resolve_pointer<'a>(
     ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     offset: IntValue<'a>,
     ptr_type: PointerType<'a>,
 ) -> PointerValue<'a> {
-    let memory_base = ctx
-        .global_memory_base
-        .expect("should defined global_memory_base")
-        .as_pointer_value();
+    let memory_base = gen_memory_base(ctx, exec_env_ptr).expect("error gen memory base");
     // calculate base + offset
     let dst_addr = unsafe {
         ctx.builder.build_gep(
@@ -1203,6 +1252,7 @@ fn resolve_pointer<'a>(
 
 pub fn compile_op_load<'a>(
     ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     memarg: &MemArg,
     extended_type: inkwell::types::BasicTypeEnum<'a>,
     load_type: inkwell::types::BasicTypeEnum<'a>,
@@ -1210,7 +1260,7 @@ pub fn compile_op_load<'a>(
     require_extend: bool,
 ) -> Result<()> {
     // offset
-    let address_operand = ctx.stack.pop().expect("stack empty").into_int_value();
+    let address_operand = ctx.pop().expect("stack empty").into_int_value();
     let address_operand_ex = ctx
         .builder
         .build_int_z_extend(address_operand, ctx.inkwell_types.i64_type, "")
@@ -1222,7 +1272,12 @@ pub fn compile_op_load<'a>(
         .expect("error build int add");
 
     // get actual virtual address
-    let dst_addr = resolve_pointer(ctx, offset, load_type.ptr_type(AddressSpace::default()));
+    let dst_addr = resolve_pointer(
+        ctx,
+        exec_env_ptr,
+        offset,
+        load_type.ptr_type(AddressSpace::default()),
+    );
     // load value
     let result = ctx
         .builder
@@ -1250,24 +1305,25 @@ pub fn compile_op_load<'a>(
                 )
                 .expect("error build int z extend"),
         };
-        ctx.stack.push(extended_result.as_basic_value_enum());
+        ctx.push(extended_result.as_basic_value_enum());
     } else {
-        ctx.stack.push(result.as_basic_value_enum());
+        ctx.push(result.as_basic_value_enum());
     }
     Ok(())
 }
 
 pub fn compile_op_store<'a>(
     ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     memarg: &MemArg,
     store_type: inkwell::types::BasicTypeEnum<'a>,
     require_narrow: bool,
 ) -> Result<()> {
     // value
-    let value = ctx.stack.pop().expect("stack empty");
+    let value = ctx.pop().expect("stack empty");
 
     // offset
-    let address_operand = ctx.stack.pop().expect("stack empty").into_int_value();
+    let address_operand = ctx.pop().expect("stack empty").into_int_value();
     let address_operand_ex = ctx
         .builder
         .build_int_z_extend(address_operand, ctx.inkwell_types.i64_type, "")
@@ -1279,7 +1335,12 @@ pub fn compile_op_store<'a>(
         .expect("error build int add");
 
     // get actual virtual address
-    let dst_addr = resolve_pointer(ctx, offset, store_type.ptr_type(AddressSpace::default()));
+    let dst_addr = resolve_pointer(
+        ctx,
+        exec_env_ptr,
+        offset,
+        store_type.ptr_type(AddressSpace::default()),
+    );
 
     if require_narrow {
         let narrow_value = ctx
