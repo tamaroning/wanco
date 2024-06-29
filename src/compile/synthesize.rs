@@ -10,10 +10,13 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     let mut exec_env_fields = HashMap::new();
     exec_env_fields.insert("memory_base", 0);
     exec_env_fields.insert("memory_size", 1);
+    exec_env_fields.insert("checkpoint", 2);
     let exec_env_type = ctx.ictx.struct_type(
         &[
             ctx.inkwell_types.i8_ptr_type.into(),
             ctx.inkwell_types.i32_type.into(),
+            // Reserve 4 bytes for checkpoint
+            ctx.inkwell_types.i8_ptr_type.into(),
         ],
         false,
     );

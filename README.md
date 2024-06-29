@@ -7,7 +7,7 @@ wanco is a WebAssembly AOT compiler.
 ## Build
 
 Prerequisites:
-- GCC
+- GCC (g++)
 - Makefile
 - Cargo
 
@@ -19,7 +19,7 @@ cd wanco
 
 Build the library and runtime:
 ```
-(cd lib && make)
+(cd lib/cpp && make)
 ```
 
 Build the wanco compiler:
@@ -36,8 +36,12 @@ wanco examples/hello.wat -o hello.o
 ```
 Then link it with the runtime and library together:
 ```
-gcc -no-pie hello.o lib/lib.o lib/wrt.o -o hello
+g++ -no-pie hello.o lib/cpp/lib.o lib/cpp/wrt.o -o hello
 ```
+
+> [!NOTE]  
+> Use C++ compiler (g++ or clang++) to link the object files because the compiled object may require C++ exception handlers.
+
 Finally, run the compiled module:
 ```
 $ ./hello

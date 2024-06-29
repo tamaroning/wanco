@@ -100,6 +100,9 @@ pub struct Context<'a, 'b> {
     // checkpoint/restore related
     pub exception_type: StructType<'a>,
     pub personality_function: FunctionValue<'a>,
+    // TODO: add more
+    //pub fn_new_frame: Option<FunctionValue<'a>>,
+    //pub fn_add_local_i32: Option<FunctionValue<'a>>,
 }
 
 impl<'a> Context<'a, '_> {

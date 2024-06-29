@@ -2,8 +2,8 @@ use std::{path::PathBuf, process::Command};
 
 use wanco::*;
 
-const WRT_PATH: &'static str = "lib/wrt.o";
-const LIB_PATH: &'static str = "lib/lib.o";
+const WRT_PATH: &'static str = "lib/cpp/wrt.o";
+const LIB_PATH: &'static str = "lib/cpp/lib.o";
 
 #[test]
 fn test_fd_write() {
@@ -29,7 +29,7 @@ fn test_fd_write() {
         panic!("Could not compile {:?} ({})", &args.input_file, e);
     }
     // Link
-    Command::new("cc")
+    Command::new("g++")
         .arg(obj)
         .arg(WRT_PATH)
         .arg(LIB_PATH)
