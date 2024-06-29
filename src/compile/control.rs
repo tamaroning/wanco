@@ -532,7 +532,7 @@ pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) ->
 }
 
 pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
-    if ctx.config.checkpoint {
+    let stackmap_args = if ctx.config.checkpoint {
         let stackmap_id = StackMapId::next();
         let mut stackmap_args: Vec<BasicMetadataValueEnum> = vec![
             // stackmap id
@@ -546,10 +546,15 @@ pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
         for stack_value in &ctx.stack_frames.last().expect("frame empty").stack {
             stackmap_args.push(stack_value.as_basic_value_enum().into());
         }
+        stackmap_args
+    } else {
+        vec![]
+    };
 
+    if ctx.config.checkpoint {
         ctx.builder
             .build_call(ctx.inkwell_intrs.experimental_stackmap, &stackmap_args, "")
-            .expect("should build call");
+            .expect("should build stackmap");
     }
 
     let fn_called = ctx.function_values[function_index as usize];
@@ -574,6 +579,13 @@ pub fn gen_call(ctx: &mut Context<'_, '_>, function_index: u32) -> Result<()> {
                 .expect("fail translate call_site"),
         );
     }
+    
+    if ctx.config.checkpoint {
+        ctx.builder
+            .build_call(ctx.inkwell_intrs.experimental_stackmap, &stackmap_args, "")
+            .expect("should build stackmap");
+    }
+
     Ok(())
 }
 
