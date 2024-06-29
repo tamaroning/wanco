@@ -5,7 +5,7 @@ use inkwell::{
     builder::Builder,
     context::Context as InkwellContext,
     module::Module,
-    types::{BasicTypeEnum, FunctionType, StructType},
+    types::{AnyTypeEnum, BasicTypeEnum, FunctionType, StructType},
     values::{BasicValueEnum, FunctionValue, GlobalValue, PointerValue},
 };
 
@@ -68,16 +68,12 @@ pub struct Context<'a, 'b> {
     pub wanco_init_block: Option<BasicBlock<'a>>,
     pub wanco_main_block: Option<BasicBlock<'a>>,
 
-    pub global_memory_size: Option<GlobalValue<'a>>,
-    pub global_memory_base: Option<GlobalValue<'a>>,
     pub fn_memory_grow: Option<FunctionValue<'a>>,
 
     pub global_table: Option<GlobalValue<'a>>,
 
     pub exec_env_type: Option<StructType<'a>>,
     pub exec_env_fields: HashMap<&'static str, u32>,
-    /// Only used in aot_main
-    pub exec_env_local: Option<PointerValue<'a>>,
 
     // module info
     pub signatures: Vec<FunctionType<'a>>,
@@ -121,12 +117,9 @@ impl<'a> Context<'a, '_> {
 
             wanco_init_block: None,
             wanco_main_block: None,
-            global_memory_size: None,
-            global_memory_base: None,
             fn_memory_grow: None,
             exec_env_type: None,
             exec_env_fields: HashMap::new(),
-            exec_env_local: None,
             global_table: None,
 
             signatures: Vec::new(),

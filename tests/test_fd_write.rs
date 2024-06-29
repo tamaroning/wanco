@@ -12,7 +12,7 @@ fn test_fd_write() {
     let path = PathBuf::from("tests")
         .join("fd_write")
         .with_extension("wat");
-    let tmp_filename = "wanco_wasker_test";
+    let tmp_filename = "wanco_fd_write";
     let obj = std::path::PathBuf::from("/tmp")
         .join(&tmp_filename)
         .with_extension("o");

@@ -19,6 +19,8 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context as _, Result};
 
+use super::helper::{gen_memory_base, gen_memory_size};
+
 pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Result<()> {
     log::debug!("Compile function (idx = {})", ctx.current_function_idx);
 
@@ -825,21 +827,23 @@ fn compile_op<'a>(
           Memory instructions
         ******************************/
         Operator::MemorySize { mem: _ } => {
-            compile_op_memory_size(ctx).context("error gen MemorySize")?;
+            compile_op_memory_size(ctx, exec_env_ptr).context("error gen MemorySize")?;
         }
         Operator::MemoryGrow { mem: _ } => {
-            compile_op_memory_grow(ctx).context("error gen MemoryGrow")?;
+            compile_op_memory_grow(ctx, exec_env_ptr).context("error gen MemoryGrow")?;
         }
         Operator::MemoryCopy { dst_mem, src_mem } => {
-            compile_op_memcpy(ctx, *dst_mem, *src_mem).context("error gen MemoryCopy")?;
+            compile_op_memcpy(ctx, exec_env_ptr, *dst_mem, *src_mem)
+                .context("error gen MemoryCopy")?;
         }
         Operator::MemoryFill { mem } => {
-            compile_op_memory_fill(ctx, *mem).context("error gen MemoryFill")?;
+            compile_op_memory_fill(ctx, exec_env_ptr, *mem).context("error gen MemoryFill")?;
         }
         // TODO: memarg
         Operator::I32Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
@@ -851,6 +855,7 @@ fn compile_op<'a>(
         Operator::I64Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
@@ -862,6 +867,7 @@ fn compile_op<'a>(
         Operator::F32Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f32_type.as_basic_type_enum(),
                 ctx.inkwell_types.f32_type.as_basic_type_enum(),
@@ -873,6 +879,7 @@ fn compile_op<'a>(
         Operator::F64Load { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f64_type.as_basic_type_enum(),
                 ctx.inkwell_types.f64_type.as_basic_type_enum(),
@@ -884,6 +891,7 @@ fn compile_op<'a>(
         Operator::I32Load8S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -895,6 +903,7 @@ fn compile_op<'a>(
         Operator::I32Load8U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -906,6 +915,7 @@ fn compile_op<'a>(
         Operator::I32Load16S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -917,6 +927,7 @@ fn compile_op<'a>(
         Operator::I32Load16U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -928,6 +939,7 @@ fn compile_op<'a>(
         Operator::I64Load8S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -939,6 +951,7 @@ fn compile_op<'a>(
         Operator::I64Load8U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
@@ -950,6 +963,7 @@ fn compile_op<'a>(
         Operator::I64Load16S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -961,6 +975,7 @@ fn compile_op<'a>(
         Operator::I64Load16U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
@@ -972,6 +987,7 @@ fn compile_op<'a>(
         Operator::I64Load32S { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
@@ -983,6 +999,7 @@ fn compile_op<'a>(
         Operator::I64Load32U { memarg } => {
             compile_op_load(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
@@ -994,6 +1011,7 @@ fn compile_op<'a>(
         Operator::I32Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 false,
@@ -1003,6 +1021,7 @@ fn compile_op<'a>(
         Operator::I64Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i64_type.as_basic_type_enum(),
                 false,
@@ -1012,6 +1031,7 @@ fn compile_op<'a>(
         Operator::F32Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f32_type.as_basic_type_enum(),
                 false,
@@ -1021,6 +1041,7 @@ fn compile_op<'a>(
         Operator::F64Store { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.f64_type.as_basic_type_enum(),
                 false,
@@ -1030,6 +1051,7 @@ fn compile_op<'a>(
         Operator::I32Store8 { memarg } | Operator::I64Store8 { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i8_type.as_basic_type_enum(),
                 true,
@@ -1039,6 +1061,7 @@ fn compile_op<'a>(
         Operator::I32Store16 { memarg } | Operator::I64Store16 { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i16_type.as_basic_type_enum(),
                 true,
@@ -1048,6 +1071,7 @@ fn compile_op<'a>(
         Operator::I64Store32 { memarg } => {
             compile_op_store(
                 ctx,
+                exec_env_ptr,
                 memarg,
                 ctx.inkwell_types.i32_type.as_basic_type_enum(),
                 true,
@@ -1113,40 +1137,41 @@ fn compile_op<'a>(
     Ok(())
 }
 
-pub fn compile_op_memory_size(ctx: &mut Context<'_, '_>) -> Result<()> {
-    let size = ctx
-        .builder
-        .build_load(
-            ctx.inkwell_types.i32_type,
-            ctx.global_memory_size
-                .expect("should defined global_memory_size")
-                .as_pointer_value(),
-            "mem_size",
-        )
-        .expect("should build load");
+pub fn compile_op_memory_size<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let size = gen_memory_size(ctx, exec_env_ptr).expect("error gen memory size");
     ctx.push(size);
     Ok(())
 }
 
-pub fn compile_op_memory_grow(ctx: &mut Context<'_, '_>) -> Result<()> {
+pub fn compile_op_memory_grow<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
     let delta = ctx.pop().expect("stack empty");
     let ret = ctx
         .builder
         .build_call(
             ctx.fn_memory_grow.expect("shold define fn_memory_grow"),
-            &[delta.into()],
+            &[exec_env_ptr.as_basic_value_enum().into(), delta.into()],
             "memory_grow",
         )
         .expect("should build call")
         .as_any_value_enum()
         .into_int_value()
         .as_basic_value_enum();
-    // TODO: should update global_mem_size here?
     ctx.push(ret);
     Ok(())
 }
 
-pub fn compile_op_memcpy(ctx: &mut Context<'_, '_>, dst_mem: u32, src_mem: u32) -> Result<()> {
+pub fn compile_op_memcpy<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    dst_mem: u32,
+    src_mem: u32,
+) -> Result<()> {
     // TODO: multi memory
     assert_eq!(dst_mem, 0);
     assert_eq!(src_mem, 0);
@@ -1156,11 +1181,13 @@ pub fn compile_op_memcpy(ctx: &mut Context<'_, '_>, dst_mem: u32, src_mem: u32) 
     let dst = ctx.pop().expect("stack empty");
     let src_addr = resolve_pointer(
         ctx,
+        exec_env_ptr,
         src.into_int_value(),
         ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
     );
     let dst_addr = resolve_pointer(
         ctx,
+        exec_env_ptr,
         dst.into_int_value(),
         ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
     );
@@ -1171,7 +1198,11 @@ pub fn compile_op_memcpy(ctx: &mut Context<'_, '_>, dst_mem: u32, src_mem: u32) 
     Ok(())
 }
 
-pub fn compile_op_memory_fill(ctx: &mut Context<'_, '_>, mem: u32) -> Result<()> {
+pub fn compile_op_memory_fill<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    mem: u32,
+) -> Result<()> {
     // TODO: multi memory
     assert_eq!(mem, 0);
 
@@ -1180,6 +1211,7 @@ pub fn compile_op_memory_fill(ctx: &mut Context<'_, '_>, mem: u32) -> Result<()>
     let dst = ctx.pop().expect("stack empty");
     let dst_addr = resolve_pointer(
         ctx,
+        exec_env_ptr,
         dst.into_int_value(),
         ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
     );
@@ -1196,13 +1228,11 @@ pub fn compile_op_memory_fill(ctx: &mut Context<'_, '_>, mem: u32) -> Result<()>
 
 fn resolve_pointer<'a>(
     ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     offset: IntValue<'a>,
     ptr_type: PointerType<'a>,
 ) -> PointerValue<'a> {
-    let memory_base = ctx
-        .global_memory_base
-        .expect("should defined global_memory_base")
-        .as_pointer_value();
+    let memory_base = gen_memory_base(ctx, exec_env_ptr).expect("error gen memory base");
     // calculate base + offset
     let dst_addr = unsafe {
         ctx.builder.build_gep(
@@ -1222,6 +1252,7 @@ fn resolve_pointer<'a>(
 
 pub fn compile_op_load<'a>(
     ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     memarg: &MemArg,
     extended_type: inkwell::types::BasicTypeEnum<'a>,
     load_type: inkwell::types::BasicTypeEnum<'a>,
@@ -1241,7 +1272,12 @@ pub fn compile_op_load<'a>(
         .expect("error build int add");
 
     // get actual virtual address
-    let dst_addr = resolve_pointer(ctx, offset, load_type.ptr_type(AddressSpace::default()));
+    let dst_addr = resolve_pointer(
+        ctx,
+        exec_env_ptr,
+        offset,
+        load_type.ptr_type(AddressSpace::default()),
+    );
     // load value
     let result = ctx
         .builder
@@ -1278,6 +1314,7 @@ pub fn compile_op_load<'a>(
 
 pub fn compile_op_store<'a>(
     ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
     memarg: &MemArg,
     store_type: inkwell::types::BasicTypeEnum<'a>,
     require_narrow: bool,
@@ -1298,7 +1335,12 @@ pub fn compile_op_store<'a>(
         .expect("error build int add");
 
     // get actual virtual address
-    let dst_addr = resolve_pointer(ctx, offset, store_type.ptr_type(AddressSpace::default()));
+    let dst_addr = resolve_pointer(
+        ctx,
+        exec_env_ptr,
+        offset,
+        store_type.ptr_type(AddressSpace::default()),
+    );
 
     if require_narrow {
         let narrow_value = ctx
