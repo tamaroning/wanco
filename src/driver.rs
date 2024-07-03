@@ -15,9 +15,6 @@ pub struct Args {
 
     #[arg(long)]
     pub checkpoint: bool,
-
-    #[arg(long)]
-    pub unwind: bool,
 }
 
 pub fn run_compiler(args: &Args) -> Result<()> {

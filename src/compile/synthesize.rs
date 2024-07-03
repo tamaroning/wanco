@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use inkwell::{types::BasicType, values::BasicValue, AddressSpace};
+use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpace};
 
 use crate::context::Context;
 
@@ -56,6 +56,20 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .module
         .add_function("memory_grow", fn_type_memory_grow, None);
     ctx.fn_memory_grow = Some(fn_memory_grow);
+
+    // Checkpoint related
+    if ctx.config.checkpoint {
+        let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
+        let fn_type_new_frame = ctx
+            .inkwell_types
+            .void_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
+        ctx.fn_new_frame = Some(ctx.module.add_function(
+            "new_frame",
+            fn_type_new_frame,
+            Some(Linkage::External),
+        ));
+    }
 
     Ok(())
 }

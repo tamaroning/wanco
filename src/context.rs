@@ -1,10 +1,10 @@
-use std::{collections::HashMap, sync::atomic::AtomicU64};
+use std::collections::HashMap;
 
 use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     context::Context as InkwellContext,
-    module::{Linkage, Module},
+    module::Module,
     types::{BasicTypeEnum, FunctionType, StructType},
     values::{BasicValueEnum, FunctionValue, GlobalValue},
 };
@@ -26,22 +26,6 @@ pub enum Global<'a> {
     Const {
         value: BasicValueEnum<'a>,
     },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct StackMapId(u64);
-
-impl StackMapId {
-    pub fn next() -> Self {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        let id = StackMapId(COUNTER.load(core::sync::atomic::Ordering::SeqCst));
-        COUNTER.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
-        id
-    }
-
-    pub fn get(self) -> u64 {
-        self.0
-    }
 }
 
 pub struct StackFrame<'a> {
@@ -98,10 +82,10 @@ pub struct Context<'a, 'b> {
     pub unreachable_reason: UnreachableReason,
 
     // checkpoint/restore related
-    pub exception_type: StructType<'a>,
-    pub personality_function: FunctionValue<'a>,
+    //pub exception_type: StructType<'a>,
+    //pub personality_function: FunctionValue<'a>,
     // TODO: add more
-    //pub fn_new_frame: Option<FunctionValue<'a>>,
+    pub fn_new_frame: Option<FunctionValue<'a>>,
     //pub fn_add_local_i32: Option<FunctionValue<'a>>,
 }
 
@@ -113,20 +97,6 @@ impl<'a> Context<'a, '_> {
         builder: Builder<'a>,
     ) -> Context<'a, 'b> {
         let (inkwell_types, inkwell_intrs) = init_inkwell(ictx, module);
-
-        // Exception type in C++
-        let exception_type = ictx.struct_type(
-            &[
-                inkwell_types.i8_ptr_type.into(),
-                inkwell_types.i32_type.into(),
-            ],
-            false,
-        );
-        let personality_function = module.add_function(
-            "__gxx_personality_v0",
-            ictx.i64_type().fn_type(&[], false),
-            Some(Linkage::External),
-        );
 
         Context {
             config: args,
@@ -157,8 +127,7 @@ impl<'a> Context<'a, '_> {
             unreachable_depth: 0,
             unreachable_reason: UnreachableReason::Reachable,
 
-            exception_type,
-            personality_function,
+            fn_new_frame: None,
         }
     }
 
