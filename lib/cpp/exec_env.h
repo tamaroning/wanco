@@ -22,14 +22,15 @@ public:
   std::string to_string() const {
     switch (type) {
     case Type::I32:
-      return std::to_string(i32);
+      return "i32 " + std::to_string(i32);
     case Type::I64:
-      return std::to_string(i64);
+      return "i64 " + std::to_string(i64);
     case Type::F32:
-      return std::to_string(f32);
+      return "f32 " + std::to_string(f32);
     case Type::F64:
-      return std::to_string(f64);
+      return "f64 " + std::to_string(f64);
     }
+    return "<unknown>";
   }
 
   union {

@@ -26,6 +26,41 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
     let current_fn = ctx.function_values[ctx.current_function_idx as usize];
     let entry_bb = ctx.ictx.append_basic_block(current_fn, "entry");
+    // TODO: remove
+    if false && ctx.config.unwind {
+        ctx.builder.position_at_end(entry_bb);
+
+        let then_bb = ctx.ictx.append_basic_block(current_fn, "then");
+        let catch_bb = ctx.ictx.append_basic_block(current_fn, "catch");
+        ctx.builder
+            .build_invoke(
+                ctx.fn_throw_exception
+                    .expect("should define fn_throw_exception"),
+                &[],
+                then_bb,
+                catch_bb,
+                "",
+            )
+            .expect("should build call");
+        ctx.builder.position_at_end(catch_bb);
+        let null = ctx.inkwell_types.i8_ptr_type.const_null();
+        let res = ctx
+            .builder
+            .build_landing_pad(
+                ctx.exception_type,
+                ctx.personality_function,
+                &[null.into()],
+                false,
+                "res",
+            )
+            .expect("should build landing pad");
+        ctx.builder.build_resume(res).expect("should build resume");
+        ctx.builder.position_at_end(then_bb);
+        ctx.builder
+            .build_unreachable()
+            .expect("should build unreachable");
+        return Ok(());
+    }
     let ret_bb = ctx.ictx.append_basic_block(current_fn, "ret");
     ctx.stack_frames.push(StackFrame::new());
 
@@ -54,7 +89,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         .expect("should have &exec_env as a first param");
     let exec_env_ptr = exec_env_ptr.into_pointer_value();
 
-    // Register all wasm locals (WASM params, WASM locals)
+    // Register all wasm locals (WASM params + WASM locals)
     let mut locals = vec![];
 
     // params (&exec_env first, then WASM params)

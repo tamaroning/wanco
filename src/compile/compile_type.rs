@@ -12,9 +12,9 @@ pub(super) fn compile_type_section(
     types: TypeSectionReader,
 ) -> Result<()> {
     for entry in types {
-        let subtypes: Vec<_> = entry?.into_types().collect();
+        let mut subtypes: Vec<_> = entry?.into_types().collect();
         assert_eq!(subtypes.len(), 1);
-        let CompositeType::Func(ref func_type) = subtypes[0].composite_type else {
+        let CompositeType::Func(func_type) = subtypes.remove(0).composite_type else {
             bail!("TypeSection: Unimplemented composite type: {:?}", subtypes);
         };
         log::debug!("- type: {:?}", func_type);
