@@ -78,6 +78,7 @@ pub struct Context<'a, 'b> {
     pub exec_env_fields: HashMap<&'static str, u32>,
 
     // module info
+    /// LLVM representation of function types which has the ptr to exec_env as the first parameter
     pub signatures: Vec<FunctionType<'a>>,
     /// List of (function, index)
     pub functions: Vec<(String, u32)>,
@@ -101,8 +102,12 @@ pub struct Context<'a, 'b> {
     pub exception_type: StructType<'a>,
     pub personality_function: FunctionValue<'a>,
     // TODO: add more
-    //pub fn_new_frame: Option<FunctionValue<'a>>,
-    //pub fn_add_local_i32: Option<FunctionValue<'a>>,
+    pub fn_throw_exception: Option<FunctionValue<'a>>,
+    pub fn_new_frame: Option<FunctionValue<'a>>,
+    pub fn_add_local_i32: Option<FunctionValue<'a>>,
+    pub fn_add_local_i64: Option<FunctionValue<'a>>,
+    pub fn_add_local_f32: Option<FunctionValue<'a>>,
+    pub fn_add_local_f64: Option<FunctionValue<'a>>,
 }
 
 impl<'a> Context<'a, '_> {
@@ -124,7 +129,7 @@ impl<'a> Context<'a, '_> {
         );
         let personality_function = module.add_function(
             "__gxx_personality_v0",
-            ictx.i64_type().fn_type(&[], false),
+            ictx.i32_type().fn_type(&[], true),
             Some(Linkage::External),
         );
 
@@ -159,6 +164,12 @@ impl<'a> Context<'a, '_> {
 
             exception_type,
             personality_function,
+            fn_throw_exception: None,
+            fn_new_frame: None,
+            fn_add_local_i32: None,
+            fn_add_local_i64: None,
+            fn_add_local_f32: None,
+            fn_add_local_f64: None,
         }
     }
 

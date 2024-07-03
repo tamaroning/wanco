@@ -584,6 +584,8 @@ pub fn gen_call<'a>(
 
     // call
     if ctx.config.unwind {
+        // TODO: remove
+        // gen_debug_print(ctx, current_fn.get_name().to_str().unwrap()).unwrap();
         let then_block = ctx.ictx.append_basic_block(*current_fn, "invoke.then");
         let catch_block = ctx.ictx.append_basic_block(*current_fn, "invoke.catch");
         let call_site = ctx
@@ -601,7 +603,8 @@ pub fn gen_call<'a>(
         // Catch BB
         ctx.builder.position_at_end(catch_block);
         let null = ctx.inkwell_types.i8_ptr_type.const_null();
-        ctx.builder
+        let res = ctx
+            .builder
             .build_landing_pad(
                 ctx.exception_type,
                 ctx.personality_function,
@@ -610,11 +613,20 @@ pub fn gen_call<'a>(
                 "res",
             )
             .expect("should build landing pad");
+        // __cxa_end_catch
+        /*
+        {
+            let end_catch = ctx.module.get_function("__cxa_end_catch").unwrap_or({
+                let ty = ctx.inkwell_types.void_type.fn_type(&[], false);
+                ctx.module.add_function("__cxa_end_catch", ty, None)
+            });
+            ctx.builder
+                .build_call(end_catch, &[], "")
+                .expect("should build call");
+        }
+        */
         gen_store_wasm_stack(ctx, exec_env_ptr, locals).expect("should build store wasm stack");
-        // TODO: unreachable for now
-        ctx.builder
-            .build_unreachable()
-            .expect("should build unreachable");
+        ctx.builder.build_resume(res).expect("should build resume");
 
         // Continue codegen from then block
         ctx.builder.position_at_end(then_block);
@@ -686,6 +698,7 @@ pub fn gen_call_indirect<'a>(
 
     // call and push result
     if ctx.config.unwind {
+        todo!();
         let then_block = ctx.ictx.append_basic_block(*current_fn, "invoke.then");
         let catch_block = ctx.ictx.append_basic_block(*current_fn, "invoke.catch");
         let call_site = ctx
@@ -710,7 +723,8 @@ pub fn gen_call_indirect<'a>(
         // Catch BB
         ctx.builder.position_at_end(catch_block);
         let null = ctx.inkwell_types.i8_ptr_type.const_null();
-        ctx.builder
+        let res = ctx
+            .builder
             .build_landing_pad(
                 ctx.exception_type,
                 ctx.personality_function,
@@ -720,10 +734,7 @@ pub fn gen_call_indirect<'a>(
             )
             .expect("should build landing pad");
         gen_store_wasm_stack(ctx, exec_env_ptr, locals).expect("should build store wasm stack");
-        // TODO: unreachable for now
-        ctx.builder
-            .build_unreachable()
-            .expect("should build unreachable");
+        ctx.builder.build_resume(res).expect("should build resume");
 
         // Continue codegen from then block
         ctx.builder.position_at_end(then_block);
@@ -808,19 +819,89 @@ pub fn gen_store_wasm_stack<'a>(
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
-    // Store frame
+    // Store a frame
+    // call new_frame
+    ctx.builder
+        .build_call(
+            ctx.fn_new_frame.expect("should define new_frame"),
+            &[exec_env_ptr.as_basic_value_enum().into()],
+            "",
+        )
+        .expect("should build call");
+    /*
+    // call add_local_T
     for (ptr, ty) in locals {
-        // TODO: store this frame to exec_env
-        let val = ty.into_int_type().const_zero();
-        ctx.builder
-            .build_store(*ptr, val)
-            .expect("should build store");
+        let val = ctx
+            .builder
+            .build_load(ty.as_basic_type_enum(), *ptr, "")
+            .expect("should build load");
+        gen_add_local(ctx, exec_env_ptr, val).expect("should build add_local_T");
     }
     // Store stack values associated to the current function
     let frame = ctx.stack_frames.last().expect("frame empty");
     for _ in frame.stack.iter().rev() {
         // TODO:
     }
+    */
 
+    Ok(())
+}
+
+pub fn gen_add_local<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    val: BasicValueEnum<'a>,
+) -> Result<()> {
+    if val.get_type().is_int_type() {
+        if val.get_type().into_int_type() == ctx.inkwell_types.i32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_local_i32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else if val.get_type().into_int_type() == ctx.inkwell_types.i64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_local_i64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else {
+            bail!("Unsupported type {:?}", val);
+        }
+    } else if val.get_type().is_float_type() {
+        if val.get_type().into_float_type() == ctx.inkwell_types.f32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_local_f32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else if val.get_type().into_float_type() == ctx.inkwell_types.f64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_local_f64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else {
+            bail!("Unsupported type {:?}", val);
+        }
+    } else if val.get_type().into_float_type() == ctx.inkwell_types.f64_type {
+        ctx.builder
+            .build_call(
+                ctx.fn_add_local_f64.unwrap(),
+                &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                "",
+            )
+            .expect("should build call");
+    } else {
+        bail!("Unsupported type {:?}", val);
+    }
     Ok(())
 }

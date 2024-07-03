@@ -25,6 +25,9 @@ typedef enum {
 
 extern "C" WasiError fd_write(ExecEnv *exec_env, int fd, int buf_iovec_addr,
                               int vec_len, int size_addr) {
+  // TODO: remove
+  printf("throw exception in fd_write\n");
+  throw 0;
   char *iovec_ptr = (char *)&exec_env->memory_base[buf_iovec_addr];
   IoVec *iovec = (IoVec *)iovec_ptr;
 

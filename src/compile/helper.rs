@@ -1,7 +1,9 @@
 use crate::context::Context;
 use anyhow::Result;
-use inkwell::values::{
-    BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue,
+use inkwell::{
+    module::Linkage,
+    types::BasicType,
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, FunctionValue, PointerValue},
 };
 
 pub fn gen_llvm_intrinsic<'a>(
@@ -190,5 +192,37 @@ pub fn gen_int_compare(ctx: &mut Context<'_, '_>, cond: inkwell::IntPredicate) -
         .expect("should build int z extend");
     ctx.push(result.as_basic_value_enum());
 
+    Ok(())
+}
+
+pub fn gen_debug_print<'a>(ctx: &mut Context<'a, '_>, s: &str) -> Result<()> {
+    let printf = ctx.module.get_function("printf").unwrap_or({
+        ctx.module.add_function(
+            "printf",
+            ctx.inkwell_types.void_type.fn_type(
+                &[ctx.inkwell_types.i8_ptr_type.as_basic_type_enum().into()],
+                true,
+            ),
+            Some(Linkage::External),
+        )
+    });
+    // convert characters other than alphanums to z.
+    let s: Vec<_> = s
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { 'z' } as u8)
+        .collect();
+    dbg!(String::from_utf8(s.clone()).unwrap());
+    let s: Vec<_> = s
+        .into_iter()
+        .map(|c| ctx.inkwell_types.i8_type.const_int(c as u64, false))
+        .collect();
+    let arr = ctx.inkwell_types.i8_type.const_array(&s);
+    // convert array to i8*
+    let p = ctx.builder.build_alloca(arr.get_type(), "p").unwrap();
+    ctx.builder.build_store(p, arr).unwrap();
+
+    ctx.builder
+        .build_call(printf, &[p.as_basic_value_enum().into()], "")
+        .expect("should build call to printf");
     Ok(())
 }
