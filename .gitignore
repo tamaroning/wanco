@@ -5,3 +5,6 @@
 **/*.wat
 **/*.wasm
 !tests/**/*
+
+*.bc
+*.cc
