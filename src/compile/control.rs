@@ -7,7 +7,7 @@ use inkwell::{
 };
 use wasmparser::{BlockType, BrTable};
 
-use super::compile_type::wasmty_to_llvmty;
+use super::{checkpoint::gen_check_state_and_snapshot, compile_type::wasmty_to_llvmty};
 
 /// Holds the state of if-else.
 #[derive(Eq, PartialEq, Debug)]
@@ -549,6 +549,12 @@ pub fn gen_call<'a>(
     args.reverse();
     args.insert(0, exec_env_ptr.as_basic_value_enum());
 
+    // Starts checkpoint if necessary
+    if ctx.config.checkpoint {
+        gen_check_state_and_snapshot(ctx, *current_fn, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
+    }
+
     // call
     let args = args
         .iter()
@@ -565,6 +571,11 @@ pub fn gen_call<'a>(
                 .left()
                 .expect("fail translate call_site"),
         );
+    }
+    // Continue checkpoint if necessary
+    if ctx.config.checkpoint {
+        gen_check_state_and_snapshot(ctx, *current_fn, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
     }
 
     Ok(())
@@ -680,32 +691,5 @@ pub fn gen_unreachable(ctx: &mut Context<'_, '_>) -> Result<()> {
     ctx.builder
         .build_unreachable()
         .expect("should build unreachable");
-    Ok(())
-}
-
-pub fn gen_store_wasm_stack<'a>(
-    ctx: &mut Context<'a, '_>,
-    exec_env_ptr: &PointerValue<'a>,
-    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
-) -> Result<()> {
-    // Store a frame
-    // call new_frame
-    ctx.builder
-        .build_call(
-            ctx.fn_new_frame.expect("should define new_frame"),
-            &[exec_env_ptr.as_basic_value_enum().into()],
-            "",
-        )
-        .expect("should build call");
-    /*
-    for (ptr, ty) in locals {
-        // TODO:
-    }
-    // Store stack values associated to the current function
-    let frame = ctx.stack_frames.last().expect("frame empty");
-    for _ in frame.stack.iter().rev() {
-        // TODO:
-    }
-    */
     Ok(())
 }

@@ -30,6 +30,7 @@ public:
     case Type::F64:
       return std::to_string(f64);
     }
+    __builtin_unreachable();
   }
 
   union {
@@ -54,8 +55,15 @@ public:
   std::vector<Frame> frames;
 };
 
+enum class MigrationState : int32_t {
+  STATE_NONE = 0,
+  STATE_CHECKPOINT = 1,
+  STATE_RESTORE = 2,
+};
+
 extern "C" struct ExecEnv {
   int8_t *memory_base;
   int32_t memory_size;
+  MigrationState migration_state;
   Checkpoint *chkpt;
 };

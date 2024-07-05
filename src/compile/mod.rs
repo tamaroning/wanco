@@ -1,3 +1,4 @@
+pub mod checkpoint;
 mod compile_function;
 mod compile_global;
 mod compile_memory;

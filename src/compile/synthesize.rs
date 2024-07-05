@@ -10,10 +10,12 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     let mut exec_env_fields = HashMap::new();
     exec_env_fields.insert("memory_base", 0);
     exec_env_fields.insert("memory_size", 1);
-    exec_env_fields.insert("checkpoint", 2);
+    exec_env_fields.insert("migration_state", 2);
+    exec_env_fields.insert("private1", 3);
     let exec_env_type = ctx.ictx.struct_type(
         &[
             ctx.inkwell_types.i8_ptr_type.into(),
+            ctx.inkwell_types.i32_type.into(),
             ctx.inkwell_types.i32_type.into(),
             // Reserve 4 bytes for checkpoint
             ctx.inkwell_types.i8_ptr_type.into(),
@@ -67,6 +69,42 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         ctx.fn_new_frame = Some(ctx.module.add_function(
             "new_frame",
             fn_type_new_frame,
+            Some(Linkage::External),
+        ));
+        let fn_type_add_local_i32 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
+            false,
+        );
+        ctx.fn_add_local_i32 = Some(ctx.module.add_function(
+            "add_local_i32",
+            fn_type_add_local_i32,
+            Some(Linkage::External),
+        ));
+        let fn_type_add_local_i64 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.i64_type.into()],
+            false,
+        );
+        ctx.fn_add_local_i64 = Some(ctx.module.add_function(
+            "add_local_i64",
+            fn_type_add_local_i64,
+            Some(Linkage::External),
+        ));
+        let fn_type_add_local_f32 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.f32_type.into()],
+            false,
+        );
+        ctx.fn_add_local_f32 = Some(ctx.module.add_function(
+            "add_local_f32",
+            fn_type_add_local_f32,
+            Some(Linkage::External),
+        ));
+        let fn_type_add_local_f64 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.f64_type.into()],
+            false,
+        );
+        ctx.fn_add_local_f64 = Some(ctx.module.add_function(
+            "add_local_f64",
+            fn_type_add_local_f64,
             Some(Linkage::External),
         ));
     }
