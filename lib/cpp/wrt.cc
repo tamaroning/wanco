@@ -2,6 +2,7 @@
 #include <cassert>
 #include <csignal>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 
 const int32_t PAGE_SIZE = 65536;
@@ -17,6 +18,7 @@ extern "C" void aot_main(ExecEnv *);
 
 // forward decl
 void dump_checkpoint(Checkpoint *chkpt);
+void write_checkpoint_json(std::ofstream &ofs, Checkpoint *chkpt);
 
 extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages);
 
@@ -41,8 +43,11 @@ int main() {
   aot_main(&exec_env);
 
   // TODO: dump to json
-  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT)
+  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT) {
     dump_checkpoint(chkpt);
+    std::ofstream ofs("checkpoint.json");
+    write_checkpoint_json(ofs, chkpt);
+  }
 
   delete (chkpt);
   return 0;
@@ -151,4 +156,104 @@ void dump_checkpoint(Checkpoint *chkpt) {
   for (auto &value : chkpt->globals) {
     std::cout << "  " << value.to_string() << std::endl;
   }
+}
+
+void write_value_json(std::ofstream &ofs, const Value v) {
+  ofs << "{ \"type\": \"";
+  switch (v.get_type()) {
+  case Value::Type::I32:
+    ofs << "i32";
+    break;
+  case Value::Type::I64:
+    ofs << "i64";
+    break;
+  case Value::Type::F32:
+    ofs << "f32";
+    break;
+  case Value::Type::F64:
+    ofs << "f64";
+    break;
+  }
+  ofs << "\", \"value\": ";
+  switch (v.get_type()) {
+  case Value::Type::I32:
+    ofs << v.i32;
+    break;
+  case Value::Type::I64:
+    ofs << v.i64;
+    break;
+  case Value::Type::F32:
+    ofs << v.f32;
+    break;
+  case Value::Type::F64:
+    ofs << v.f64;
+    break;
+  }
+  ofs << " }";
+}
+
+void write_checkpoint_json(std::ofstream &ofs, Checkpoint *chkpt) {
+  ofs << "{\n";
+  // frames
+  ofs << "  \"frames\": [\n";
+  for (size_t i = 0; i < chkpt->frames.size(); i++) {
+    const Frame &frame = chkpt->frames[i];
+    ofs << "    {\n";
+    ofs << "      \"fn_index\": " << frame.fn_index << ",\n";
+    ofs << "      \"pc\": " << frame.pc << ",\n";
+    ofs << "      \"locals\": [\n";
+    for (size_t j = 0; j < frame.locals.size(); j++) {
+      const Value &local = frame.locals[j];
+      ofs << "        ";
+      write_value_json(ofs, local);
+      if (j != frame.locals.size() - 1)
+        ofs << ",";
+      ofs << "\n";
+    }
+    ofs << "      ]\n";
+    ofs << "    }";
+    if (i != chkpt->frames.size() - 1)
+      ofs << ",";
+    ofs << "\n";
+  }
+  ofs << "  ],\n";
+  // stack
+  ofs << "  \"stack\": [\n";
+  for (size_t i = 0; i < chkpt->stack.size(); i++) {
+    const Value &value = chkpt->stack[i];
+    ofs << "    ";
+    write_value_json(ofs, value);
+    if (i != chkpt->stack.size() - 1)
+      ofs << ",";
+    ofs << "\n";
+  }
+  ofs << "  ],\n";
+  // globals
+  ofs << "  \"globals\": [\n";
+  for (size_t i = 0; i < chkpt->globals.size(); i++) {
+    const Value &value = chkpt->globals[i];
+    ofs << "    ";
+    write_value_json(ofs, value);
+    if (i != chkpt->globals.size() - 1)
+      ofs << ",";
+    ofs << "\n";
+  }
+  ofs << "  ],\n";
+  // memory
+  // TODO: should use base64
+  ofs << "  \"memory\": [\n";
+  int8_t const *memory = exec_env.memory_base;
+  int32_t memory_size = exec_env.memory_size;
+  for (int32_t i = 0; i < memory_size * PAGE_SIZE; i++) {
+    if (i % 64 == 0)
+      ofs << "    ";
+    ofs << (int)memory[i];
+    if (i != memory_size * PAGE_SIZE - 1)
+      ofs << ",";
+    if (i % 64 == 63)
+      ofs << "\n";
+  }
+  ofs << "  ]\n";
+
+  ofs << "}\n";
 }
