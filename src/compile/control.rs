@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
     types::BasicTypeEnum,
-    values::{BasicValue, BasicValueEnum, FunctionValue, PhiValue, PointerValue},
+    values::{BasicValue, BasicValueEnum, PhiValue, PointerValue},
 };
 use wasmparser::{BlockType, BrTable};
 
@@ -407,7 +407,7 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
     Ok(())
 }
 
-pub fn gen_end<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
+pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
     let current_block = ctx
         .builder
         .get_insert_block()
@@ -539,7 +539,7 @@ pub fn gen_call<'a>(
     function_index: u32,
 ) -> Result<()> {
     let fn_called = ctx.function_values[function_index as usize];
-    let current_fn = ctx.current_fn.expect("fail to get current_fn");
+    let _current_fn = ctx.current_fn.expect("fail to get current_fn");
 
     // args
     let mut args: Vec<BasicValueEnum> = Vec::new();
@@ -585,7 +585,7 @@ pub fn gen_call<'a>(
 pub fn gen_call_indirect<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    _locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
     type_index: u32,
     table_index: u32,
 ) -> Result<()> {

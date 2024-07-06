@@ -80,8 +80,8 @@ pub(super) fn compile_global_section(
     Ok(())
 }
 
-pub(super) fn compile_data_section<'a>(
-    ctx: &mut Context<'a, '_>,
+pub(super) fn compile_data_section(
+    ctx: &mut Context<'_, '_>,
     data_segs: DataSectionReader,
 ) -> Result<()> {
     // Move position to aot_main %init

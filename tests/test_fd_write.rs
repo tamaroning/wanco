@@ -2,8 +2,8 @@ use std::{path::PathBuf, process::Command};
 
 use wanco::*;
 
-const WRT_PATH: &'static str = "lib/cpp/wrt.o";
-const LIB_PATH: &'static str = "lib/cpp/lib.o";
+const WRT_PATH: &str = "lib/cpp/wrt.o";
+const LIB_PATH: &str = "lib/cpp/lib.o";
 
 #[test]
 fn test_fd_write() {
@@ -14,13 +14,13 @@ fn test_fd_write() {
         .with_extension("wat");
     let tmp_filename = "wanco_fd_write";
     let obj = std::path::PathBuf::from("/tmp")
-        .join(&tmp_filename)
+        .join(tmp_filename)
         .with_extension("o");
     let exe = std::path::PathBuf::from("/tmp").join(tmp_filename);
 
     // Compile
     let args = Args {
-        input_file: std::path::PathBuf::from(path),
+        input_file: path,
         // /tmp/<filename>.o
         output_file: obj.clone(),
         ..Default::default()

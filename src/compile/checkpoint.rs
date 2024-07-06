@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue},
+    values::{BasicValue, BasicValueEnum, PointerValue},
 };
 
 use crate::context::{Context, Global};
@@ -242,7 +242,7 @@ fn gen_store_wasm_stack<'a>(
     Ok(())
 }
 
-fn gen_return_default_value<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
+fn gen_return_default_value(ctx: &mut Context<'_, '_>) -> Result<()> {
     let ret_type = ctx.current_fn.unwrap().get_type().get_return_type();
     let Some(ty) = ret_type else {
         ctx.builder.build_return(None).expect("should build return");

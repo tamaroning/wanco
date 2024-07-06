@@ -2,9 +2,9 @@ use std::{path::PathBuf, process::Command};
 
 use wanco::*;
 
-const TEST_DIR: &'static str = "tests/wasker/";
-const WRT_PATH: &'static str = "lib/cpp/wrt.o";
-const LIB_PATH: &'static str = "lib/cpp/lib.o";
+const TEST_DIR: &str = "tests/wasker/";
+const WRT_PATH: &str = "lib/cpp/wrt.o";
+const LIB_PATH: &str = "lib/cpp/lib.o";
 
 macro_rules! ident_to_str {
     ($ident:ident) => {
@@ -38,7 +38,7 @@ fn run_test(test_name: &str) {
 
     // Compile
     let args = Args {
-        input_file: std::path::PathBuf::from(path),
+        input_file: path,
         output_file: obj.clone(),
         ..Default::default()
     };
