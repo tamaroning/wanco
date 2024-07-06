@@ -53,6 +53,7 @@ class Checkpoint {
 public:
   std::vector<Value> stack;
   std::vector<Frame> frames;
+  std::vector<Value> globals;
 };
 
 enum class MigrationState : int32_t {

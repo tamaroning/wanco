@@ -79,6 +79,23 @@ extern "C" void push_f64(ExecEnv *exec_env, double f64) {
   exec_env->chkpt->stack.push_back(Value(f64));
 }
 
+// globals
+extern "C" void add_global_i32(ExecEnv *exec_env, int32_t i32) {
+  exec_env->chkpt->globals.push_back(Value(i32));
+}
+
+extern "C" void add_global_i64(ExecEnv *exec_env, int64_t i64) {
+  exec_env->chkpt->globals.push_back(Value(i64));
+}
+
+extern "C" void add_global_f32(ExecEnv *exec_env, float f32) {
+  exec_env->chkpt->globals.push_back(Value(f32));
+}
+
+extern "C" void add_global_f64(ExecEnv *exec_env, double f64) {
+  exec_env->chkpt->globals.push_back(Value(f64));
+}
+
 void dump_checkpoint(Checkpoint *chkpt) {
   std::cout << "Frames: " << (chkpt->frames.empty() ? "(empty)" : "")
             << std::endl;
@@ -92,6 +109,12 @@ void dump_checkpoint(Checkpoint *chkpt) {
 
   std::cout << "Stack:" << (chkpt->stack.empty() ? "(empty)" : "") << std::endl;
   for (auto &value : chkpt->stack) {
+    std::cout << "  " << value.to_string() << std::endl;
+  }
+
+  std::cout << "Globals" << (chkpt->globals.empty() ? "(empty)" : "")
+            << std::endl;
+  for (auto &value : chkpt->globals) {
     std::cout << "  " << value.to_string() << std::endl;
   }
 }

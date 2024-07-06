@@ -5,6 +5,8 @@ use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpac
 
 use crate::context::Context;
 
+use super::checkpoint::gen_store_globals;
+
 pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     // Define ExecEnv struct
     let mut exec_env_fields = HashMap::new();
@@ -59,6 +61,11 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .add_function("memory_grow", fn_type_memory_grow, None);
     ctx.fn_memory_grow = Some(fn_memory_grow);
 
+    load_api(ctx);
+    Ok(())
+}
+
+pub fn load_api(ctx: &mut Context<'_, '_>) {
     // Checkpoint related
     if ctx.config.checkpoint {
         let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
@@ -143,9 +150,43 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
             fn_type_push_f64,
             Some(Linkage::External),
         ));
+        let fn_type_add_global_i32 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
+            false,
+        );
+        ctx.fn_add_global_i32 = Some(ctx.module.add_function(
+            "add_global_i32",
+            fn_type_add_global_i32,
+            Some(Linkage::External),
+        ));
+        let fn_type_add_global_i64 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.i64_type.into()],
+            false,
+        );
+        ctx.fn_add_global_i64 = Some(ctx.module.add_function(
+            "add_global_i64",
+            fn_type_add_global_i64,
+            Some(Linkage::External),
+        ));
+        let fn_type_add_global_f32 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.f32_type.into()],
+            false,
+        );
+        ctx.fn_add_global_f32 = Some(ctx.module.add_function(
+            "add_global_f32",
+            fn_type_add_global_f32,
+            Some(Linkage::External),
+        ));
+        let fn_type_add_global_f64 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.f64_type.into()],
+            false,
+        );
+        ctx.fn_add_global_f64 = Some(ctx.module.add_function(
+            "add_global_f64",
+            fn_type_add_global_f64,
+            Some(Linkage::External),
+        ));
     }
-
-    Ok(())
 }
 
 pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
@@ -176,6 +217,11 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     ctx.builder
         .build_call(start_fn, &[exec_env_ptr.as_basic_value_enum().into()], "")
         .expect("should build call");
+
+    if ctx.config.checkpoint {
+        // store globals
+        gen_store_globals(ctx, &exec_env_ptr, aot_main).expect("should gen store globals");
+    }
 
     ctx.builder.build_return(None).expect("should build return");
 

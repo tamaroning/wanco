@@ -84,7 +84,6 @@ pub struct Context<'a, 'b> {
     // checkpoint/restore related
     //pub exception_type: StructType<'a>,
     //pub personality_function: FunctionValue<'a>,
-    // TODO: add more
     pub fn_new_frame: Option<FunctionValue<'a>>,
     pub fn_add_local_i32: Option<FunctionValue<'a>>,
     pub fn_add_local_i64: Option<FunctionValue<'a>>,
@@ -94,6 +93,10 @@ pub struct Context<'a, 'b> {
     pub fn_push_i64: Option<FunctionValue<'a>>,
     pub fn_push_f32: Option<FunctionValue<'a>>,
     pub fn_push_f64: Option<FunctionValue<'a>>,
+    pub fn_add_global_i32: Option<FunctionValue<'a>>,
+    pub fn_add_global_i64: Option<FunctionValue<'a>>,
+    pub fn_add_global_f32: Option<FunctionValue<'a>>,
+    pub fn_add_global_f64: Option<FunctionValue<'a>>,
 }
 
 impl<'a> Context<'a, '_> {
@@ -143,6 +146,10 @@ impl<'a> Context<'a, '_> {
             fn_push_i64: None,
             fn_push_f32: None,
             fn_push_f64: None,
+            fn_add_global_i64: None,
+            fn_add_global_i32: None,
+            fn_add_global_f32: None,
+            fn_add_global_f64: None,
         }
     }
 

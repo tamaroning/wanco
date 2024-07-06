@@ -4,11 +4,103 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, FunctionValue, PointerValue},
 };
 
-use crate::context::Context;
+use crate::context::{Context, Global};
 
 pub const MIGRATION_STATE_NONE: i32 = 0;
 pub const MIGRATION_STATE_CHECKPOINT: i32 = 1;
 pub const MIGRATION_STATE_RESTORE: i32 = 2;
+
+pub fn gen_store_globals<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    current_fn: FunctionValue<'a>,
+) -> Result<()> {
+    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
+    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT)
+        .expect("fail to gen_compare_migration_state");
+    ctx.builder
+        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
+        .expect("should build conditional branch");
+    ctx.builder.position_at_end(then_bb);
+
+    // add globals
+    let mut globals = Vec::new();
+    for global in &ctx.globals {
+        let value = match global {
+            Global::Const { value } => *value,
+            Global::Mut { ptr, ty } => {
+                let value = ctx
+                    .builder
+                    .build_load(*ty, ptr.as_pointer_value(), "")
+                    .expect("should build load");
+                value
+            }
+        };
+        globals.push(value);
+    }
+    for value in globals {
+        gen_add_global_value(ctx, exec_env_ptr, value)
+            .expect("should build add_global for const global");
+    }
+    ctx.builder
+        .build_unconditional_branch(else_bb)
+        .expect("should build unconditonal branch");
+    // Move back to else bb
+    ctx.builder.position_at_end(else_bb);
+    Ok(())
+}
+
+fn gen_add_global_value<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    value: BasicValueEnum<'a>,
+) -> Result<()> {
+    if value.get_type().is_int_type() {
+        if value.get_type().into_int_type() == ctx.inkwell_types.i32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_global_i32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else if value.get_type().into_int_type() == ctx.inkwell_types.i64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_global_i64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else {
+            bail!("Unsupported type {:?}", value);
+        }
+    } else if value.get_type().is_float_type() {
+        if value.get_type().into_float_type() == ctx.inkwell_types.f32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_global_f32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else if value.get_type().into_float_type() == ctx.inkwell_types.f64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_add_global_f64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else {
+            bail!("Unsupported type {:?}", value);
+        }
+    } else {
+        bail!("Unsupported type {:?}", value);
+    }
+    Ok(())
+}
 
 pub fn gen_set_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
@@ -220,14 +312,6 @@ fn gen_add_local<'a>(
         } else {
             bail!("Unsupported type {:?}", val);
         }
-    } else if val.get_type().into_float_type() == ctx.inkwell_types.f64_type {
-        ctx.builder
-            .build_call(
-                ctx.fn_add_local_f64.unwrap(),
-                &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
-                "",
-            )
-            .expect("should build call");
     } else {
         bail!("Unsupported type {:?}", val);
     }
@@ -279,14 +363,6 @@ fn gen_push_stack<'a>(
         } else {
             bail!("Unsupported type {:?}", val);
         }
-    } else if val.get_type().into_float_type() == ctx.inkwell_types.f64_type {
-        ctx.builder
-            .build_call(
-                ctx.fn_add_local_f64.unwrap(),
-                &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
-                "",
-            )
-            .expect("should build call");
     } else {
         bail!("Unsupported type {:?}", val);
     }
