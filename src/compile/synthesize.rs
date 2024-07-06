@@ -79,7 +79,11 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             Some(Linkage::External),
         ));
         let fn_type_set_pc_to_frame = ctx.inkwell_types.void_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
+            &[
+                exec_env_ptr_type.into(),
+                ctx.inkwell_types.i32_type.into(),
+                ctx.inkwell_types.i32_type.into(),
+            ],
             false,
         );
         ctx.fn_set_pc_to_frame = Some(ctx.module.add_function(

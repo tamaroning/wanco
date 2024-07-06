@@ -70,7 +70,9 @@ extern "C" void new_frame(ExecEnv *exec_env) {
   exec_env->chkpt->frames.push_back(Frame());
 }
 
-extern "C" void set_pc_to_frame(ExecEnv *exec_env, int32_t pc) {
+extern "C" void set_pc_to_frame(ExecEnv *exec_env, int32_t fn_index,
+                                int32_t pc) {
+  exec_env->chkpt->frames.back().fn_index = fn_index;
   exec_env->chkpt->frames.back().pc = pc;
 }
 
@@ -127,11 +129,15 @@ extern "C" void add_global_f64(ExecEnv *exec_env, double f64) {
 void dump_checkpoint(Checkpoint *chkpt) {
   std::cout << "Frames: " << (chkpt->frames.empty() ? "(empty)" : "")
             << std::endl;
-  for (auto &frame : chkpt->frames) {
-    std::cout << "  Locals:" << (frame.locals.empty() ? "(empty)" : "")
+  for (size_t i = 0; i < chkpt->frames.size(); i++) {
+    const Frame &frame = chkpt->frames[i];
+    std::cout << "  Frame[" << i << "]" << std::endl;
+    std::cout << "    Location: Op[" << frame.pc << "] at Func["
+              << frame.fn_index << "]" << std::endl;
+    std::cout << "    Locals:" << (frame.locals.empty() ? "(empty)" : "")
               << std::endl;
     for (auto &local : frame.locals) {
-      std::cout << "    " << local.to_string() << std::endl;
+      std::cout << "      " << local.to_string() << std::endl;
     }
   }
 

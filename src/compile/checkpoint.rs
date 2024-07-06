@@ -224,6 +224,19 @@ fn gen_store_wasm_stack<'a>(
             "",
         )
         .expect("should build call");
+    let pc = ctx.current_op.unwrap() as u64;
+    let fn_index = ctx.current_function_idx.unwrap() as u64;
+    ctx.builder
+        .build_call(
+            ctx.fn_set_pc_to_frame.unwrap(),
+            &[
+                exec_env_ptr.as_basic_value_enum().into(),
+                ctx.inkwell_types.i32_type.const_int(fn_index, false).into(),
+                ctx.inkwell_types.i32_type.const_int(pc, false).into(),
+            ],
+            "",
+        )
+        .expect("should build call");
 
     for (ptr, ty) in locals {
         let val = ctx
