@@ -203,6 +203,9 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .module
         .get_function("aot_main")
         .expect("should define aot_main");
+    ctx.current_fn = Some(aot_main);
+    ctx.current_function_idx = None;
+    
     let exec_env_ptr = aot_main.get_first_param().expect("should have &exec_env");
     let exec_env_ptr = exec_env_ptr.into_pointer_value();
 
@@ -229,7 +232,7 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
 
     if ctx.config.checkpoint {
         // store globals
-        gen_store_globals(ctx, &exec_env_ptr, aot_main).expect("should gen store globals");
+        gen_store_globals(ctx, &exec_env_ptr).expect("should gen store globals");
     }
 
     ctx.builder.build_return(None).expect("should build return");

@@ -117,7 +117,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
         compile_element_section(ctx, elems)?;
     }
 
-    ctx.current_function_idx = ctx.num_imports;
+    ctx.current_function_idx = Some(ctx.num_imports);
     match code_section_data {
         Some(mut code_section_data) => {
             while let Chunk::Parsed { consumed, payload } =
@@ -128,7 +128,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
                     Payload::CodeSectionStart { .. } => (),
                     Payload::CodeSectionEntry(f) => {
                         compile_function(ctx, f)?;
-                        ctx.current_function_idx += 1;
+                        ctx.current_function_idx = Some(ctx.current_function_idx.unwrap() + 1);
                     }
                     _ => unreachable!("Unexpected payload in CodeSection"),
                 }
@@ -138,6 +138,8 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
             log::error!("CodeSection empty");
         }
     }
+    ctx.current_fn = None;
+    ctx.current_function_idx = None;
 
     finalize(ctx)?;
 

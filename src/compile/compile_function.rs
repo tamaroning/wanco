@@ -22,9 +22,13 @@ use anyhow::{anyhow, bail, Context as _, Result};
 use super::helper::{gen_memory_base, gen_memory_size};
 
 pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Result<()> {
-    log::debug!("Compile function (idx = {})", ctx.current_function_idx);
+    log::debug!(
+        "Compile function (idx = {})",
+        ctx.current_function_idx.unwrap()
+    );
 
-    let current_fn = ctx.function_values[ctx.current_function_idx as usize];
+    let current_fn = ctx.function_values[ctx.current_function_idx.unwrap() as usize];
+    ctx.current_fn = Some(current_fn);
     let entry_bb = ctx.ictx.append_basic_block(current_fn, "entry");
     let ret_bb = ctx.ictx.append_basic_block(current_fn, "ret");
     ctx.stack_frames.push(StackFrame::new());
@@ -100,17 +104,19 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         let op = op_reader.read_operator()?;
         log::debug!("- op[{}]: {:?}", num_op, &op);
 
-        compile_op(ctx, &op, &current_fn, &exec_env_ptr, &locals)?;
+        ctx.current_op = Some(num_op);
+        compile_op(ctx, &op, &exec_env_ptr, &locals)?;
 
         num_op += 1;
     }
+
+    ctx.current_fn = None;
     Ok(())
 }
 
 fn compile_op<'a>(
     ctx: &mut Context<'a, '_>,
     op: &Operator,
-    current_fn: &FunctionValue<'a>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
@@ -139,7 +145,7 @@ fn compile_op<'a>(
                     unreachable!("Unexpected depth 0");
                 }
                 1 => {
-                    gen_end(ctx, current_fn).context("error gen End")?;
+                    gen_end(ctx).context("error gen End")?;
                     ctx.unreachable_depth -= 1;
                     ctx.unreachable_reason = UnreachableReason::Reachable;
                     log::debug!("- end of unreachable");
@@ -184,34 +190,26 @@ fn compile_op<'a>(
         Operator::End => {
             log::debug!(
                 "- gen_end, fn = {:?}, ret = {:?}",
-                current_fn.get_name(),
-                current_fn.get_type().get_return_type()
+                ctx.current_fn.unwrap().get_name(),
+                ctx.current_fn.unwrap().get_type().get_return_type()
             );
-            gen_end(ctx, current_fn).context("error gen End")?;
+            gen_end(ctx).context("error gen End")?;
         }
         Operator::Call { function_index } => {
-            gen_call(ctx, exec_env_ptr, current_fn, locals, *function_index)
-                .context("error gen Call")?;
+            gen_call(ctx, exec_env_ptr, locals, *function_index).context("error gen Call")?;
         }
         Operator::CallIndirect {
             type_index,
             table_index,
         } => {
-            gen_call_indirect(
-                ctx,
-                exec_env_ptr,
-                current_fn,
-                locals,
-                *type_index,
-                *table_index,
-            )
-            .context("error gen CallIndirect")?;
+            gen_call_indirect(ctx, exec_env_ptr, locals, *type_index, *table_index)
+                .context("error gen CallIndirect")?;
         }
         Operator::Drop => {
             gen_drop(ctx).context("error gen Drop")?;
         }
         Operator::Return => {
-            gen_return(ctx, current_fn).context("error gen Return")?;
+            gen_return(ctx).context("error gen Return")?;
         }
         Operator::Select => {
             gen_select(ctx).context("error gen Select")?;

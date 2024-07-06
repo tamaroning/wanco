@@ -13,8 +13,8 @@ pub const MIGRATION_STATE_RESTORE: i32 = 2;
 pub fn gen_store_globals<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    current_fn: FunctionValue<'a>,
 ) -> Result<()> {
+    let current_fn = ctx.current_fn.unwrap();
     let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
     let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
     let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT)
@@ -129,10 +129,10 @@ pub fn gen_set_migration_state<'a>(
 // Store the current stack frame if the migration state equals to MIAGRATION_STATE_CHECKPOINT
 pub fn gen_check_state_and_snapshot<'a>(
     ctx: &mut Context<'a, '_>,
-    current_fn: FunctionValue<'a>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    let current_fn = ctx.current_fn.expect("should define current_fn");
     let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
     let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
     let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT)
@@ -142,7 +142,7 @@ pub fn gen_check_state_and_snapshot<'a>(
         .expect("should build conditional branch");
     ctx.builder.position_at_end(then_bb);
     gen_store_wasm_stack(ctx, exec_env_ptr, locals).expect("fail to gen_store_wasm_stack");
-    gen_return_default_value(ctx, current_fn).expect("fail to gen_return_default_value");
+    gen_return_default_value(ctx).expect("fail to gen_return_default_value");
     ctx.builder.position_at_end(else_bb);
     Ok(())
 }
@@ -242,11 +242,8 @@ fn gen_store_wasm_stack<'a>(
     Ok(())
 }
 
-fn gen_return_default_value<'a>(
-    ctx: &mut Context<'a, '_>,
-    current_fn: FunctionValue<'a>,
-) -> Result<()> {
-    let ret_type = current_fn.get_type().get_return_type();
+fn gen_return_default_value<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
+    let ret_type = ctx.current_fn.unwrap().get_type().get_return_type();
     let Some(ty) = ret_type else {
         ctx.builder.build_return(None).expect("should build return");
         return Ok(());

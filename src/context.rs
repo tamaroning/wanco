@@ -74,7 +74,9 @@ pub struct Context<'a, 'b> {
     pub globals: Vec<Global<'a>>,
 
     // builder state
-    pub current_function_idx: u32,
+    pub current_function_idx: Option<u32>,
+    pub current_fn: Option<FunctionValue<'a>>,
+    pub current_op: Option<u32>,
     pub control_frames: Vec<ControlFrame<'a>>,
     /// Wasm value stack for the current builder position
     pub stack_frames: Vec<StackFrame<'a>>,
@@ -132,7 +134,9 @@ impl<'a> Context<'a, '_> {
             num_imports: 0,
             globals: Vec::new(),
 
-            current_function_idx: u32::MAX,
+            current_function_idx: None,
+            current_fn: None,
+            current_op: None,
             control_frames: Vec::new(),
             stack_frames: Vec::new(),
             unreachable_depth: 0,

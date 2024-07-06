@@ -74,7 +74,7 @@ impl<'a> ControlFrame<'a> {
 pub fn gen_block(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     let current_block = ctx.builder.get_insert_block().unwrap();
     let next_block = ctx.ictx.append_basic_block(
-        ctx.function_values[ctx.current_function_idx as usize],
+        ctx.function_values[ctx.current_function_idx.unwrap() as usize],
         "block_next",
     );
 
@@ -110,11 +110,11 @@ pub fn gen_loop(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
 
     // Create blocks
     let body_block = ctx.ictx.append_basic_block(
-        ctx.function_values[ctx.current_function_idx as usize],
+        ctx.function_values[ctx.current_function_idx.unwrap() as usize],
         "loop_body",
     );
     let next_block = ctx.ictx.append_basic_block(
-        ctx.function_values[ctx.current_function_idx as usize],
+        ctx.function_values[ctx.current_function_idx.unwrap() as usize],
         "loop_next",
     );
 
@@ -162,15 +162,15 @@ pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
 
     // Create blocks
     let then_block = ctx.ictx.append_basic_block(
-        ctx.function_values[ctx.current_function_idx as usize],
+        ctx.function_values[ctx.current_function_idx.unwrap() as usize],
         "then",
     );
     let else_block = ctx.ictx.append_basic_block(
-        ctx.function_values[ctx.current_function_idx as usize],
+        ctx.function_values[ctx.current_function_idx.unwrap() as usize],
         "else",
     );
     let end_block = ctx.ictx.append_basic_block(
-        ctx.function_values[ctx.current_function_idx as usize],
+        ctx.function_values[ctx.current_function_idx.unwrap() as usize],
         "end",
     );
 
@@ -343,7 +343,7 @@ pub fn gen_brif(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
 
     // Create else block
     let else_block = ctx.ictx.append_basic_block(
-        ctx.function_values[ctx.current_function_idx as usize],
+        ctx.function_values[ctx.current_function_idx.unwrap() as usize],
         "brif_else",
     );
 
@@ -407,12 +407,12 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
     Ok(())
 }
 
-pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) -> Result<()> {
+pub fn gen_end<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
     let current_block = ctx
         .builder
         .get_insert_block()
         .expect("fail to get_insert_block");
-
+    let current_fn = ctx.current_fn.expect("fail to get current_fn");
     let frame = ctx.control_frames.pop().expect("control frame empty");
 
     if ctx.control_frames.is_empty() {
@@ -535,11 +535,11 @@ pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, current_fn: &FunctionValue<'a>) ->
 pub fn gen_call<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    current_fn: &FunctionValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
     function_index: u32,
 ) -> Result<()> {
     let fn_called = ctx.function_values[function_index as usize];
+    let current_fn = ctx.current_fn.expect("fail to get current_fn");
 
     // args
     let mut args: Vec<BasicValueEnum> = Vec::new();
@@ -551,7 +551,7 @@ pub fn gen_call<'a>(
 
     // Starts checkpoint if necessary
     if ctx.config.checkpoint {
-        gen_check_state_and_snapshot(ctx, *current_fn, exec_env_ptr, locals)
+        gen_check_state_and_snapshot(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
 
@@ -567,7 +567,7 @@ pub fn gen_call<'a>(
 
     // Continue checkpoint if necessary
     if ctx.config.checkpoint {
-        gen_check_state_and_snapshot(ctx, *current_fn, exec_env_ptr, locals)
+        gen_check_state_and_snapshot(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
 
@@ -585,7 +585,6 @@ pub fn gen_call<'a>(
 pub fn gen_call_indirect<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    current_fn: &FunctionValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
     type_index: u32,
     table_index: u32,
@@ -646,11 +645,12 @@ pub fn gen_drop(ctx: &mut Context<'_, '_>) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_return(ctx: &mut Context<'_, '_>, current_fn: &FunctionValue<'_>) -> Result<()> {
+pub fn gen_return(ctx: &mut Context<'_, '_>) -> Result<()> {
     // Phi
     ctx.unreachable_depth += 1;
     ctx.unreachable_reason = UnreachableReason::Return;
 
+    let current_fn = ctx.current_fn.expect("fail to get current_fn");
     if current_fn.get_type().get_return_type().is_none() {
         ctx.builder.build_return(None).expect("should build return");
     } else {
