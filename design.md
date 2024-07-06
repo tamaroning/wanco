@@ -43,3 +43,21 @@ PIEを作成する場合は、Inkwell側にRelocationMode::PICを指定する必
 (gccのデフォルトはPIE)
 
 gcc -no-pie でリンクする場合はInkwellはRelocationMode::DefaultでOK
+
+## マイグレーション
+AOTランタイム(ExecEnv)にマイグレーションの状態を持たせておく
+
+ExecEnv::migration_status
+- NONE
+- CHECKPOINT
+- RESTORE
+
+保存の開始: 関数直前とループ内の先頭に以下のコード列を置く
+- migration_status = CHECKPOINT
+- スタック保存用のAPI呼び出し
+- ローカル変数保存用のAPI呼び出し
+- 適当な値で関数からリターン
+保存の継続: 関数呼び出し直後に同じコード列を置いてaot_mainまでアンワインドを行う
+aot_mainではグローバル変数保存用のAPIを呼び出す
+
+

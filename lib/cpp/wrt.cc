@@ -27,11 +27,14 @@ int main() {
   ExecEnv exec_env = {
       .memory_base = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE),
       .memory_size = INIT_MEMORY_SIZE,
+      .migration_state = MigrationState::STATE_NONE,
       .chkpt = chkpt,
   };
   aot_main(&exec_env);
 
-  dump_checkpoint(chkpt);
+  // TODO: dump to json
+  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT)
+    dump_checkpoint(chkpt);
 
   delete (chkpt);
   return 0;
