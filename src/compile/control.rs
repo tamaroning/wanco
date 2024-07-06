@@ -564,6 +564,13 @@ pub fn gen_call<'a>(
         .builder
         .build_call(fn_called, &args, "")
         .expect("should build call");
+
+    // Continue checkpoint if necessary
+    if ctx.config.checkpoint {
+        gen_check_state_and_snapshot(ctx, *current_fn, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
+    }
+
     if call_site.try_as_basic_value().is_left() {
         ctx.push(
             call_site
@@ -572,12 +579,6 @@ pub fn gen_call<'a>(
                 .expect("fail translate call_site"),
         );
     }
-    // Continue checkpoint if necessary
-    if ctx.config.checkpoint {
-        gen_check_state_and_snapshot(ctx, *current_fn, exec_env_ptr, locals)
-            .expect("fail to gen_check_state_and_snapshot");
-    }
-
     Ok(())
 }
 

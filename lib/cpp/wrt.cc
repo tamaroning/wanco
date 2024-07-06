@@ -23,7 +23,7 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
 }
 
 int main() {
-  Checkpoint* chkpt = new Checkpoint();
+  Checkpoint *chkpt = new Checkpoint();
   ExecEnv exec_env = {
       .memory_base = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE),
       .memory_size = INIT_MEMORY_SIZE,
@@ -33,7 +33,7 @@ int main() {
 
   dump_checkpoint(chkpt);
 
-  delete(chkpt);
+  delete (chkpt);
   return 0;
 }
 
@@ -79,17 +79,18 @@ extern "C" void push_f64(ExecEnv *exec_env, double f64) {
   exec_env->chkpt->stack.push_back(Value(f64));
 }
 
-
 void dump_checkpoint(Checkpoint *chkpt) {
-  std::cout << "Frames:" << std::endl;
+  std::cout << "Frames: " << (chkpt->frames.empty() ? "(empty)" : "")
+            << std::endl;
   for (auto &frame : chkpt->frames) {
-    std::cout << "  Locals:" << std::endl;
+    std::cout << "  Locals:" << (frame.locals.empty() ? "(empty)" : "")
+              << std::endl;
     for (auto &local : frame.locals) {
       std::cout << "    " << local.to_string() << std::endl;
     }
   }
 
-  std::cout << "Stack:" << std::endl;
+  std::cout << "Stack:" << (chkpt->stack.empty() ? "(empty)" : "") << std::endl;
   for (auto &value : chkpt->stack) {
     std::cout << "  " << value.to_string() << std::endl;
   }

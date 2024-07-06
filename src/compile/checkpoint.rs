@@ -99,15 +99,15 @@ fn gen_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
 ) -> Result<BasicValueEnum<'a>> {
-    let migration_state_ptr = unsafe {
-        ctx.builder.build_struct_gep(
+    let migration_state_ptr = ctx
+        .builder
+        .build_struct_gep(
             ctx.inkwell_types.i32_type,
             *exec_env_ptr,
             *ctx.exec_env_fields.get("migration_state").unwrap(),
             "migration_state_ptr",
         )
-    }
-    .expect("fail to build_struct_gep");
+        .expect("fail to build_struct_gep");
     let migration_state = ctx
         .builder
         .build_load(
@@ -143,8 +143,9 @@ fn gen_store_wasm_stack<'a>(
 
     // Store stack values associated to the current function
     let frame = ctx.stack_frames.last().expect("frame empty");
-    for _ in frame.stack.iter().rev() {
-        // TODO:
+    let stack = frame.stack.clone();
+    for value in stack.iter().rev() {
+        gen_push_stack(ctx, exec_env_ptr, *value).expect("should build push_T");
     }
     Ok(())
 }
@@ -212,6 +213,65 @@ fn gen_add_local<'a>(
             ctx.builder
                 .build_call(
                     ctx.fn_add_local_f64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else {
+            bail!("Unsupported type {:?}", val);
+        }
+    } else if val.get_type().into_float_type() == ctx.inkwell_types.f64_type {
+        ctx.builder
+            .build_call(
+                ctx.fn_add_local_f64.unwrap(),
+                &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                "",
+            )
+            .expect("should build call");
+    } else {
+        bail!("Unsupported type {:?}", val);
+    }
+    Ok(())
+}
+
+fn gen_push_stack<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    val: BasicValueEnum<'a>,
+) -> Result<()> {
+    if val.get_type().is_int_type() {
+        if val.get_type().into_int_type() == ctx.inkwell_types.i32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_push_i32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else if val.get_type().into_int_type() == ctx.inkwell_types.i64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_push_i64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else {
+            bail!("Unsupported type {:?}", val);
+        }
+    } else if val.get_type().is_float_type() {
+        if val.get_type().into_float_type() == ctx.inkwell_types.f32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_push_f32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
+                    "",
+                )
+                .expect("should build call");
+        } else if val.get_type().into_float_type() == ctx.inkwell_types.f64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_push_f64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
                     "",
                 )

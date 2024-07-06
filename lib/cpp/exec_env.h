@@ -22,13 +22,13 @@ public:
   std::string to_string() const {
     switch (type) {
     case Type::I32:
-      return std::to_string(i32);
+      return "<type=i32, value=" + std::to_string(i32) + ">";
     case Type::I64:
-      return std::to_string(i64);
+      return "<type=i64, value=" + std::to_string(i64) + ">";
     case Type::F32:
-      return std::to_string(f32);
+      return "<type=f32, value=" + std::to_string(f32) + ">";
     case Type::F64:
-      return std::to_string(f64);
+      return "<type=f64, value=" + std::to_string(f64) + ">";
     }
     __builtin_unreachable();
   }

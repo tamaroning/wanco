@@ -90,6 +90,10 @@ pub struct Context<'a, 'b> {
     pub fn_add_local_i64: Option<FunctionValue<'a>>,
     pub fn_add_local_f32: Option<FunctionValue<'a>>,
     pub fn_add_local_f64: Option<FunctionValue<'a>>,
+    pub fn_push_i32: Option<FunctionValue<'a>>,
+    pub fn_push_i64: Option<FunctionValue<'a>>,
+    pub fn_push_f32: Option<FunctionValue<'a>>,
+    pub fn_push_f64: Option<FunctionValue<'a>>,
 }
 
 impl<'a> Context<'a, '_> {
@@ -135,6 +139,10 @@ impl<'a> Context<'a, '_> {
             fn_add_local_i64: None,
             fn_add_local_f32: None,
             fn_add_local_f64: None,
+            fn_push_i32: None,
+            fn_push_i64: None,
+            fn_push_f32: None,
+            fn_push_f64: None,
         }
     }
 

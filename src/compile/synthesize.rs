@@ -107,6 +107,42 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
             fn_type_add_local_f64,
             Some(Linkage::External),
         ));
+        let fn_type_push_i32 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
+            false,
+        );
+        ctx.fn_push_i32 = Some(ctx.module.add_function(
+            "push_i32",
+            fn_type_push_i32,
+            Some(Linkage::External),
+        ));
+        let fn_type_push_i64 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.i64_type.into()],
+            false,
+        );
+        ctx.fn_push_i64 = Some(ctx.module.add_function(
+            "push_i64",
+            fn_type_push_i64,
+            Some(Linkage::External),
+        ));
+        let fn_type_push_f32 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.f32_type.into()],
+            false,
+        );
+        ctx.fn_push_f32 = Some(ctx.module.add_function(
+            "push_f32",
+            fn_type_push_f32,
+            Some(Linkage::External),
+        ));
+        let fn_type_push_f64 = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.f64_type.into()],
+            false,
+        );
+        ctx.fn_push_f64 = Some(ctx.module.add_function(
+            "push_f64",
+            fn_type_push_f64,
+            Some(Linkage::External),
+        ));
     }
 
     Ok(())
