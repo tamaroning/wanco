@@ -1,13 +1,52 @@
 #include "exec_env.h"
+#include <cassert>
+#include <csignal>
 #include <cstdlib>
 #include <iostream>
 
+const int32_t PAGE_SIZE = 65536;
+// 10 and 12 are reserved for SIGUSR1 and SIGUSR2
+const int SIGCHKPT = 10;
+
+// execution environment
+ExecEnv exec_env;
+
+// from wasm AOT module
 extern "C" const int32_t INIT_MEMORY_SIZE;
 extern "C" void aot_main(ExecEnv *);
 
-const int32_t PAGE_SIZE = 65536;
-
+// forward decl
 void dump_checkpoint(Checkpoint *chkpt);
+
+extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages);
+
+void signal_chkpt_handler(int signum) {
+  assert(signum == SIGCHKPT && "Unexpected signal");
+  exec_env.migration_state = MigrationState::STATE_CHECKPOINT;
+}
+
+int main() {
+  // Initialize exec env
+  Checkpoint *chkpt = new Checkpoint();
+  exec_env = {
+      .memory_base = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE),
+      .memory_size = INIT_MEMORY_SIZE,
+      .migration_state = MigrationState::STATE_NONE,
+      .chkpt = chkpt,
+  };
+
+  // Register signal handler
+  signal(SIGCHKPT, signal_chkpt_handler);
+
+  aot_main(&exec_env);
+
+  // TODO: dump to json
+  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT)
+    dump_checkpoint(chkpt);
+
+  delete (chkpt);
+  return 0;
+}
 
 extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
   int32_t old_size = exec_env->memory_size;
@@ -22,24 +61,6 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
   return old_size;
 }
 
-int main() {
-  Checkpoint *chkpt = new Checkpoint();
-  ExecEnv exec_env = {
-      .memory_base = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE),
-      .memory_size = INIT_MEMORY_SIZE,
-      .migration_state = MigrationState::STATE_NONE,
-      .chkpt = chkpt,
-  };
-  aot_main(&exec_env);
-
-  // TODO: dump to json
-  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT)
-    dump_checkpoint(chkpt);
-
-  delete (chkpt);
-  return 0;
-}
-
 /*
 ** checkpoint related functions
 */
@@ -47,6 +68,10 @@ int main() {
 // locals
 extern "C" void new_frame(ExecEnv *exec_env) {
   exec_env->chkpt->frames.push_back(Frame());
+}
+
+extern "C" void set_pc_to_frame(ExecEnv *exec_env, int32_t pc) {
+  exec_env->chkpt->frames.back().pc = pc;
 }
 
 extern "C" void add_local_i32(ExecEnv *exec_env, int32_t i32) {

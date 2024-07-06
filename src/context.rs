@@ -85,6 +85,7 @@ pub struct Context<'a, 'b> {
     //pub exception_type: StructType<'a>,
     //pub personality_function: FunctionValue<'a>,
     pub fn_new_frame: Option<FunctionValue<'a>>,
+    pub fn_set_pc_to_frame: Option<FunctionValue<'a>>,
     pub fn_add_local_i32: Option<FunctionValue<'a>>,
     pub fn_add_local_i64: Option<FunctionValue<'a>>,
     pub fn_add_local_f32: Option<FunctionValue<'a>>,
@@ -138,6 +139,7 @@ impl<'a> Context<'a, '_> {
             unreachable_reason: UnreachableReason::Reachable,
 
             fn_new_frame: None,
+            fn_set_pc_to_frame: None,
             fn_add_local_i32: None,
             fn_add_local_i64: None,
             fn_add_local_f32: None,

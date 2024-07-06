@@ -46,6 +46,8 @@ private:
 
 class Frame {
 public:
+  // inst
+  int32_t pc = 0;
   std::vector<Value> locals;
 };
 

@@ -52,6 +52,8 @@ ExecEnv::migration_status
 - CHECKPOINT
 - RESTORE
 
+## ストア
+
 保存の開始: 関数直前とループ内の先頭に以下のコード列を置く
 - migration_status = CHECKPOINT
 - スタック保存用のAPI呼び出し
@@ -60,4 +62,10 @@ ExecEnv::migration_status
 保存の継続: 関数呼び出し直後に同じコード列を置いてaot_mainまでアンワインドを行う
 aot_mainではグローバル変数保存用のAPIを呼び出す
 
+### ストアのトリガー
+
+とりあえずPOSIX signalを使う。
+10番のシグナルハンドラでmigration_stateにCHECKPOINTをセットする(10と12はユーザー定義)
+
+## リストア
 
