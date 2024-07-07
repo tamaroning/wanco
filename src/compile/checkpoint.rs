@@ -1,7 +1,7 @@
 use anyhow::{bail, Result};
 use inkwell::{
     types::{BasicType, BasicTypeEnum},
-    values::{BasicValue, BasicValueEnum, PointerValue},
+    values::{AnyValue, BasicValue, BasicValueEnum, PointerValue},
 };
 
 use crate::context::{Context, Global};
@@ -9,6 +9,84 @@ use crate::context::{Context, Global};
 pub const MIGRATION_STATE_NONE: i32 = 0;
 pub const MIGRATION_STATE_CHECKPOINT: i32 = 1;
 pub const MIGRATION_STATE_RESTORE: i32 = 2;
+
+pub fn gen_restore_dispatch<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let current_fn = ctx.current_fn.unwrap();
+    let dispatch_bb = ctx.ictx.append_basic_block(current_fn, "restore.dispatch");
+    let norestore_bb = ctx.ictx.append_basic_block(current_fn, "restore.norestore");
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_RESTORE)
+        .expect("fail to gen_compare_migration_state");
+    ctx.builder
+        .build_conditional_branch(cond.into_int_value(), dispatch_bb, norestore_bb)
+        .expect("should build conditional branch");
+
+    // dispatch_bb is generated in gen_finalize_restore_dispatch
+
+    ctx.builder.position_at_end(norestore_bb);
+
+    ctx.restore_dispatch_bb = Some(dispatch_bb);
+    Ok(())
+}
+
+pub fn gen_finalize_restore_dispatch<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let current_fn = ctx.current_fn.unwrap();
+    let unreachable_bb = ctx
+        .ictx
+        .append_basic_block(current_fn, "dispatch.unreachable");
+    ctx.builder.position_at_end(unreachable_bb);
+    ctx.builder
+        .build_unreachable()
+        .expect("should build unreachable");
+
+    ctx.builder
+        .position_at_end(ctx.restore_dispatch_bb.unwrap());
+    let op_index = ctx
+        .builder
+        .build_call(
+            ctx.fn_get_pc_from_frame.unwrap(),
+            &[exec_env_ptr.as_basic_value_enum().into()],
+            "op_index",
+        )
+        .expect("should build call");
+    ctx.builder
+        .build_switch(
+            op_index.as_any_value_enum().into_int_value(),
+            unreachable_bb,
+            &ctx.restore_dispatch_cases,
+        )
+        .expect("should build switch");
+    Ok(())
+}
+
+pub fn gen_restore_wasm_stack<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+) -> Result<()> {
+    // Restore a frame
+    let fn_index = ctx.current_function_idx.unwrap() as u64;
+    for (ptr, ty) in locals {
+        let val = ctx
+            .builder
+            .build_load(ty.as_basic_type_enum(), *ptr, "")
+            .expect("should build load");
+        gen_add_local(ctx, exec_env_ptr, val).expect("should build push_local_T");
+    }
+
+    // Store stack values associated to the current function
+    let frame = ctx.stack_frames.last().expect("frame empty");
+    let stack = frame.stack.clone();
+    for value in stack.iter().rev() {
+        gen_push_stack(ctx, exec_env_ptr, *value).expect("should build push_T");
+    }
+    Ok(())
+}
 
 pub fn gen_store_globals<'a>(
     ctx: &mut Context<'a, '_>,
@@ -40,8 +118,8 @@ pub fn gen_store_globals<'a>(
         globals.push(value);
     }
     for value in globals {
-        gen_add_global_value(ctx, exec_env_ptr, value)
-            .expect("should build add_global for const global");
+        gen_push_global_value(ctx, exec_env_ptr, value)
+            .expect("should build push_global for const global");
     }
     ctx.builder
         .build_unconditional_branch(else_bb)
@@ -51,7 +129,7 @@ pub fn gen_store_globals<'a>(
     Ok(())
 }
 
-fn gen_add_global_value<'a>(
+fn gen_push_global_value<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     value: BasicValueEnum<'a>,
@@ -60,7 +138,7 @@ fn gen_add_global_value<'a>(
         if value.get_type().into_int_type() == ctx.inkwell_types.i32_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_global_i32.unwrap(),
+                    ctx.fn_push_global_i32.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
                     "",
                 )
@@ -68,7 +146,7 @@ fn gen_add_global_value<'a>(
         } else if value.get_type().into_int_type() == ctx.inkwell_types.i64_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_global_i64.unwrap(),
+                    ctx.fn_push_global_i64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
                     "",
                 )
@@ -80,7 +158,7 @@ fn gen_add_global_value<'a>(
         if value.get_type().into_float_type() == ctx.inkwell_types.f32_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_global_f32.unwrap(),
+                    ctx.fn_push_global_f32.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
                     "",
                 )
@@ -88,7 +166,7 @@ fn gen_add_global_value<'a>(
         } else if value.get_type().into_float_type() == ctx.inkwell_types.f64_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_global_f64.unwrap(),
+                    ctx.fn_push_global_f64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), value.into()],
                     "",
                 )
@@ -219,7 +297,7 @@ fn gen_store_wasm_stack<'a>(
     // Store a frame
     ctx.builder
         .build_call(
-            ctx.fn_new_frame.expect("should define new_frame"),
+            ctx.fn_push_frame.expect("should define push_frame"),
             &[exec_env_ptr.as_basic_value_enum().into()],
             "",
         )
@@ -243,7 +321,7 @@ fn gen_store_wasm_stack<'a>(
             .builder
             .build_load(ty.as_basic_type_enum(), *ptr, "")
             .expect("should build load");
-        gen_add_local(ctx, exec_env_ptr, val).expect("should build add_local_T");
+        gen_add_local(ctx, exec_env_ptr, val).expect("should build push_local_T");
     }
 
     // Store stack values associated to the current function
@@ -286,7 +364,7 @@ fn gen_add_local<'a>(
         if val.get_type().into_int_type() == ctx.inkwell_types.i32_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_local_i32.unwrap(),
+                    ctx.fn_push_local_i32.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
                     "",
                 )
@@ -294,7 +372,7 @@ fn gen_add_local<'a>(
         } else if val.get_type().into_int_type() == ctx.inkwell_types.i64_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_local_i64.unwrap(),
+                    ctx.fn_push_local_i64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
                     "",
                 )
@@ -306,7 +384,7 @@ fn gen_add_local<'a>(
         if val.get_type().into_float_type() == ctx.inkwell_types.f32_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_local_f32.unwrap(),
+                    ctx.fn_push_local_f32.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
                     "",
                 )
@@ -314,7 +392,7 @@ fn gen_add_local<'a>(
         } else if val.get_type().into_float_type() == ctx.inkwell_types.f64_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_add_local_f64.unwrap(),
+                    ctx.fn_push_local_f64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into(), val.into()],
                     "",
                 )

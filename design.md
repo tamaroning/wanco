@@ -67,5 +67,56 @@ aot_mainではグローバル変数保存用のAPIを呼び出す
 とりあえずPOSIX signalを使う。
 10番のシグナルハンドラでmigration_stateにCHECKPOINTをセットする(10と12はユーザー定義)
 
+```sh
+wanco module.wasm --checkpoint
+# link...
+./a.out --emit-checkpoint checkpoint.json
+# from other shell
+pkill -10 a.out
+# checkpoint.json is created
+```
+
 ## リストア
+
+```sh
+wanco module.wasm --restore
+# link...
+./a.out --restore-from checkpoint.json
+```
+
+- [x] 関数のentryでop_indexでdispatch
+- [ ] frameのpop
+- [ ] ローカル変数のリストア
+- [ ] スタックのリストア
+- [ ] グローバル変数のリストア(aot_main)
+- [ ] メモリのリストア(main)
+
+func
+%entry:
+if state = RESTORE
+    int32_t restore_op_index = pop_op_index(exec_env);
+    if restore_op_index = 0
+        @1 = ...
+        br %restore_op_0
+    else if restore_op_index = 6
+        @1 = ...
+        @2 = ...
+        br %restore_op_6
+    else
+        unreachable
+else
+    br %main
+%main
+
+ExecEnv {
+    ...
+    RestoreState* restore_state;
+}
+
+RestoreState {
+    ...
+    i32 restore_state;
+    i32 restore_state_0;
+    i32 restore_state_1;
+}
 

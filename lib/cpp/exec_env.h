@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <deque>
 #include <string>
-#include <vector>
 
 class Value {
 public:
@@ -49,14 +49,14 @@ public:
   // inst
   int32_t fn_index = -1;
   int32_t pc = -1;
-  std::vector<Value> locals;
+  std::deque<Value> locals;
 };
 
 class Checkpoint {
 public:
-  std::vector<Value> stack;
-  std::vector<Frame> frames;
-  std::vector<Value> globals;
+  std::deque<Value> stack;
+  std::deque<Frame> frames;
+  std::deque<Value> globals;
 };
 
 enum class MigrationState : int32_t {

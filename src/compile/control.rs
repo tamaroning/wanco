@@ -539,7 +539,7 @@ pub fn gen_call<'a>(
     function_index: u32,
 ) -> Result<()> {
     let fn_called = ctx.function_values[function_index as usize];
-    let _current_fn = ctx.current_fn.expect("fail to get current_fn");
+    let current_fn = ctx.current_fn.expect("fail to get current_fn");
 
     // args
     let mut args: Vec<BasicValueEnum> = Vec::new();
@@ -553,6 +553,34 @@ pub fn gen_call<'a>(
     if ctx.config.checkpoint {
         gen_check_state_and_snapshot(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
+    }
+
+    if ctx.config.restore {
+        let op_index = ctx.current_op.unwrap();
+        let restore_start_bb = ctx
+            .ictx
+            .append_basic_block(current_fn, &format!("restore_op_{}", op_index));
+        let restore_end_bb = ctx
+            .ictx
+            .append_basic_block(current_fn, &format!("restore_op_{}_end", op_index));
+        ctx.builder
+            .build_unconditional_branch(restore_end_bb)
+            .expect("should build unconditional branch");
+
+        ctx.builder.position_at_end(restore_start_bb);
+        // TODO: Restore code here
+        // TODO: locals
+        // TODO: stack
+
+        ctx.builder
+            .build_unconditional_branch(restore_end_bb)
+            .unwrap();
+
+        ctx.restore_dispatch_cases.push((
+            ctx.inkwell_types.i32_type.const_int(op_index as u64, false),
+            restore_start_bb,
+        ));
+        ctx.builder.position_at_end(restore_end_bb);
     }
 
     // call
@@ -618,6 +646,13 @@ pub fn gen_call_indirect<'a>(
     }
     args.reverse();
     args.insert(0, exec_env_ptr.as_basic_value_enum());
+
+    if ctx.config.checkpoint {
+        todo!("TODO:")
+    }
+    if ctx.config.restore {
+        todo!("TODO:")
+    }
 
     // call and push result
     let args = args

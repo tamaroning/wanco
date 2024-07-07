@@ -7,6 +7,7 @@ use wasmparser::{FunctionBody, MemArg, Operator};
 
 use crate::{
     compile::{
+        checkpoint::{gen_finalize_restore_dispatch, gen_restore_dispatch},
         compile_type::wasmty_to_llvmty,
         control::{
             gen_block, gen_br, gen_br_table, gen_brif, gen_call, gen_call_indirect, gen_drop,
@@ -97,6 +98,12 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         }
     }
 
+    if ctx.config.restore {
+        ctx.restore_dispatch_bb = None;
+        ctx.restore_dispatch_cases = vec![];
+        gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
+    }
+
     // compile instructions
     let mut op_reader = f.get_operators_reader()?.get_binary_reader();
     let mut num_op = 0;
@@ -108,6 +115,13 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         compile_op(ctx, &op, &exec_env_ptr, &locals)?;
 
         num_op += 1;
+    }
+
+    if ctx.config.restore {
+        ctx.builder
+            .position_at_end(ctx.restore_dispatch_bb.unwrap());
+        gen_finalize_restore_dispatch(ctx, &exec_env_ptr)
+            .expect("should gen finalize restore dispatch");
     }
 
     ctx.current_fn = None;
