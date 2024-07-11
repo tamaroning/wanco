@@ -538,19 +538,11 @@ pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
 pub fn gen_call<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
-    function_index: u32,
+    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
+    callee_function_index: u32,
 ) -> Result<()> {
-    let fn_called = ctx.function_values[function_index as usize];
+    let fn_called = ctx.function_values[callee_function_index as usize];
     let current_fn = ctx.current_fn.expect("fail to get current_fn");
-
-    // args
-    let mut args: Vec<BasicValueEnum> = Vec::new();
-    for _ in 1..fn_called.count_params() {
-        args.push(ctx.pop().expect("stack empty"));
-    }
-    args.reverse();
-    args.insert(0, exec_env_ptr.as_basic_value_enum());
 
     // Starts checkpoint if necessary
     if ctx.config.checkpoint {
@@ -558,7 +550,7 @@ pub fn gen_call<'a>(
             .expect("fail to gen_check_state_and_snapshot");
     }
 
-    if ctx.config.restore {
+    let restore_bbs = if ctx.config.restore {
         let original_bb = ctx.builder.get_insert_block().unwrap();
         let op_index = ctx.current_op.unwrap();
         let restore_start_bb = ctx
@@ -579,6 +571,7 @@ pub fn gen_call<'a>(
             &original_bb,
             &restore_start_bb,
             &restore_end_bb,
+            fn_called.get_params().len() - 1,
         )
         .expect("fail to gen_restore_wasm_stack");
 
@@ -592,7 +585,26 @@ pub fn gen_call<'a>(
             restore_start_bb,
         ));
         ctx.builder.position_at_end(restore_end_bb);
+        Some((original_bb, restore_start_bb))
+    } else {
+        None
+    };
+
+    // args
+    let mut args: Vec<BasicValueEnum> = Vec::new();
+    for p in fn_called.get_params().iter().skip(1) {
+        if let Some((original_bb, restore_start_bb)) = restore_bbs {
+            let ty = p.get_type();
+            let phi = ctx.builder.build_phi(ty, "").expect("should build phi");
+            phi.add_incoming(&[(&ctx.pop().expect("stack empty"), original_bb)]);
+            phi.add_incoming(&[(&ty.const_zero().as_basic_value_enum(), restore_start_bb)]);
+            args.push(phi.as_basic_value());
+        } else {
+            args.push(ctx.pop().expect("stack empty"));
+        }
     }
+    args.reverse();
+    args.insert(0, exec_env_ptr.as_basic_value_enum());
 
     // call
     let args = args
@@ -649,6 +661,10 @@ pub fn gen_call_indirect<'a>(
         .build_load(ctx.inkwell_types.i8_ptr_type, dst_addr, "fptr")
         .expect("should build load");
 
+    if ctx.config.checkpoint {
+        todo!("TODO:")
+    }
+
     // args
     let func_type = ctx.signatures[type_index as usize];
     let mut args: Vec<BasicValueEnum> = Vec::new();
@@ -658,9 +674,6 @@ pub fn gen_call_indirect<'a>(
     args.reverse();
     args.insert(0, exec_env_ptr.as_basic_value_enum());
 
-    if ctx.config.checkpoint {
-        todo!("TODO:")
-    }
     if ctx.config.restore {
         todo!("TODO:")
     }

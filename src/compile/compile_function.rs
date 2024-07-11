@@ -112,7 +112,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         log::debug!("- op[{}]: {:?}", num_op, &op);
 
         ctx.current_op = Some(num_op);
-        compile_op(ctx, &op, &exec_env_ptr, &locals)?;
+        compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
 
         num_op += 1;
     }
@@ -132,7 +132,7 @@ fn compile_op<'a>(
     ctx: &mut Context<'a, '_>,
     op: &Operator,
     exec_env_ptr: &PointerValue<'a>,
-    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     if ctx.unreachable_depth != 0 {
         log::debug!("- under unreachable");

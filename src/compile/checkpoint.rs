@@ -68,10 +68,15 @@ pub fn gen_finalize_restore_dispatch<'a>(
 pub fn gen_restore_wasm_stack<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
     original_bb: &BasicBlock<'a>,
     restore_start_bb: &BasicBlock<'a>,
     restore_end_bb: &BasicBlock<'a>,
+    // For function calls, number of stack values to skip,
+    // which equals to the number of parameters. Function
+    // arguments are not checkpointed since they are popped
+    // from the stack before the function call.
+    skip_stack_top: usize,
 ) -> Result<()> {
     //   ... (in %original_bb)
     //   br restore_op_6_end
@@ -82,22 +87,34 @@ pub fn gen_restore_wasm_stack<'a>(
     //   phi...
     // ...
 
-    // Restore a frame
-    let fn_index = ctx.current_function_idx.unwrap() as u64;
-    for (ptr, ty) in locals {
-        // TODO:
+    // Restore a frame (locals)
+    ctx.builder.position_at_end(*restore_start_bb);
+    let mut restored_locals = Vec::new();
+    for (_, ty) in locals.iter() {
+        let cs = gen_restore_local(ctx, exec_env_ptr, *ty).expect("should build pop_front_local_T");
+        restored_locals.push(cs);
+    }
+    // Add store nodes
+    for i in 0..restored_locals.len() {
+        let restored_value = &restored_locals[i].try_as_basic_value().left().unwrap();
+        let (local_ptr, _) = &locals[i];
+        ctx.builder
+            .build_store(*local_ptr, *restored_value)
+            .expect("should build store");
     }
 
-    // Store stack values associated to the current function
+    // Store stack values
+    ctx.builder.position_at_end(*restore_start_bb);
     let frame = ctx.stack_frames.last().expect("frame empty");
     let stack = frame.stack.clone();
     let mut restored_stack = Vec::new();
-    for value in stack.iter() {
+    for i in 0..(stack.len() - skip_stack_top) {
+        let value = stack[i];
         let cs = gen_restore_stack_value(ctx, exec_env_ptr, value.get_type())
             .expect("should build push_T");
         restored_stack.push(cs);
     }
-
+    // Add phi nodes
     ctx.builder.position_at_end(*restore_end_bb);
     for i in 0..restored_stack.len() {
         let restored_value = &restored_stack[i].try_as_basic_value().left().unwrap();
@@ -112,6 +129,17 @@ pub fn gen_restore_wasm_stack<'a>(
         phi.add_incoming(&[(restored_value, *restore_start_bb)]);
         ctx.stack_frames.last_mut().unwrap().stack[i] = phi.as_basic_value();
     }
+
+    ctx.builder.position_at_end(*restore_start_bb);
+    ctx.builder
+        .build_call(
+            ctx.fn_pop_front_frame.unwrap(),
+            &[exec_env_ptr.as_basic_value_enum().into()],
+            "",
+        )
+        .expect("should build call");
+
+    ctx.builder.position_at_end(*restore_end_bb);
     Ok(())
 }
 
@@ -524,6 +552,57 @@ fn gen_restore_stack_value<'a>(
             ctx.builder
                 .build_call(
                     ctx.fn_pop_f64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else {
+            bail!("Unsupported type {:?}", ty)
+        }
+    } else {
+        bail!("Unsupported type {:?}", ty)
+    };
+    Ok(cs)
+}
+
+fn gen_restore_local<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    ty: BasicTypeEnum<'a>,
+) -> Result<CallSiteValue<'a>> {
+    let cs = if ty.is_int_type() {
+        if ty.into_int_type() == ctx.inkwell_types.i32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_local_i32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else if ty.into_int_type() == ctx.inkwell_types.i64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_local_i64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else {
+            bail!("Unsupported type {:?}", ty);
+        }
+    } else if ty.is_float_type() {
+        if ty.into_float_type() == ctx.inkwell_types.f32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_local_f32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else if ty.into_float_type() == ctx.inkwell_types.f64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_local_f64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into()],
                     "",
                 )

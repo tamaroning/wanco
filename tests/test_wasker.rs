@@ -3,8 +3,7 @@ use std::{path::PathBuf, process::Command};
 use wanco::*;
 
 const TEST_DIR: &str = "tests/wasker/";
-const WRT_PATH: &str = "lib/cpp/wrt.o";
-const LIB_PATH: &str = "lib/cpp/lib.o";
+const LIB_PATH: &str = "lib/cpp/libwanco.a";
 
 macro_rules! ident_to_str {
     ($ident:ident) => {
@@ -48,7 +47,6 @@ fn run_test(test_name: &str) {
     // Link
     Command::new("g++")
         .arg(obj)
-        .arg(WRT_PATH)
         .arg(LIB_PATH)
         .arg("-no-pie")
         .arg("-o")

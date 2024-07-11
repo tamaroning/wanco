@@ -35,12 +35,12 @@ static void write_value_json(std::ofstream &ofs, const Value v) {
   ofs << " }";
 }
 
-void encode_checkpoint_json(std::ofstream &ofs, Checkpoint *chkpt) {
+void encode_checkpoint_json(std::ofstream &ofs, Checkpoint &chkpt) {
   ofs << "{\n";
   // frames
   ofs << "  \"frames\": [\n";
-  for (size_t i = 0; i < chkpt->frames.size(); i++) {
-    const Frame &frame = chkpt->frames[i];
+  for (size_t i = 0; i < chkpt.frames.size(); i++) {
+    const Frame &frame = chkpt.frames[i];
     ofs << "    {\n";
     ofs << "      \"fn_index\": " << frame.fn_index << ",\n";
     ofs << "      \"pc\": " << frame.pc << ",\n";
@@ -55,29 +55,29 @@ void encode_checkpoint_json(std::ofstream &ofs, Checkpoint *chkpt) {
     }
     ofs << "      ]\n";
     ofs << "    }";
-    if (i != chkpt->frames.size() - 1)
+    if (i != chkpt.frames.size() - 1)
       ofs << ",";
     ofs << "\n";
   }
   ofs << "  ],\n";
   // stack
   ofs << "  \"stack\": [\n";
-  for (size_t i = 0; i < chkpt->stack.size(); i++) {
-    const Value &value = chkpt->stack[i];
+  for (size_t i = 0; i < chkpt.stack.size(); i++) {
+    const Value &value = chkpt.stack[i];
     ofs << "    ";
     write_value_json(ofs, value);
-    if (i != chkpt->stack.size() - 1)
+    if (i != chkpt.stack.size() - 1)
       ofs << ",";
     ofs << "\n";
   }
   ofs << "  ],\n";
   // globals
   ofs << "  \"globals\": [\n";
-  for (size_t i = 0; i < chkpt->globals.size(); i++) {
-    const Value &value = chkpt->globals[i];
+  for (size_t i = 0; i < chkpt.globals.size(); i++) {
+    const Value &value = chkpt.globals[i];
     ofs << "    ";
     write_value_json(ofs, value);
-    if (i != chkpt->globals.size() - 1)
+    if (i != chkpt.globals.size() - 1)
       ofs << ",";
     ofs << "\n";
   }
@@ -85,12 +85,12 @@ void encode_checkpoint_json(std::ofstream &ofs, Checkpoint *chkpt) {
   // memory
   // TODO: should use base64?
   ofs << "  \"memory\": [\n";
-  for (size_t i = 0; i < chkpt->memory.size(); i++) {
-    int8_t byte = chkpt->memory[i];
+  for (size_t i = 0; i < chkpt.memory.size(); i++) {
+    int8_t byte = chkpt.memory[i];
     if (i % 64 == 0)
       ofs << "    ";
     ofs << (int)byte;
-    if (i != chkpt->memory.size() - 1)
+    if (i != chkpt.memory.size() - 1)
       ofs << ",";
     if (i % 64 == 63)
       ofs << "\n";

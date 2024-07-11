@@ -2,8 +2,7 @@ use std::{path::PathBuf, process::Command};
 
 use wanco::*;
 
-const WRT_PATH: &str = "lib/cpp/wrt.o";
-const LIB_PATH: &str = "lib/cpp/lib.o";
+const LIB_PATH: &str = "lib/cpp/libwanco.a";
 
 #[test]
 fn test_fd_write() {
@@ -31,7 +30,6 @@ fn test_fd_write() {
     // Link
     Command::new("g++")
         .arg(obj)
-        .arg(WRT_PATH)
         .arg(LIB_PATH)
         .arg("-no-pie")
         .arg("-o")
