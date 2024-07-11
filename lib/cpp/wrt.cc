@@ -319,34 +319,34 @@ extern "C" double pop_front_local_f64(ExecEnv *exec_env) {
   return v.f64;
 }
 
-extern "C" int32_t pop_front_i32(ExecEnv *exec_env) {
+extern "C" int32_t pop_i32(ExecEnv *exec_env) {
   assert(!exec_env->chkpt->stack.empty() && "Stack empty");
   Value v = exec_env->chkpt->stack.front();
-  exec_env->chkpt->stack.pop_front();
+  exec_env->chkpt->stack.pop_back();
   assert(v.get_type() == Value::Type::I32 && "Invalid type");
   return v.i32;
 }
 
-extern "C" int64_t pop_front_i64(ExecEnv *exec_env) {
+extern "C" int64_t pop_i64(ExecEnv *exec_env) {
   assert(!exec_env->chkpt->stack.empty() && "Stack empty");
   Value v = exec_env->chkpt->stack.front();
-  exec_env->chkpt->stack.pop_front();
+  exec_env->chkpt->stack.pop_back();
   assert(v.get_type() == Value::Type::I64 && "Invalid type");
   return v.i64;
 }
 
-extern "C" float pop_front_f32(ExecEnv *exec_env) {
+extern "C" float pop_f32(ExecEnv *exec_env) {
   assert(!exec_env->chkpt->stack.empty() && "Stack empty");
   Value v = exec_env->chkpt->stack.front();
-  exec_env->chkpt->stack.pop_front();
+  exec_env->chkpt->stack.pop_back();
   assert(v.get_type() == Value::Type::F32 && "Invalid type");
   return v.f32;
 }
 
-extern "C" double pop_front_f64(ExecEnv *exec_env) {
+extern "C" double pop_f64(ExecEnv *exec_env) {
   assert(!exec_env->chkpt->stack.empty() && "Stack empty");
   Value v = exec_env->chkpt->stack.front();
-  exec_env->chkpt->stack.pop_front();
+  exec_env->chkpt->stack.pop_back();
   assert(v.get_type() == Value::Type::F64 && "Invalid type");
   return v.f64;
 }

@@ -55,7 +55,7 @@ public:
 
 class Checkpoint {
 public:
-  std::deque<Value> stack;
+  std::vector<Value> stack;
   std::deque<Frame> frames;
   std::deque<Value> globals;
   std::vector<int8_t> memory;

@@ -29,7 +29,7 @@ Checkpoint decode_checkpoint_json(std::ifstream &f) {
 
   for (auto &v : j["stack"]) {
     Value value = decode_value_json(v);
-    chkpt.stack.push_front(value);
+    chkpt.stack.push_back(value);
   }
 
   for (auto &f : j["frames"]) {
@@ -48,7 +48,7 @@ Checkpoint decode_checkpoint_json(std::ifstream &f) {
     chkpt.globals.push_back(value);
   }
 
-  for (auto &m: j["memory"]) {
+  for (auto &m : j["memory"]) {
     chkpt.memory.push_back(m.get<uint8_t>());
   }
 

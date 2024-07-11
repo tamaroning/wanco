@@ -258,40 +258,40 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             Some(Linkage::External),
         ));
         // stack
-        let fn_type_pop_front_i32 = ctx.inkwell_types.i32_type.fn_type(
+        let fn_type_pop_i32 = ctx.inkwell_types.i32_type.fn_type(
             &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
             false,
         );
-        ctx.fn_pop_front_i32 = Some(ctx.module.add_function(
-            "pop_front_i32",
-            fn_type_pop_front_i32,
+        ctx.fn_pop_i32 = Some(ctx.module.add_function(
+            "pop_i32",
+            fn_type_pop_i32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_i64 = ctx.inkwell_types.i64_type.fn_type(
+        let fn_type_pop_i64 = ctx.inkwell_types.i64_type.fn_type(
             &[exec_env_ptr_type.into(), ctx.inkwell_types.i64_type.into()],
             false,
         );
-        ctx.fn_pop_front_i64 = Some(ctx.module.add_function(
-            "pop_front_i64",
-            fn_type_pop_front_i64,
+        ctx.fn_pop_i64 = Some(ctx.module.add_function(
+            "pop_i64",
+            fn_type_pop_i64,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_f32 = ctx.inkwell_types.f32_type.fn_type(
+        let fn_type_pop_f32 = ctx.inkwell_types.f32_type.fn_type(
             &[exec_env_ptr_type.into(), ctx.inkwell_types.f32_type.into()],
             false,
         );
-        ctx.fn_pop_front_f32 = Some(ctx.module.add_function(
-            "pop_front_f32",
-            fn_type_pop_front_f32,
+        ctx.fn_pop_f32 = Some(ctx.module.add_function(
+            "pop_f32",
+            fn_type_pop_f32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_f64 = ctx.inkwell_types.f64_type.fn_type(
+        let fn_type_pop_f64 = ctx.inkwell_types.f64_type.fn_type(
             &[exec_env_ptr_type.into(), ctx.inkwell_types.f64_type.into()],
             false,
         );
-        ctx.fn_pop_front_f64 = Some(ctx.module.add_function(
-            "pop_front_f64",
-            fn_type_pop_front_f64,
+        ctx.fn_pop_f64 = Some(ctx.module.add_function(
+            "pop_f64",
+            fn_type_pop_f64,
             Some(Linkage::External),
         ));
         // globals

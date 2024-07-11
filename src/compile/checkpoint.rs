@@ -92,7 +92,7 @@ pub fn gen_restore_wasm_stack<'a>(
     let frame = ctx.stack_frames.last().expect("frame empty");
     let stack = frame.stack.clone();
     let mut restored_stack = Vec::new();
-    for value in stack.iter().rev() {
+    for value in stack.iter() {
         let cs = gen_restore_stack_value(ctx, exec_env_ptr, value.get_type())
             .expect("should build push_T");
         restored_stack.push(cs);
@@ -495,7 +495,7 @@ fn gen_restore_stack_value<'a>(
         if ty.into_int_type() == ctx.inkwell_types.i32_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_pop_front_i32.unwrap(),
+                    ctx.fn_pop_i32.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into()],
                     "",
                 )
@@ -503,7 +503,7 @@ fn gen_restore_stack_value<'a>(
         } else if ty.into_int_type() == ctx.inkwell_types.i64_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_pop_front_i64.unwrap(),
+                    ctx.fn_pop_i64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into()],
                     "",
                 )
@@ -515,7 +515,7 @@ fn gen_restore_stack_value<'a>(
         if ty.into_float_type() == ctx.inkwell_types.f32_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_pop_front_f32.unwrap(),
+                    ctx.fn_pop_f32.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into()],
                     "",
                 )
@@ -523,7 +523,7 @@ fn gen_restore_stack_value<'a>(
         } else if ty.into_float_type() == ctx.inkwell_types.f64_type {
             ctx.builder
                 .build_call(
-                    ctx.fn_pop_front_f64.unwrap(),
+                    ctx.fn_pop_f64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into()],
                     "",
                 )
