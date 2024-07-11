@@ -9,9 +9,17 @@
 const int32_t PAGE_SIZE = 65536;
 // 10 and 12 are reserved for SIGUSR1 and SIGUSR2
 const int SIGCHKPT = 10;
-
 // execution environment
 ExecEnv exec_env;
+
+std::string_view USAGE = R"(This file is a WebAssembly AOT executable.
+USAGE: <this file> [options]
+
+OPTIONS:
+  no options: Run the WebAssembly AOT module from the beginning
+  --help: Display this message and exit
+  --restore <FILE>: Restore an execution from a checkpoint JSON file
+)";
 
 // from wasm AOT module
 extern "C" const int32_t INIT_MEMORY_SIZE;
@@ -27,29 +35,99 @@ void signal_chkpt_handler(int signum) {
   exec_env.migration_state = MigrationState::STATE_CHECKPOINT;
 }
 
-int main() {
-  // Initialize exec env
-  Checkpoint *chkpt = new Checkpoint();
-  exec_env = {
-      .memory_base = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE),
-      .memory_size = INIT_MEMORY_SIZE,
-      .migration_state = MigrationState::STATE_NONE,
-      .chkpt = chkpt,
-  };
+struct Config {
+  std::string restore_file;
+};
+
+Config parse_from_args(int argc, char **argv) {
+  Config config;
+  for (int i = 1; i < argc; i++) {
+    if (std::string(argv[i]) == "--restore") {
+      if (i + 1 >= argc) {
+        std::cerr << "Missing argument for --restore" << std::endl;
+        exit(1);
+      }
+      config.restore_file = argv[i + 1];
+      i++;
+    } else {
+      std::cerr << "Unknown argument: " << argv[i] << std::endl;
+      exit(1);
+    }
+  }
+  return config;
+}
+
+int main(int argc, char **argv) {
+  // Parse CLI arguments
+  Config config = parse_from_args(argc, argv);
+
+  if (config.restore_file.empty()) {
+    // Allocate memory
+    int8_t *memory = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE);
+    if (memory == NULL) {
+      std::cerr << "Failed to allocate " << INIT_MEMORY_SIZE * PAGE_SIZE
+                << " bytes to linear memory" << std::endl;
+      return 1;
+    }
+    // Initialize exec_env
+    Checkpoint *chkpt = new Checkpoint();
+    exec_env = {
+        .memory_base = memory,
+        .memory_size = INIT_MEMORY_SIZE,
+        .migration_state = MigrationState::STATE_NONE,
+        .chkpt = chkpt,
+    };
+  } else {
+    // Restore from checkpoint
+    std::ifstream ifs(config.restore_file);
+    if (!ifs.is_open()) {
+      std::cerr << "Failed to open checkpoint" << config.restore_file
+                << std::endl;
+      return 1;
+    }
+    std::cerr << "Reading checkpoint from " << config.restore_file << std::endl;
+    Checkpoint chkpt = decode_checkpoint_json(ifs);
+    // ceil(memory.size / PAGE_SIZE)
+    int32_t memory_size = (chkpt.memory.size() + PAGE_SIZE - 1) / PAGE_SIZE;
+    std::cerr << "Allocating liear memory: " << memory_size << " pages"
+              << std::endl;
+    exec_env.memory_base = (int8_t *)malloc(memory_size * PAGE_SIZE);
+    if (exec_env.memory_base == NULL) {
+      std::cerr << "Failed to allocate " << chkpt.memory.size()
+                << " bytes to linear memory" << std::endl;
+      return 1;
+    }
+    std::cerr << "Restoring memory: 0x" << std::hex << chkpt.memory.size()
+              << " bytes" << std::endl;
+    std::copy(chkpt.memory.begin(), chkpt.memory.end(), exec_env.memory_base);
+    // Initialize exec_env
+    exec_env = {
+        .memory_base = exec_env.memory_base,
+        .memory_size = memory_size,
+        .migration_state = MigrationState::STATE_RESTORE,
+        .chkpt = new Checkpoint(chkpt),
+    };
+    std::cerr << "Restore completed!" << std::endl;
+    dump_checkpoint(exec_env.chkpt);
+  }
 
   // Register signal handler
   signal(SIGCHKPT, signal_chkpt_handler);
 
   aot_main(&exec_env);
 
-  // TODO: dump to json
   if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT) {
-    dump_checkpoint(chkpt);
+    exec_env.chkpt->memory = std::vector<int8_t>(
+        exec_env.memory_base,
+        exec_env.memory_base + exec_env.memory_size * PAGE_SIZE);
+    dump_checkpoint(exec_env.chkpt);
     std::ofstream ofs("checkpoint.json");
-    encode_checkpoint_json(ofs, chkpt);
+    encode_checkpoint_json(ofs, exec_env.chkpt);
   }
 
-  delete (chkpt);
+  // cleanup
+  free(exec_env.memory_base);
+  delete (exec_env.chkpt);
   return 0;
 }
 
@@ -72,62 +150,90 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
 
 // locals
 extern "C" void push_frame(ExecEnv *exec_env) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->frames.push_back(Frame());
 }
 
 extern "C" void set_pc_to_frame(ExecEnv *exec_env, int32_t fn_index,
                                 int32_t pc) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->frames.back().fn_index = fn_index;
   exec_env->chkpt->frames.back().pc = pc;
 }
 
 extern "C" void push_local_i32(ExecEnv *exec_env, int32_t i32) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->frames.back().locals.push_back(Value(i32));
 }
 
 extern "C" void push_local_i64(ExecEnv *exec_env, int64_t i64) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->frames.back().locals.push_back(Value(i64));
 }
 
 extern "C" void push_local_f32(ExecEnv *exec_env, float f32) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->frames.back().locals.push_back(Value(f32));
 }
 
 extern "C" void push_local_f64(ExecEnv *exec_env, double f64) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->frames.back().locals.push_back(Value(f64));
 }
 
 // stack
 extern "C" void push_i32(ExecEnv *exec_env, int32_t i32) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->stack.push_back(Value(i32));
 }
 
 extern "C" void push_i64(ExecEnv *exec_env, int64_t i64) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->stack.push_back(Value(i64));
 }
 
 extern "C" void push_f32(ExecEnv *exec_env, float f32) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->stack.push_back(Value(f32));
 }
 
 extern "C" void push_f64(ExecEnv *exec_env, double f64) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->stack.push_back(Value(f64));
 }
 
 // globals
 extern "C" void push_global_i32(ExecEnv *exec_env, int32_t i32) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->globals.push_back(Value(i32));
 }
 
 extern "C" void push_global_i64(ExecEnv *exec_env, int64_t i64) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->globals.push_back(Value(i64));
 }
 
 extern "C" void push_global_f32(ExecEnv *exec_env, float f32) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->globals.push_back(Value(f32));
 }
 
 extern "C" void push_global_f64(ExecEnv *exec_env, double f64) {
+  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+         "Invalid migration state");
   exec_env->chkpt->globals.push_back(Value(f64));
 }
 
@@ -160,7 +266,11 @@ void dump_checkpoint(Checkpoint *chkpt) {
 
 // Restore
 extern "C" void pop_front_frame(ExecEnv *exec_env) {
+  assert(exec_env->migration_state == MigrationState::STATE_RESTORE &&
+         "Invalid migration state");
+  assert(!exec_env->chkpt->frames.empty() && "No frame to restore");
   exec_env->chkpt->frames.pop_front();
+  // Restore is completed if there are no more frames to restore
   if (exec_env->chkpt->frames.empty()) {
     exec_env->migration_state = MigrationState::STATE_NONE;
   }

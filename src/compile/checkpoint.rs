@@ -1,7 +1,8 @@
 use anyhow::{bail, Result};
 use inkwell::{
+    basic_block::BasicBlock,
     types::{BasicType, BasicTypeEnum},
-    values::{AnyValue, BasicValue, BasicValueEnum, PointerValue},
+    values::{AnyValue, BasicValue, BasicValueEnum, CallSiteValue, PointerValue},
 };
 
 use crate::context::{Context, Global};
@@ -16,7 +17,7 @@ pub fn gen_restore_dispatch<'a>(
 ) -> Result<()> {
     let current_fn = ctx.current_fn.unwrap();
     let dispatch_bb = ctx.ictx.append_basic_block(current_fn, "restore.dispatch");
-    let norestore_bb = ctx.ictx.append_basic_block(current_fn, "restore.norestore");
+    let norestore_bb = ctx.ictx.append_basic_block(current_fn, "main");
     let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_RESTORE)
         .expect("fail to gen_compare_migration_state");
     ctx.builder
@@ -68,22 +69,48 @@ pub fn gen_restore_wasm_stack<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    original_bb: &BasicBlock<'a>,
+    restore_start_bb: &BasicBlock<'a>,
+    restore_end_bb: &BasicBlock<'a>,
 ) -> Result<()> {
+    //   ... (in %original_bb)
+    //   br restore_op_6_end
+    // restore_op_6: (%restore_start_bb)
+    //   ...
+    //   br restore_op_6_end
+    // restore_op_6_end:
+    //   phi...
+    // ...
+
     // Restore a frame
     let fn_index = ctx.current_function_idx.unwrap() as u64;
     for (ptr, ty) in locals {
-        let val = ctx
-            .builder
-            .build_load(ty.as_basic_type_enum(), *ptr, "")
-            .expect("should build load");
-        gen_add_local(ctx, exec_env_ptr, val).expect("should build push_local_T");
+        // TODO:
     }
 
     // Store stack values associated to the current function
     let frame = ctx.stack_frames.last().expect("frame empty");
     let stack = frame.stack.clone();
+    let mut restored_stack = Vec::new();
     for value in stack.iter().rev() {
-        gen_push_stack(ctx, exec_env_ptr, *value).expect("should build push_T");
+        let cs = gen_restore_stack_value(ctx, exec_env_ptr, value.get_type())
+            .expect("should build push_T");
+        restored_stack.push(cs);
+    }
+
+    ctx.builder.position_at_end(*restore_end_bb);
+    for i in 0..restored_stack.len() {
+        let restored_value = &restored_stack[i].try_as_basic_value().left().unwrap();
+        let stack_value = stack[i];
+
+        let ty = stack_value.get_type();
+        let phi = ctx
+            .builder
+            .build_phi(ty, &format!("stack_value_{}", i))
+            .expect("should build phi");
+        phi.add_incoming(&[(&stack_value, *original_bb)]);
+        phi.add_incoming(&[(restored_value, *restore_start_bb)]);
+        ctx.stack_frames.last_mut().unwrap().stack[i] = phi.as_basic_value();
     }
     Ok(())
 }
@@ -180,6 +207,7 @@ fn gen_push_global_value<'a>(
     Ok(())
 }
 
+/*
 pub fn gen_set_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
@@ -203,6 +231,7 @@ pub fn gen_set_migration_state<'a>(
         .expect("fail to build store");
     Ok(())
 }
+*/
 
 // Store the current stack frame if the migration state equals to MIAGRATION_STATE_CHECKPOINT
 pub fn gen_check_state_and_snapshot<'a>(
@@ -455,4 +484,55 @@ fn gen_push_stack<'a>(
         bail!("Unsupported type {:?}", val);
     }
     Ok(())
+}
+
+fn gen_restore_stack_value<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    ty: BasicTypeEnum<'a>,
+) -> Result<CallSiteValue<'a>> {
+    let cs = if ty.is_int_type() {
+        if ty.into_int_type() == ctx.inkwell_types.i32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_i32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else if ty.into_int_type() == ctx.inkwell_types.i64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_i64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else {
+            bail!("Unsupported type {:?}", ty);
+        }
+    } else if ty.is_float_type() {
+        if ty.into_float_type() == ctx.inkwell_types.f32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_f32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else if ty.into_float_type() == ctx.inkwell_types.f64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_f64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else {
+            bail!("Unsupported type {:?}", ty)
+        }
+    } else {
+        bail!("Unsupported type {:?}", ty)
+    };
+    Ok(cs)
 }

@@ -1,6 +1,5 @@
-#include "exec_env.h"
-#include <fstream>
 #include "chkpt.h"
+#include <fstream>
 
 static void write_value_json(std::ofstream &ofs, const Value v) {
   ofs << "{ \"type\": \"";
@@ -84,15 +83,14 @@ void encode_checkpoint_json(std::ofstream &ofs, Checkpoint *chkpt) {
   }
   ofs << "  ],\n";
   // memory
-  // TODO: should use base64
+  // TODO: should use base64?
   ofs << "  \"memory\": [\n";
-  int8_t const *memory = exec_env.memory_base;
-  int32_t memory_size = exec_env.memory_size;
-  for (int32_t i = 0; i < memory_size * PAGE_SIZE; i++) {
+  for (size_t i = 0; i < chkpt->memory.size(); i++) {
+    int8_t byte = chkpt->memory[i];
     if (i % 64 == 0)
       ofs << "    ";
-    ofs << (int)memory[i];
-    if (i != memory_size * PAGE_SIZE - 1)
+    ofs << (int)byte;
+    if (i != chkpt->memory.size() - 1)
       ofs << ",";
     if (i % 64 == 63)
       ofs << "\n";

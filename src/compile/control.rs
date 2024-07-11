@@ -7,7 +7,10 @@ use inkwell::{
 };
 use wasmparser::{BlockType, BrTable};
 
-use super::{checkpoint::gen_check_state_and_snapshot, compile_type::wasmty_to_llvmty};
+use super::{
+    checkpoint::{gen_check_state_and_snapshot, gen_restore_wasm_stack},
+    compile_type::wasmty_to_llvmty,
+};
 
 /// Holds the state of if-else.
 #[derive(Eq, PartialEq, Debug)]
@@ -556,6 +559,7 @@ pub fn gen_call<'a>(
     }
 
     if ctx.config.restore {
+        let original_bb = ctx.builder.get_insert_block().unwrap();
         let op_index = ctx.current_op.unwrap();
         let restore_start_bb = ctx
             .ictx
@@ -568,10 +572,17 @@ pub fn gen_call<'a>(
             .expect("should build unconditional branch");
 
         ctx.builder.position_at_end(restore_start_bb);
-        // TODO: Restore code here
-        // TODO: locals
-        // TODO: stack
+        gen_restore_wasm_stack(
+            ctx,
+            exec_env_ptr,
+            locals,
+            &original_bb,
+            &restore_start_bb,
+            &restore_end_bb,
+        )
+        .expect("fail to gen_restore_wasm_stack");
 
+        ctx.builder.position_at_end(restore_start_bb);
         ctx.builder
             .build_unconditional_branch(restore_end_bb)
             .unwrap();

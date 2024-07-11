@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <deque>
 #include <string>
+#include <vector>
 
 class Value {
 public:
@@ -57,6 +58,7 @@ public:
   std::deque<Value> stack;
   std::deque<Frame> frames;
   std::deque<Value> globals;
+  std::vector<int8_t> memory;
 };
 
 enum class MigrationState : int32_t {
