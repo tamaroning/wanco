@@ -1,11 +1,12 @@
 /target
 **/*.ll
 **/*.o
+**/*.a
 **/a.out
 **/*.wat
 **/*.wasm
 !tests/**/*
 
-*.bc
-*.cc
-*.json
+/*.bc
+/*.cc
+/*.json

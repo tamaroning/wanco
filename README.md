@@ -17,7 +17,7 @@ git clone git@github.com:tamaroning/wanco.git
 cd wanco
 ```
 
-Build the library and runtime:
+Build the runtime library (libwanco.a):
 ```
 (cd lib/cpp && make)
 ```
@@ -34,9 +34,9 @@ Specify an input file which is a WebAssembly text or binary format.
 ```
 wanco examples/hello.wat -o hello.o
 ```
-Then link it with the runtime and library together (It works with clang++):
+Then link it with the runtime library together (It works with clang++):
 ```
-g++ -no-pie hello.o lib/cpp/lib.o lib/cpp/wrt.o -o hello
+g++ -no-pie hello.o lib/cpp/libwanco.a -o hello
 ```
 
 Finally, run the compiled module:
