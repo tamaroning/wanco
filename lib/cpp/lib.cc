@@ -1,6 +1,7 @@
 #include "exec_env.h"
-#include <stdint.h>
-#include <stdio.h>
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
 
 /* Print a string from memory */
 extern "C" void print(ExecEnv *exec_env, int64_t offset, int32_t len) {
@@ -19,15 +20,12 @@ typedef struct {
 } IoVec;
 
 typedef enum {
-  SUCCESS,
+  SUCCESS = 0,
   // Add other error types here
 } WasiError;
 
 extern "C" WasiError fd_write(ExecEnv *exec_env, int fd, int buf_iovec_addr,
                               int vec_len, int size_addr) {
-  //exec_env->migration_state = MigrationState::STATE_CHECKPOINT;
-  //return SUCCESS;
-  
   char *iovec_ptr = (char *)&exec_env->memory_base[buf_iovec_addr];
   IoVec *iovec = (IoVec *)iovec_ptr;
 
@@ -43,4 +41,26 @@ extern "C" WasiError fd_write(ExecEnv *exec_env, int fd, int buf_iovec_addr,
   int *size_ptr = (int *)(exec_env->memory_base + size_addr);
   *size_ptr = len;
   return SUCCESS;
+}
+
+extern "C" void proc_exit(ExecEnv *exec_env, int code) {
+  // exit
+  std::cerr << "[debug] proc_exit(" << code << ")" << std::endl;
+  std::exit(code);
+}
+
+extern "C" WasiError environ_get(ExecEnv *exec_env, int environ,
+                                 int environ_buf) {
+  // TODO:
+  std::cerr << "[debug] environ_get(" << environ << ", " << environ_buf << ")"
+            << std::endl;
+  return WasiError::SUCCESS;
+}
+
+extern "C" WasiError environ_sizes_get(ExecEnv *exec_env, int environ_count,
+                                       int environ_buf_size) {
+  // TODO:
+  std::cerr << "[debug] environ_sizes_get(" << environ_count << ", "
+            << environ_buf_size << ")" << std::endl;
+  return WasiError::SUCCESS;
 }
