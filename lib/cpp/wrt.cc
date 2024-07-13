@@ -92,12 +92,12 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    std::cerr << "Reading checkpoint from " << config.restore_file << std::endl;
+    std::cerr << "[info] Reading checkpoint from " << config.restore_file << std::endl;
     chkpt = decode_checkpoint_json(ifs);
 
     // ceil(memory.size / PAGE_SIZE)
     int32_t memory_size = (chkpt.memory.size() + PAGE_SIZE - 1) / PAGE_SIZE;
-    std::cerr << "Allocating liear memory: " << memory_size << " pages"
+    std::cerr << "[info] Allocating liear memory: " << memory_size << " pages"
               << std::endl;
     int8_t *memory = (int8_t *)malloc(memory_size * PAGE_SIZE);
     if (memory == NULL) {
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    std::cerr << "Restoring memory: 0x" << std::hex << chkpt.memory.size()
+    std::cerr << "[info] Restoring memory: 0x" << std::hex << chkpt.memory.size()
               << " bytes" << std::endl;
     std::memcpy(memory, chkpt.memory.data(), chkpt.memory.size());
     // Initialize exec_env
@@ -115,10 +115,8 @@ int main(int argc, char **argv) {
         .memory_size = memory_size,
         .migration_state = MigrationState::STATE_RESTORE,
     };
-    std::cerr << "Restore start" << std::endl;
+    std::cerr << "[info] Restore start" << std::endl;
   }
-  dump_exec_env(exec_env);
-
   // Register signal handler
   signal(SIGCHKPT, signal_chkpt_handler);
 
@@ -128,7 +126,6 @@ int main(int argc, char **argv) {
     chkpt.memory = std::vector<int8_t>(exec_env.memory_base,
                                        exec_env.memory_base +
                                            exec_env.memory_size * PAGE_SIZE);
-    dump_checkpoint(chkpt);
     std::ofstream ofs("checkpoint.json");
     encode_checkpoint_json(ofs, chkpt);
   }
@@ -299,8 +296,6 @@ void dump_checkpoint(Checkpoint &chkpt) {
 
 // Restore
 extern "C" void pop_front_frame(ExecEnv *exec_env) {
-  // dump_exec_env(*exec_env);
-  dump_checkpoint(chkpt);
   assert(exec_env->migration_state == MigrationState::STATE_RESTORE &&
          "Invalid migration state");
   assert(!chkpt.frames.empty() && "No frame to restore");
@@ -313,7 +308,7 @@ extern "C" void pop_front_frame(ExecEnv *exec_env) {
   if (chkpt.frames.empty()) {
     std::cerr << "[debug] Restore completed" << std::endl;
     exec_env->migration_state = MigrationState::STATE_NONE;
-    chkpt = Checkpoint();
+    // chkpt = Checkpoint();
   }
 }
 

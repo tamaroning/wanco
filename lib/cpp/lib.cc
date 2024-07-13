@@ -1,13 +1,23 @@
 #include "exec_env.h"
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 
 /* Print a string from memory */
-extern "C" void print(ExecEnv *exec_env, int64_t offset, int32_t len) {
+extern "C" void print(ExecEnv *exec_env, int32_t offset, int32_t len) {
   for (int i = 0; i < len; i++) {
     putchar(exec_env->memory_base[offset + i]);
   }
+}
+
+extern "C" void print_i32(ExecEnv *exec_env, int32_t i32) {
+  std::cout << std::dec << i32 << std::endl;
+}
+
+extern "C" void sleep(ExecEnv *exec_env, int32_t ms) {
+  std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
 
 /*
@@ -26,8 +36,17 @@ typedef enum {
 
 extern "C" WasiError fd_write(ExecEnv *exec_env, int fd, int buf_iovec_addr,
                               int vec_len, int size_addr) {
+  std::cerr << std::dec << "[debug] fd_write(" << fd << ", " << buf_iovec_addr
+            << ", " << vec_len << ", " << size_addr << ")" << std::endl;
   char *iovec_ptr = (char *)&exec_env->memory_base[buf_iovec_addr];
   IoVec *iovec = (IoVec *)iovec_ptr;
+  std::cerr << std::dec << "[debug] iovec[0].iov_base = " << iovec[0].iov_base
+            << ", iovec[0].iov_len = " << iovec[0].iov_len << std::endl;
+  // TODO: remove. dump memory
+  for (int i = 0; i < 32; i++) {
+    std::cerr << std::hex << (int)exec_env->memory_base[i] << " ";
+  }
+  std::cerr << std::endl;
 
   int len = 0;
   for (int i = 0; i < vec_len; i++) {
@@ -40,6 +59,8 @@ extern "C" WasiError fd_write(ExecEnv *exec_env, int fd, int buf_iovec_addr,
   }
   int *size_ptr = (int *)(exec_env->memory_base + size_addr);
   *size_ptr = len;
+  // TODO: remove
+  exit(0);
   return SUCCESS;
 }
 

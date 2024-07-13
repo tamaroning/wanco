@@ -76,15 +76,6 @@ pub fn gen_restore_wasm_stack<'a>(
     // For restoring before function call, function called
     callee: Option<FunctionValue<'a>>,
 ) -> Result<(BasicBlock<'a>, Option<Vec<BasicValueEnum<'a>>>)> {
-    //   ... (in %original_bb)
-    //   br restore_op_6_end
-    // restore_op_6: (%restore_start_bb)
-    //   ...
-    //   br restore_op_6_end
-    // restore_op_6_end:
-    //   phi...
-    // ...
-
     // Restore a frame (locals)
     ctx.builder.position_at_end(*restore_start_bb);
     let mut restored_locals = Vec::new();
@@ -117,6 +108,15 @@ pub fn gen_restore_wasm_stack<'a>(
             .expect("should build push_T");
         restored_stack.push(cs);
     }
+
+    // call pop_front_frame
+    ctx.builder
+        .build_call(
+            ctx.fn_pop_front_frame.unwrap(),
+            &[exec_env_ptr.as_basic_value_enum().into()],
+            "",
+        )
+        .expect("should build call");
 
     // Restore args
     let args = if let Some(callee) = callee {
@@ -163,7 +163,7 @@ pub fn gen_restore_wasm_stack<'a>(
         //   br %restore_op_N_end
         ctx.builder.position_at_end(restore_args_end_bb);
         let mut args = Vec::new();
-        for (i, arg) in restored_args.iter().enumerate() {
+        for (i, arg) in restored_args.iter().enumerate().rev() {
             let arg = arg.try_as_basic_value().left().unwrap();
             let ty = arg.get_type();
             let phi = ctx
@@ -175,27 +175,11 @@ pub fn gen_restore_wasm_stack<'a>(
             args.push(phi.as_basic_value());
         }
 
-        // call pop_front_frame
-        ctx.builder
-            .build_call(
-                ctx.fn_pop_front_frame.unwrap(),
-                &[exec_env_ptr.as_basic_value_enum().into()],
-                "",
-            )
-            .expect("should build call");
         ctx.builder
             .build_unconditional_branch(*restore_end_bb)
             .expect("should build unconditional branch");
         Some(args)
     } else {
-        // call pop_front_frame
-        ctx.builder
-            .build_call(
-                ctx.fn_pop_front_frame.unwrap(),
-                &[exec_env_ptr.as_basic_value_enum().into()],
-                "",
-            )
-            .expect("should build call");
         ctx.builder
             .build_unconditional_branch(*restore_end_bb)
             .expect("should build unconditional branch");
