@@ -63,8 +63,9 @@ public:
 
 enum class MigrationState : int32_t {
   STATE_NONE = 0,
-  STATE_CHECKPOINT = 1,
-  STATE_RESTORE = 2,
+  STATE_CHECKPOINT_START = 1,
+  STATE_CHECKPOINT_CONTINUE = 2,
+  STATE_RESTORE = 3,
 };
 
 extern "C" struct ExecEnv {

@@ -8,7 +8,7 @@ use inkwell::{
 use wasmparser::{BlockType, BrTable};
 
 use super::{
-    checkpoint::{gen_check_state_and_snapshot, gen_restore_wasm_stack},
+    checkpoint::{gen_checkpoint_after_call, gen_checkpoint_before_call, gen_restore_wasm_stack},
     compile_type::wasmty_to_llvmty,
 };
 
@@ -546,12 +546,12 @@ pub fn gen_call<'a>(
 
     // Starts checkpoint if necessary
     if ctx.config.checkpoint {
-        gen_check_state_and_snapshot(ctx, exec_env_ptr, locals)
+        gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
 
-    let restore_bbs = if ctx.config.restore {
-        let original_bb = ctx.builder.get_insert_block().unwrap();
+    let before_restore_bb = ctx.builder.get_insert_block().unwrap();
+    let restore_info = if ctx.config.restore {
         let op_index = ctx.current_op.unwrap();
         let restore_start_bb = ctx
             .ictx
@@ -563,43 +563,41 @@ pub fn gen_call<'a>(
             .build_unconditional_branch(restore_end_bb)
             .expect("should build unconditional branch");
 
-        ctx.builder.position_at_end(restore_start_bb);
-        gen_restore_wasm_stack(
-            ctx,
-            exec_env_ptr,
-            locals,
-            &original_bb,
-            &restore_start_bb,
-            &restore_end_bb,
-            fn_called.get_params().len() - 1,
-        )
-        .expect("fail to gen_restore_wasm_stack");
-
-        ctx.builder.position_at_end(restore_start_bb);
-        ctx.builder
-            .build_unconditional_branch(restore_end_bb)
-            .unwrap();
-
         ctx.restore_dispatch_cases.push((
             ctx.inkwell_types.i32_type.const_int(op_index as u64, false),
             restore_start_bb,
         ));
+
+        ctx.builder.position_at_end(restore_start_bb);
+        let (restore_last_bb, restored_args) = gen_restore_wasm_stack(
+            ctx,
+            exec_env_ptr,
+            locals,
+            &before_restore_bb,
+            &restore_start_bb,
+            &restore_end_bb,
+            Some(fn_called),
+        )
+        .expect("fail to gen_restore_wasm_stack");
+
         ctx.builder.position_at_end(restore_end_bb);
-        Some((original_bb, restore_start_bb))
+        Some((restore_start_bb, restore_last_bb, restored_args))
     } else {
         None
     };
 
     // args
     let mut args: Vec<BasicValueEnum> = Vec::new();
-    for p in fn_called.get_params().iter().skip(1) {
-        if let Some((original_bb, restore_start_bb)) = restore_bbs {
+    if let Some((restore_start_bb, restore_last_bb, Some(restored_args))) = &restore_info {
+        for (i, p) in fn_called.get_params().iter().skip(1).enumerate() {
             let ty = p.get_type();
             let phi = ctx.builder.build_phi(ty, "").expect("should build phi");
-            phi.add_incoming(&[(&ctx.pop().expect("stack empty"), original_bb)]);
-            phi.add_incoming(&[(&ty.const_zero().as_basic_value_enum(), restore_start_bb)]);
+            phi.add_incoming(&[(&ctx.pop().expect("stack empty"), before_restore_bb)]);
+            phi.add_incoming(&[(&restored_args[i], *restore_last_bb)]);
             args.push(phi.as_basic_value());
-        } else {
+        }
+    } else {
+        for _ in fn_called.get_params().iter().skip(1) {
             args.push(ctx.pop().expect("stack empty"));
         }
     }
@@ -618,7 +616,7 @@ pub fn gen_call<'a>(
 
     // Continue checkpoint if necessary
     if ctx.config.checkpoint {
-        gen_check_state_and_snapshot(ctx, exec_env_ptr, locals)
+        gen_checkpoint_after_call(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
 

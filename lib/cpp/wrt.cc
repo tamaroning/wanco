@@ -36,7 +36,7 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages);
 
 void signal_chkpt_handler(int signum) {
   assert(signum == SIGCHKPT && "Unexpected signal");
-  exec_env.migration_state = MigrationState::STATE_CHECKPOINT;
+  exec_env.migration_state = MigrationState::STATE_CHECKPOINT_START;
 }
 
 struct Config {
@@ -48,7 +48,7 @@ Config parse_from_args(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (std::string(argv[i]) == "--restore") {
       if (i + 1 >= argc) {
-        std::cerr << "Missing argument for --restore" << std::endl;
+        std::cerr << "Error: Missing argument for --restore" << std::endl;
         exit(1);
       }
       config.restore_file = argv[i + 1];
@@ -57,7 +57,7 @@ Config parse_from_args(int argc, char **argv) {
       std::cerr << USAGE;
       exit(0);
     } else {
-      std::cerr << "Unknown argument: " << argv[i] << std::endl;
+      std::cerr << "Error: Unknown argument: " << argv[i] << std::endl;
       std::cerr << USAGE;
       exit(1);
     }
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     // Allocate memory
     int8_t *memory = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE);
     if (memory == NULL) {
-      std::cerr << "Failed to allocate " << INIT_MEMORY_SIZE * PAGE_SIZE
+      std::cerr << "Error: Failed to allocate " << INIT_MEMORY_SIZE * PAGE_SIZE
                 << " bytes to linear memory" << std::endl;
       return 1;
     }
@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     // Restore from checkpoint
     std::ifstream ifs(config.restore_file);
     if (!ifs.is_open()) {
-      std::cerr << "Failed to open checkpoint" << config.restore_file
+      std::cerr << "Error: Failed to open checkpoint" << config.restore_file
                 << std::endl;
       return 1;
     }
@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
               << std::endl;
     int8_t *memory = (int8_t *)malloc(memory_size * PAGE_SIZE);
     if (memory == NULL) {
-      std::cerr << "Failed to allocate " << chkpt.memory.size()
+      std::cerr << "Error: Failed to allocate " << chkpt.memory.size()
                 << " bytes to linear memory" << std::endl;
       return 1;
     }
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
 
   aot_main(&exec_env);
 
-  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT) {
+  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE) {
     chkpt.memory = std::vector<int8_t>(exec_env.memory_base,
                                        exec_env.memory_base +
                                            exec_env.memory_size * PAGE_SIZE);
@@ -143,8 +143,11 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
   int32_t new_size = old_size + inc_pages;
 
   int8_t *res = (int8_t *)realloc(exec_env->memory_base, new_size * PAGE_SIZE);
-  if (res == NULL)
+  if (res == NULL) {
+    std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
+              << std::endl;
     return -1;
+  }
 
   exec_env->memory_base = res;
   exec_env->memory_size = new_size;
@@ -157,89 +160,103 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
 
 // locals
 extern "C" void push_frame(ExecEnv *exec_env) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.frames.push_back(Frame());
 }
 
 extern "C" void set_pc_to_frame(ExecEnv *exec_env, int32_t fn_index,
                                 int32_t pc) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.frames.back().fn_index = fn_index;
   chkpt.frames.back().pc = pc;
 }
 
 extern "C" void push_local_i32(ExecEnv *exec_env, int32_t i32) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.frames.back().locals.push_back(Value(i32));
 }
 
 extern "C" void push_local_i64(ExecEnv *exec_env, int64_t i64) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.frames.back().locals.push_back(Value(i64));
 }
 
 extern "C" void push_local_f32(ExecEnv *exec_env, float f32) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.frames.back().locals.push_back(Value(f32));
 }
 
 extern "C" void push_local_f64(ExecEnv *exec_env, double f64) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.frames.back().locals.push_back(Value(f64));
 }
 
 // stack
 extern "C" void push_i32(ExecEnv *exec_env, int32_t i32) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.stack.push_back(Value(i32));
 }
 
 extern "C" void push_i64(ExecEnv *exec_env, int64_t i64) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.stack.push_back(Value(i64));
 }
 
 extern "C" void push_f32(ExecEnv *exec_env, float f32) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.stack.push_back(Value(f32));
 }
 
 extern "C" void push_f64(ExecEnv *exec_env, double f64) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.stack.push_back(Value(f64));
 }
 
 // globals
 extern "C" void push_global_i32(ExecEnv *exec_env, int32_t i32) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.globals.push_back(Value(i32));
 }
 
 extern "C" void push_global_i64(ExecEnv *exec_env, int64_t i64) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.globals.push_back(Value(i64));
 }
 
 extern "C" void push_global_f32(ExecEnv *exec_env, float f32) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.globals.push_back(Value(f32));
 }
 
 extern "C" void push_global_f64(ExecEnv *exec_env, double f64) {
-  assert(exec_env->migration_state == MigrationState::STATE_CHECKPOINT &&
+  assert(exec_env->migration_state ==
+             MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   chkpt.globals.push_back(Value(f64));
 }
@@ -294,9 +311,14 @@ extern "C" void pop_front_frame(ExecEnv *exec_env) {
   chkpt.frames.pop_front();
   // Restore is completed if there are no more frames to restore
   if (chkpt.frames.empty()) {
+    std::cerr << "[debug] Restore completed" << std::endl;
     exec_env->migration_state = MigrationState::STATE_NONE;
     chkpt = Checkpoint();
   }
+}
+
+extern "C" bool frame_is_empty(ExecEnv *exec_env) {
+  return chkpt.frames.empty();
 }
 
 extern "C" int32_t get_pc_from_frame(ExecEnv *exec_env) {

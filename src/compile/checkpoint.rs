@@ -2,14 +2,15 @@ use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
     types::{BasicType, BasicTypeEnum},
-    values::{AnyValue, BasicValue, BasicValueEnum, CallSiteValue, PointerValue},
+    values::{AnyValue, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
 };
 
 use crate::context::{Context, Global};
 
 pub const MIGRATION_STATE_NONE: i32 = 0;
-pub const MIGRATION_STATE_CHECKPOINT: i32 = 1;
-pub const MIGRATION_STATE_RESTORE: i32 = 2;
+pub const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
+pub const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
+pub const MIGRATION_STATE_RESTORE: i32 = 3;
 
 pub fn gen_restore_dispatch<'a>(
     ctx: &mut Context<'a, '_>,
@@ -69,15 +70,12 @@ pub fn gen_restore_wasm_stack<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
-    original_bb: &BasicBlock<'a>,
+    before_restore_bb: &BasicBlock<'a>,
     restore_start_bb: &BasicBlock<'a>,
     restore_end_bb: &BasicBlock<'a>,
-    // For function calls, number of stack values to skip,
-    // which equals to the number of parameters. Function
-    // arguments are not checkpointed since they are popped
-    // from the stack before the function call.
-    skip_stack_top: usize,
-) -> Result<()> {
+    // For restoring before function call, function called
+    callee: Option<FunctionValue<'a>>,
+) -> Result<(BasicBlock<'a>, Option<Vec<BasicValueEnum<'a>>>)> {
     //   ... (in %original_bb)
     //   br restore_op_6_end
     // restore_op_6: (%restore_start_bb)
@@ -108,13 +106,104 @@ pub fn gen_restore_wasm_stack<'a>(
     let frame = ctx.stack_frames.last().expect("frame empty");
     let stack = frame.stack.clone();
     let mut restored_stack = Vec::new();
+    let skip_stack_top = if let Some(callee) = callee {
+        callee.get_params().len() - 1
+    } else {
+        0
+    };
     for i in 0..(stack.len() - skip_stack_top) {
         let value = stack[i];
         let cs = gen_restore_stack_value(ctx, exec_env_ptr, value.get_type())
             .expect("should build push_T");
         restored_stack.push(cs);
     }
-    // Add phi nodes
+
+    // Restore args
+    let args = if let Some(callee) = callee {
+        // Restore arguments if the frame is empty
+        let cond = ctx
+            .builder
+            .build_call(
+                ctx.fn_frame_is_empty.unwrap(),
+                &[exec_env_ptr.as_basic_value_enum().into()],
+                "",
+            )
+            .expect("should build call");
+        let restore_args_bb = ctx.ictx.append_basic_block(
+            ctx.current_fn.unwrap(),
+            &format!("restore_op_{}.args", ctx.current_op.unwrap()),
+        );
+        let restore_args_end_bb = ctx.ictx.append_basic_block(
+            ctx.current_fn.unwrap(),
+            &format!("restore_op_{}.args_end", ctx.current_op.unwrap()),
+        );
+        ctx.builder
+            .build_conditional_branch(
+                cond.as_any_value_enum().into_int_value(),
+                restore_args_bb,
+                restore_args_end_bb,
+            )
+            .expect("should build conditional branch");
+
+        ctx.builder.position_at_end(restore_args_bb);
+        let mut restored_args = Vec::new();
+        for p in callee.get_params().iter().skip(1) {
+            let ty = p.get_type();
+            let restored =
+                gen_restore_stack_value(ctx, exec_env_ptr, ty).expect("should build pop_T");
+            restored_args.push(restored);
+        }
+        ctx.builder
+            .build_unconditional_branch(restore_args_end_bb)
+            .expect("should build unconditional branch");
+
+        // Add phi nodes for args
+        // restore_op_N.args:
+        //   ...
+        //   br %restore_op_N_end
+        ctx.builder.position_at_end(restore_args_end_bb);
+        let mut args = Vec::new();
+        for (i, arg) in restored_args.iter().enumerate() {
+            let arg = arg.try_as_basic_value().left().unwrap();
+            let ty = arg.get_type();
+            let phi = ctx
+                .builder
+                .build_phi(ty, &format!("arg_{}", i))
+                .expect("should build phi");
+            phi.add_incoming(&[(&arg, restore_args_bb)]);
+            phi.add_incoming(&[(&ty.const_zero(), *restore_start_bb)]);
+            args.push(phi.as_basic_value());
+        }
+
+        // call pop_front_frame
+        ctx.builder
+            .build_call(
+                ctx.fn_pop_front_frame.unwrap(),
+                &[exec_env_ptr.as_basic_value_enum().into()],
+                "",
+            )
+            .expect("should build call");
+        ctx.builder
+            .build_unconditional_branch(*restore_end_bb)
+            .expect("should build unconditional branch");
+        Some(args)
+    } else {
+        // call pop_front_frame
+        ctx.builder
+            .build_call(
+                ctx.fn_pop_front_frame.unwrap(),
+                &[exec_env_ptr.as_basic_value_enum().into()],
+                "",
+            )
+            .expect("should build call");
+        ctx.builder
+            .build_unconditional_branch(*restore_end_bb)
+            .expect("should build unconditional branch");
+        None
+    };
+    let restore_bb = ctx.builder.get_insert_block().unwrap();
+
+    // Add phi nodes for restored stack values
     ctx.builder.position_at_end(*restore_end_bb);
     for i in 0..restored_stack.len() {
         let restored_value = &restored_stack[i].try_as_basic_value().left().unwrap();
@@ -125,22 +214,13 @@ pub fn gen_restore_wasm_stack<'a>(
             .builder
             .build_phi(ty, &format!("stack_value_{}", i))
             .expect("should build phi");
-        phi.add_incoming(&[(&stack_value, *original_bb)]);
-        phi.add_incoming(&[(restored_value, *restore_start_bb)]);
+        phi.add_incoming(&[(&stack_value, *before_restore_bb)]);
+        phi.add_incoming(&[(restored_value, restore_bb)]);
         ctx.stack_frames.last_mut().unwrap().stack[i] = phi.as_basic_value();
     }
 
-    ctx.builder.position_at_end(*restore_start_bb);
-    ctx.builder
-        .build_call(
-            ctx.fn_pop_front_frame.unwrap(),
-            &[exec_env_ptr.as_basic_value_enum().into()],
-            "",
-        )
-        .expect("should build call");
-
     ctx.builder.position_at_end(*restore_end_bb);
-    Ok(())
+    Ok((restore_bb, args))
 }
 
 pub fn gen_store_globals<'a>(
@@ -150,7 +230,7 @@ pub fn gen_store_globals<'a>(
     let current_fn = ctx.current_fn.unwrap();
     let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
     let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
-    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT)
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
         .expect("fail to gen_compare_migration_state");
     ctx.builder
         .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
@@ -235,8 +315,7 @@ fn gen_push_global_value<'a>(
     Ok(())
 }
 
-/*
-pub fn gen_set_migration_state<'a>(
+fn gen_set_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     migration_state: i32,
@@ -259,10 +338,8 @@ pub fn gen_set_migration_state<'a>(
         .expect("fail to build store");
     Ok(())
 }
-*/
 
-// Store the current stack frame if the migration state equals to MIAGRATION_STATE_CHECKPOINT
-pub fn gen_check_state_and_snapshot<'a>(
+pub fn gen_checkpoint_before_call<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
@@ -270,13 +347,37 @@ pub fn gen_check_state_and_snapshot<'a>(
     let current_fn = ctx.current_fn.expect("should define current_fn");
     let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
     let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
-    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT)
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_START)
         .expect("fail to gen_compare_migration_state");
     ctx.builder
         .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
         .expect("should build conditional branch");
     ctx.builder.position_at_end(then_bb);
-    gen_store_wasm_stack(ctx, exec_env_ptr, locals).expect("fail to gen_store_wasm_stack");
+    gen_set_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
+        .expect("fail to gen_set_migration_state");
+    gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
+    gen_store_stack(ctx, exec_env_ptr).expect("fail to gen_store_stack");
+    gen_return_default_value(ctx).expect("fail to gen_return_default_value");
+    ctx.builder.position_at_end(else_bb);
+    Ok(())
+}
+
+pub fn gen_checkpoint_after_call<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+) -> Result<()> {
+    let current_fn = ctx.current_fn.expect("should define current_fn");
+    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
+    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
+        .expect("fail to gen_compare_migration_state");
+    ctx.builder
+        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
+        .expect("should build conditional branch");
+    ctx.builder.position_at_end(then_bb);
+    gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
+    gen_store_stack(ctx, exec_env_ptr).expect("fail to gen_store_stack");
     gen_return_default_value(ctx).expect("fail to gen_return_default_value");
     ctx.builder.position_at_end(else_bb);
     Ok(())
@@ -346,7 +447,7 @@ fn gen_migration_state<'a>(
     Ok(migration_state)
 }
 
-fn gen_store_wasm_stack<'a>(
+fn gen_store_frame<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
@@ -380,7 +481,10 @@ fn gen_store_wasm_stack<'a>(
             .expect("should build load");
         gen_add_local(ctx, exec_env_ptr, val).expect("should build push_local_T");
     }
+    Ok(())
+}
 
+fn gen_store_stack<'a>(ctx: &mut Context<'a, '_>, exec_env_ptr: &PointerValue<'a>) -> Result<()> {
     // Store stack values associated to the current function
     let frame = ctx.stack_frames.last().expect("frame empty");
     let stack = frame.stack.clone();

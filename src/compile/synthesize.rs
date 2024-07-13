@@ -199,6 +199,15 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
     }
 
     if ctx.config.restore {
+        let fn_type_pop_front_frame = ctx
+            .inkwell_types
+            .void_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
+        ctx.fn_pop_front_frame = Some(ctx.module.add_function(
+            "pop_front_frame",
+            fn_type_pop_front_frame,
+            Some(Linkage::External),
+        ));
         let fn_type_get_pc_from_frame = ctx
             .inkwell_types
             .i32_type
@@ -208,13 +217,13 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             fn_type_get_pc_from_frame,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_frame = ctx
+        let fn_type_frame_is_empty = ctx
             .inkwell_types
-            .void_type
+            .bool_type
             .fn_type(&[exec_env_ptr_type.into()], false);
-        ctx.fn_pop_front_frame = Some(ctx.module.add_function(
-            "pop_front_frame",
-            fn_type_pop_front_frame,
+        ctx.fn_frame_is_empty = Some(ctx.module.add_function(
+            "frame_is_empty",
+            fn_type_frame_is_empty,
             Some(Linkage::External),
         ));
         // locals
