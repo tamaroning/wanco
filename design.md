@@ -1,5 +1,28 @@
 # デザイン
 
+## TODO
+
+Checkpoint
+- [x] before call
+- [ ] loop start
+- [x] C: memory
+- [x] C: stack
+- [x] C: locals
+- [x] C: globals
+- [ ] C: sockets
+- [ ] C: files
+
+Restore
+- [x] before call
+- [ ] loop start
+- [x] R: memory
+- [x] R: stack
+- [x] R: locals
+- [ ] R: globals
+- [ ] R: sockets
+- [ ] R: files
+
+
 ## コンパイルとリンク
 
 1. lib.o, wrt.oをコンパイルしておく
@@ -84,13 +107,6 @@ wanco module.wasm --restore
 ./a.out --restore-from checkpoint.json
 ```
 
-- [x] 関数のentryでop_indexでdispatch
-- [ ] frameのpop
-- [ ] ローカル変数のリストア
-- [ ] スタックのリストア
-- [ ] グローバル変数のリストア(aot_main)
-- [ ] メモリのリストア(main)
-
 func
 %entry:
 if state = RESTORE
@@ -119,4 +135,3 @@ RestoreState {
     i32 restore_state_0;
     i32 restore_state_1;
 }
-
