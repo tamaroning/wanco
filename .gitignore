@@ -6,6 +6,8 @@
 **/*.wat
 **/*.wasm
 !tests/**/*
+!demo/**/*.wat
+!examples/**/*.wat
 
 /*.bc
 /*.cc
