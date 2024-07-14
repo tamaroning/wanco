@@ -1,10 +1,10 @@
 (module
-    (type (;0;) (func (param i32)))
+  (type (;0;) (func (param i32)))
 
   (import "env" "print_i32" (func $print_i32 (type 0)))
   (import "env" "sleep" (func $sleep (type 0)))
 
-  ;; Define a single page memory of 64KB.
+  ;; Define a single page memory of 4KB.
   (memory $0 1)
 
   (func $main (param $counter i32) (param $step i32)
