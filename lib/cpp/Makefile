@@ -24,7 +24,11 @@ chkpt_decode.o: chkpt_decode.cc exec_env.h chkpt.h
 chkpt_encode.o: chkpt_encode.cc exec_env.h chkpt.h
 	$(CC) $(CFLAGS) -c chkpt_encode.cc -o chkpt_encode.o $(LDFLAGS)
 
+install:
+	install -d /usr/local/lib
+	install -m 644 libwanco.a /usr/local/lib
+
 clean:
 	rm -f lib.o wrt.o chkpt_decode.o chkpt_encode.o libwanco.a
 
-.PHONY: all clean
+.PHONY: all clean install

@@ -10,12 +10,19 @@ use crate::compile;
 pub struct Args {
     pub input_file: path::PathBuf,
 
-    #[arg(short, long, default_value = "./wasm.o")]
-    pub output_file: path::PathBuf,
+    /// Place the output file.
+    #[arg(short, long)]
+    pub output_file: Option<String>,
 
+    /// Compile and assemble, but do not link.
+    #[arg(short)]
+    pub compile_only: bool,
+
+    /// Enable the checkpoint feature.
     #[arg(long)]
     pub checkpoint: bool,
 
+    /// Enable the restore feature.
     #[arg(long)]
     pub restore: bool,
 }

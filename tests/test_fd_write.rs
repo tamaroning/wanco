@@ -14,14 +14,18 @@ fn test_fd_write() {
     let tmp_filename = "wanco_fd_write";
     let obj = std::path::PathBuf::from("/tmp")
         .join(tmp_filename)
-        .with_extension("o");
+        .with_extension("o")
+        .to_str()
+        .unwrap()
+        .to_string();
     let exe = std::path::PathBuf::from("/tmp").join(tmp_filename);
 
     // Compile
     let args = Args {
         input_file: path,
         // /tmp/<filename>.o
-        output_file: obj.clone(),
+        output_file: Some(obj.clone()),
+        compile_only: true,
         ..Default::default()
     };
     if let Err(e) = run_compiler(&args) {

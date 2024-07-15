@@ -27,27 +27,69 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     log::debug!("Start compilation");
     compile_module(wasm, &mut ctx)?;
 
-    let obj_path = path::Path::new(&args.output_file).with_extension("o");
-    let asm_path = path::Path::new(&args.output_file).with_extension("ll");
+    let obj_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned()))
+        .with_extension("o");
+    let asm_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.ll".to_owned()))
+        .with_extension("ll");
+    let tmp_obj_path = path::Path::new("/tmp/wasm.o");
+    let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
+    let exe_path = path::Path::new(&exe_path);
 
-    log::debug!("write to {}", asm_path.display());
-    ctx.module
-        .print_to_file(asm_path.to_str().expect("error ll_path"))
-        .map_err(|e| anyhow!(e.to_string()))
-        .context("Failed to write to the ll file")?;
-    log::debug!("wrote to {}", asm_path.display());
-
-    log::debug!("write to {}", obj_path.display());
     let target = get_host_target_machine().expect("Failed to get host architecture");
+
+    if args.compile_only {
+        log::debug!("write to {}", asm_path.display());
+        ctx.module
+            .print_to_file(asm_path.to_str().expect("error ll_path"))
+            .map_err(|e| anyhow!(e.to_string()))
+            .context("Failed to write to the ll file")?;
+        log::debug!("wrote to {}", asm_path.display());
+
+        log::debug!("write to {}", obj_path.display());
+        target
+            .write_to_file(
+                ctx.module,
+                targets::FileType::Object,
+                std::path::Path::new(obj_path.to_str().expect("error obj_path")),
+            )
+            .map_err(|e| anyhow!(e.to_string()))
+            .context("Failed to write to the object file")?;
+        log::debug!("wrote to {}", obj_path.display());
+
+        return Ok(());
+    }
+
+    // Link
+    let target = get_host_target_machine().expect("Failed to get host architecture");
+    log::debug!("write to {}", tmp_obj_path.display());
     target
         .write_to_file(
             ctx.module,
             targets::FileType::Object,
-            std::path::Path::new(obj_path.to_str().expect("error obj_path")),
+            std::path::Path::new(tmp_obj_path.to_str().expect("error tmp_obj_path")),
         )
         .map_err(|e| anyhow!(e.to_string()))
         .context("Failed to write to the object file")?;
-    log::debug!("wrote to {}", obj_path.display());
+    log::debug!("wrote to {}", tmp_obj_path.display());
+
+    log::debug!("linking object file");
+    log::debug!(
+        "c++ {} /usr/local/lib/libwanco.a -o {} -no-pie",
+        tmp_obj_path.display(),
+        exe_path.display(),
+    );
+    let o = std::process::Command::new("c++")
+        .arg(tmp_obj_path)
+        .arg("/usr/local/lib/libwanco.a")
+        .arg("-o")
+        .arg(exe_path)
+        .arg("-no-pie")
+        .output()
+        .context("Failed to link object file")?;
+    if !o.status.success() {
+        let cc_stderr = String::from_utf8(o.stderr).unwrap();
+        return Err(anyhow!("Failed to link object file: {}", cc_stderr));
+    }
 
     Ok(())
 }

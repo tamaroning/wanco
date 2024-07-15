@@ -31,14 +31,18 @@ fn run_test(test_name: &str) {
         .with_extension("wat");
     let tmp_filename = format!("wanco_wasker_{}", test_name);
     let obj = std::path::PathBuf::from("/tmp")
-        .join(&tmp_filename)
-        .with_extension("o");
+        .join(tmp_filename.clone())
+        .with_extension("o")
+        .to_str()
+        .unwrap()
+        .to_string();
     let exe = std::path::PathBuf::from("/tmp").join(tmp_filename);
 
     // Compile
     let args = Args {
         input_file: path,
-        output_file: obj.clone(),
+        output_file: Some(obj.clone()),
+        compile_only: true,
         ..Default::default()
     };
     if let Err(e) = run_compiler(&args) {
