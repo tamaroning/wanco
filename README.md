@@ -74,5 +74,9 @@ cargo test
 
 ## LICENSE
 
+MIT
+
+<!--
 - tests/spec/: Apache-2.0
 - others: MIT
+-->
