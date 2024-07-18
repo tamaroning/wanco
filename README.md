@@ -60,6 +60,29 @@ $ ./hello
 Hello World!
 ```
 
+### Using C/R functionalities
+
+Compile a WebAssembly file with C/R enabled and run it:
+
+```
+$ ./wanco --checkpoint --restore demo/fib.wat
+$ a.out
+```
+
+Trigger checkpoint by sending `SIGUSR1` signal from another teminal:
+
+(The running process is automatically terminated and the snapshot file is created.)
+
+```
+pkill -10 a.out
+```
+
+Restore the execution:
+
+```
+$ ./a.out --restore checkpoint.json
+```
+
 ### Compile and assemble only
 
 If you do not want to link the object files, specify the `-c` option.
@@ -84,10 +107,15 @@ cargo test
 
 ## TODO
 
-- WASI preview1 (https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md#modules)
-    - use wasi-libc? (https://github.com/WebAssembly/wasi-libc)
-- support sqlite-wasm
-- compiler driver
+- [x] WASI preview 0
+    - some are missing
+- [ ] WASI preview 1
+- [ ] WASI preview 2
+- [ ] WASI NN
+- [x] Checkpoint
+    - tables are not supported
+- [x] Restore
+    - tables and global variables are not supported
 
 ## LICENSE
 
