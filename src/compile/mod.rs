@@ -27,6 +27,8 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     log::debug!("Start compilation");
     compile_module(wasm, &mut ctx)?;
 
+    let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
+
     let obj_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned()))
         .with_extension("o");
     let asm_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.ll".to_owned()))
@@ -34,8 +36,6 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     let tmp_obj_path = path::Path::new("/tmp/wasm.o");
     let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
     let exe_path = path::Path::new(&exe_path);
-
-    let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
 
     if args.compile_only {
         log::debug!("write to {}", asm_path.display());
@@ -131,7 +131,12 @@ fn get_target_machine(args: &Args) -> Result<targets::TargetMachine, String> {
         (cpu, target, triple, features)
     };
 
-    let opt_level = inkwell::OptimizationLevel::None;
+    let opt_level = match &args.optimization {
+        crate::driver::OptimizationLevel::O0 => inkwell::OptimizationLevel::None,
+        crate::driver::OptimizationLevel::O1 => inkwell::OptimizationLevel::Less,
+        crate::driver::OptimizationLevel::O2 => inkwell::OptimizationLevel::Default,
+        crate::driver::OptimizationLevel::O3 => inkwell::OptimizationLevel::Aggressive,
+    };
     let reloc_mode = RelocMode::Default;
     let code_model = CodeModel::Default;
 
