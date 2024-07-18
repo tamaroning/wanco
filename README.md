@@ -14,23 +14,23 @@ Prerequisites:
 
 First you need to clone the project:
 ```
-git clone git@github.com:tamaroning/wanco.git
-cd wanco
+$ git clone git@github.com:tamaroning/wanco.git
+$ cd wanco
 ```
 
 To build and install the runtime library (libwanco.a), run the following commands.
 Libraries (libwanco.a) will be installed in /usr/local/lib/.
 
 ```
-lib/cpp
-make
-sudo make install
+$cd lib/cpp
+$ make
+$sudo make install
 ```
 
 Build the wanco compiler:
 ```
-cargo build --release
-cp target/release/wanco .
+$ cargo build --release
+$ cp target/release/wanco .
 ```
 
 ## Run
@@ -74,7 +74,7 @@ Trigger checkpoint by sending `SIGUSR1` signal from another teminal:
 (The running process is automatically terminated and the snapshot file is created.)
 
 ```
-pkill -10 a.out
+$ pkill -10 a.out
 ```
 
 Restore the execution:
@@ -89,20 +89,21 @@ If you do not want to link the object files, specify the `-c` option.
 LLVM assembly file (`.ll`) will also be generated.
 
 ```
-wanco examples/hello.wat -c -o hello.o
+$ wanco examples/hello.wat -c -o hello.o
 ```
 
 After that, you can link it with the runtime library together by using C++ compiler.
 
 ```
-c++ -no-pie hello.o /usr/local/lib/libwanco.a -o hello
+$ c++ -no-pie hello.o /usr/local/lib/libwanco.a -o hello
 ```
 
 ## Test
 
 Run
+
 ```
-cargo test
+$ cargo test
 ```
 
 ## TODO
