@@ -35,7 +35,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
     let exe_path = path::Path::new(&exe_path);
 
-    let target = get_host_target_machine().expect("Failed to get host architecture");
+    let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
 
     if args.compile_only {
         log::debug!("write to {}", asm_path.display());
@@ -60,7 +60,6 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     }
 
     // Link
-    let target = get_host_target_machine().expect("Failed to get host architecture");
     log::debug!("write to {}", tmp_obj_path.display());
     target
         .write_to_file(
@@ -74,51 +73,69 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
 
     log::debug!("linking object file");
     log::debug!(
-        "c++ {} /usr/local/lib/libwanco.a -o {} -no-pie",
+        "g++ {} /usr/local/lib/libwanco.a -o {} -no-pie",
         tmp_obj_path.display(),
         exe_path.display(),
     );
-    let o = std::process::Command::new("c++")
+    let o = std::process::Command::new("g++")
         .arg(tmp_obj_path)
         .arg("/usr/local/lib/libwanco.a")
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")
         .output()
-        .context("Failed to link object file")?;
+        .map_err(|e| anyhow!(e.to_string()))
+        .context("Failed to link object files")?;
     if !o.status.success() {
         let cc_stderr = String::from_utf8(o.stderr).unwrap();
-        return Err(anyhow!("Failed to link object file: {}", cc_stderr));
+        return Err(anyhow!("Failed to link object files: {}", cc_stderr));
     }
 
     Ok(())
 }
 
-fn get_host_target_machine() -> Result<targets::TargetMachine, String> {
+fn get_target_machine(args: &Args) -> Result<targets::TargetMachine, String> {
     use targets::*;
 
     Target::initialize_native(&InitializationConfig::default())
         .map_err(|e| format!("failed to initialize native target: {}", e))?;
 
-    let triple = TargetMachine::get_default_triple();
-    let target =
-        Target::from_triple(&triple).map_err(|e| format!("failed to get target: {}", e))?;
+    let (cpu, target, triple, features) = if let Some(ref cpu) = args.target {
+        let (triple, features) = match cpu.as_str() {
+            "x86_64" => {
+                Target::initialize_x86(&InitializationConfig::default());
+                ("x86_64-linux-gnu", "+sse2")
+            }
+            // arm-linux-gnueabihf, aarch64-arm-linux-eabi, aarch64-linux-gnu
+            "aarch64" => {
+                Target::initialize_aarch64(&InitializationConfig::default());
+                ("aarch64-arm-linux-eabi", "+neon,+fp-armv8,+simd")
+            }
 
-    let cpu = TargetMachine::get_host_cpu_name();
-    let features = TargetMachine::get_host_cpu_features();
+            _ => ("x86_64-unknown-linux-gnu", "+sse2"),
+        };
+        let triple = TargetTriple::create(triple);
+        let target =
+            Target::from_triple(&triple).map_err(|e| format!("failed to get target: {}", e))?;
+        (cpu.to_owned(), target, triple, features.to_owned())
+    } else {
+        let triple = TargetMachine::get_default_triple();
+        let target =
+            Target::from_triple(&triple).map_err(|e| format!("failed to get target: {}", e))?;
+        let cpu = TargetMachine::get_host_cpu_name()
+            .to_str()
+            .expect("error get cpu info")
+            .to_owned();
+        let features = TargetMachine::get_host_cpu_features().to_owned();
+        let features = features.to_str().expect("error get features").to_owned();
+        (cpu, target, triple, features)
+    };
 
     let opt_level = inkwell::OptimizationLevel::None;
     let reloc_mode = RelocMode::Default;
     let code_model = CodeModel::Default;
 
     target
-        .create_target_machine(
-            &triple,
-            cpu.to_str().expect("error get cpu info"),
-            features.to_str().expect("error get features"),
-            opt_level,
-            reloc_mode,
-            code_model,
-        )
+        .create_target_machine(&triple, &cpu, &features, opt_level, reloc_mode, code_model)
         .ok_or("failed to get target machine".to_string())
 }

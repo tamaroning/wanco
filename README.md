@@ -10,6 +10,7 @@ Prerequisites:
 - C++ compiler
 - Makefile
 - Cargo
+- LLVM 17
 
 First you need to clone the project:
 ```

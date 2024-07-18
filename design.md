@@ -135,3 +135,18 @@ RestoreState {
     i32 restore_state_0;
     i32 restore_state_1;
 }
+
+## cross-compile
+
+build LLVM
+
+1. git clone llvm
+2. checkout to version 17
+3. mkdir ../build && cd ../build
+
+```
+cmake -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="AArch64" -DCMAKE_INSTALL_PREFIX=<path> ../llvm-project/llvm
+```
+available targets:
+/llvm-project/llvm/lib/Target
+

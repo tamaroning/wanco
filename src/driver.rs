@@ -18,6 +18,10 @@ pub struct Args {
     #[arg(short)]
     pub compile_only: bool,
 
+    /// Target (TODO: wip)
+    #[arg(long)]
+    pub target: Option<String>,
+
     /// Enable the checkpoint feature.
     #[arg(long)]
     pub checkpoint: bool,
