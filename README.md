@@ -35,6 +35,22 @@ cp target/release/wanco .
 
 ## Run
 
+```
+$ wanco --help
+Usage: wanco [OPTIONS] <INPUT_FILE>
+
+Arguments:
+    <INPUT_FILE>  
+
+Options:
+    -o, --output-file <OUTPUT_FILE>  Place the output file
+    -c                               Compile and assemble, but do not link
+    --checkpoint                     Enable the checkpoint feature
+    --restore                        Enable the restore feature
+    -O <OPTIMIZATION>                [default: 2] [possible values: 0, 1, 2, 3]
+    -h, --help                       Print help
+```
+
 Before running the compiler, make sure that a C++ compiler can be invoked via the `c++` command and the runtime library (libwanco.a) is installed in /usr/local/lib/.
 Specify an input file which is a WebAssembly text or binary format.
 
