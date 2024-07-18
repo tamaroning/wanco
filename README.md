@@ -2,7 +2,7 @@
 
 ![plot](./animal_dance_dog.png)
 
-wanco is a WebAssembly AOT compiler.
+wanco is a WebAssembly AOT compiler which supports Checkpoint/Restore functionalities.
 
 ## Build
 
@@ -11,6 +11,7 @@ Prerequisites:
 - Makefile
 - Cargo
 - LLVM 17
+- Linux (macOS probably works but not tested)
 
 First you need to clone the project:
 ```
@@ -52,6 +53,7 @@ Options:
 ```
 
 Before running the compiler, make sure that a C++ compiler can be invoked via the `c++` command and the runtime library (libwanco.a) is installed in /usr/local/lib/.
+
 Specify an input file which is a WebAssembly text or binary format.
 
 ```
@@ -117,6 +119,7 @@ $ cargo test
     - tables are not supported
 - [x] Restore
     - tables and global variables are not supported
+- [ ] supports targets other than host platforms
 
 ## LICENSE
 
