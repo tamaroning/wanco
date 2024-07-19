@@ -73,13 +73,14 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
 
     log::debug!("linking object file");
     log::debug!(
-        "g++ {} /usr/local/lib/libwanco.a -o {} -no-pie",
+        "g++ {} /usr/local/lib/libwanco_rt.a -o {} -no-pie",
         tmp_obj_path.display(),
         exe_path.display(),
     );
     let o = std::process::Command::new("g++")
         .arg(tmp_obj_path)
-        .arg("/usr/local/lib/libwanco.a")
+        .arg("/usr/local/lib/libwanco_rt.a")
+        .arg("/usr/local/lib/libwanco_wasi.a")
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")

@@ -77,6 +77,9 @@ int main(int argc, char **argv) {
                 << " bytes to linear memory" << std::endl;
       return 1;
     }
+    std::cerr << "[info] Allocating liear memory: " << INIT_MEMORY_SIZE
+              << " pages, starting at 0x" << std::hex << (uint64_t)memory
+              << std::endl;
     // Initialize exec_env
     exec_env = ExecEnv{
         .memory_base = memory,
@@ -92,7 +95,8 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    std::cerr << "[info] Reading checkpoint from " << config.restore_file << std::endl;
+    std::cerr << "[info] Reading checkpoint from " << config.restore_file
+              << std::endl;
     chkpt = decode_checkpoint_json(ifs);
 
     // ceil(memory.size / PAGE_SIZE)
@@ -106,8 +110,8 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    std::cerr << "[info] Restoring memory: 0x" << std::hex << chkpt.memory.size()
-              << " bytes" << std::endl;
+    std::cerr << "[info] Restoring memory: 0x" << std::hex
+              << chkpt.memory.size() << " bytes" << std::endl;
     std::memcpy(memory, chkpt.memory.data(), chkpt.memory.size());
     // Initialize exec_env
     exec_env = ExecEnv{

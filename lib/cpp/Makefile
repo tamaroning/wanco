@@ -3,10 +3,10 @@ LD = g++
 CFLAGS = -Wall -g
 LDFLAGS = -lm
 
-all: libwanco.a
+all: libwanco_rt.a
 
-libwanco.a: lib.o wrt.o chkpt_decode.o chkpt_encode.o
-	ar rcs libwanco.a \
+libwanco_rt.a: lib.o wrt.o chkpt_decode.o chkpt_encode.o
+	ar rcs libwanco_rt.a \
 		lib.o \
 		wrt.o \
 		chkpt_decode.o \
@@ -26,9 +26,9 @@ chkpt_encode.o: chkpt_encode.cc exec_env.h chkpt.h
 
 install:
 	install -d /usr/local/lib
-	install -m 644 libwanco.a /usr/local/lib
+	install -m 644 libwanco_rt.a /usr/local/lib
 
 clean:
-	rm -f lib.o wrt.o chkpt_decode.o chkpt_encode.o libwanco.a
+	rm -f lib.o wrt.o chkpt_decode.o chkpt_encode.o libwanco_rt.a
 
 .PHONY: all clean install

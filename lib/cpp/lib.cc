@@ -34,34 +34,6 @@ typedef enum {
   // Add other error types here
 } WasiError;
 
-extern "C" WasiError fd_write(ExecEnv *exec_env, int fd, int buf_iovec_addr,
-                              int vec_len, int size_addr) {
-  std::cerr << std::dec << "[debug] fd_write(" << fd << ", " << buf_iovec_addr
-            << ", " << vec_len << ", " << size_addr << ")" << std::endl;
-  char *iovec_ptr = (char *)&exec_env->memory_base[buf_iovec_addr];
-  IoVec *iovec = (IoVec *)iovec_ptr;
-  std::cerr << std::dec << "[debug] iovec[0].iov_base = " << iovec[0].iov_base
-            << ", iovec[0].iov_len = " << iovec[0].iov_len << std::endl;
-  // TODO: remove. dump memory
-  for (int i = 0; i < 32; i++) {
-    std::cerr << std::hex << (int)exec_env->memory_base[i] << " ";
-  }
-  std::cerr << std::endl;
-
-  int len = 0;
-  for (int i = 0; i < vec_len; i++) {
-    char *buf_ptr = (char *)(exec_env->memory_base + iovec[i].iov_base);
-    size_t buf_len = iovec[i].iov_len;
-    for (size_t j = 0; j < buf_len; j++) {
-      printf("%c", buf_ptr[j]);
-    }
-    len += buf_len;
-  }
-  int *size_ptr = (int *)(exec_env->memory_base + size_addr);
-  *size_ptr = len;
-  return SUCCESS;
-}
-
 extern "C" void proc_exit(ExecEnv *exec_env, int code) {
   // exit
   std::cerr << "[debug] proc_exit(" << code << ")" << std::endl;

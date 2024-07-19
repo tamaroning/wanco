@@ -153,3 +153,7 @@ available targets:
 ## WASI
 porting 
 https://github.com/bytecodealliance/wasm-micro-runtime/tree/main/core/iwasm/libraries
+
+
+/wanco/lib/rust/wasi$ cbindgen --output my_header.h
+

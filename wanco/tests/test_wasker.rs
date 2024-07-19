@@ -3,7 +3,10 @@ use std::{path::PathBuf, process::Command};
 use wanco::*;
 
 const TEST_DIR: &str = "tests/wasker/";
-const LIB_PATH: &str = "/usr/local/lib/libwanco.a";
+const LIBS: [&str; 2] = [
+    "/usr/local/lib/libwanco_rt.a",
+    "/usr/local/lib/libwanco_wasi.a",
+];
 
 macro_rules! ident_to_str {
     ($ident:ident) => {
@@ -49,14 +52,12 @@ fn run_test(test_name: &str) {
         panic!("Could not compile {:?} ({})", &args.input_file, e);
     }
     // Link
-    Command::new("g++")
-        .arg(obj)
-        .arg(LIB_PATH)
-        .arg("-no-pie")
-        .arg("-o")
-        .arg(exe.clone())
-        .output()
-        .unwrap();
+    let mut cmd = Command::new("g++");
+    let mut cmd = cmd.arg(obj).arg("-no-pie").arg("-o").arg(exe.clone());
+    for lib in LIBS.iter() {
+        cmd = cmd.arg(lib);
+    }
+    cmd.output().unwrap();
 
     // Execute
     let output = Command::new(exe).output().unwrap();

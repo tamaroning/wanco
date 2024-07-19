@@ -6,7 +6,7 @@
 **/*.wat
 **/*.wasm
 build
-!tests/**/*
+!wanco/tests/**/*
 !demo/**/*.wat
 !examples/**/*.wat
 
@@ -17,3 +17,5 @@ build
 # clangd
 compile_commands.json
 .cache
+
+**/target

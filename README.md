@@ -19,8 +19,8 @@ $ git clone git@github.com:tamaroning/wanco.git
 $ cd wanco
 ```
 
-To build and install the runtime library (libwanco.a), run the following commands.
-Libraries (libwanco.a) will be installed in /usr/local/lib/.
+To build and install the libraries (libwanco_rt.a and libwanco_wasi.a), run the following commands.
+Wanco libraries (libwanco_rt.a and libwanco_wasi.a) will be installed in /usr/local/lib/.
 
 ```
 $ mkdir build
@@ -54,7 +54,7 @@ Options:
     -h, --help                       Print help
 ```
 
-Before running the compiler, make sure that a C++ compiler can be invoked via the `c++` command and the runtime library (libwanco.a) is installed in /usr/local/lib/.
+Before running the compiler, make sure that a C++ compiler can be invoked via the `c++` command and the wanco libraries is installed in /usr/local/lib/.
 
 Specify an input file which is a WebAssembly text or binary format.
 
@@ -99,7 +99,7 @@ $ wanco examples/hello.wat -c -o hello.o
 After that, you can link it with the runtime library together by using C++ compiler.
 
 ```
-$ c++ -no-pie hello.o /usr/local/lib/libwanco.a -o hello
+$ c++ -no-pie hello.o /usr/local/lib/libwanco_rt.a /usr/local/lib/libwanco_wasi.a -o hello
 ```
 
 ## Test

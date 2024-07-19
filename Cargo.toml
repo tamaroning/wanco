@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["wanco", "lib/rust/*"]
-default-members = ["wanco", "lib/rust/*"]
+members = ["wanco"]
+default-members = ["wanco"]
+exclude = ["lib/**/*"]
 
 [[bin]]
 name = "wanco"
