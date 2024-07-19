@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::Command};
 use wanco::*;
 
 const TEST_DIR: &str = "tests/wasker/";
-const LIB_PATH: &str = "lib/cpp/libwanco.a";
+const LIB_PATH: &str = "/usr/local/lib/libwanco.a";
 
 macro_rules! ident_to_str {
     ($ident:ident) => {

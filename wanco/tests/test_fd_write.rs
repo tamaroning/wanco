@@ -2,7 +2,7 @@ use std::{path::PathBuf, process::Command};
 
 use wanco::*;
 
-const LIB_PATH: &str = "lib/cpp/libwanco.a";
+const LIB_PATH: &str = "/usr/local/lib/libwanco.a";
 
 #[test]
 fn test_fd_write() {

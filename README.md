@@ -8,10 +8,10 @@ wanco is a WebAssembly AOT compiler which supports Checkpoint/Restore functional
 
 Prerequisites:
 - C++ compiler
-- Makefile
+- CMake
 - Cargo
 - LLVM 17
-- Linux (macOS probably works but not tested)
+- Linux (Unix and macOS probably work but are not tested)
 
 First you need to clone the project:
 ```
@@ -23,9 +23,11 @@ To build and install the runtime library (libwanco.a), run the following command
 Libraries (libwanco.a) will be installed in /usr/local/lib/.
 
 ```
-$cd lib/cpp
-$ make
-$sudo make install
+$ mkdir build
+$ cd build
+$ cmake ../lib
+$ make && sudo make install
+$ cd ..
 ```
 
 Build the wanco compiler:
