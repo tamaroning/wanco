@@ -5,6 +5,7 @@
 **/a.out
 **/*.wat
 **/*.wasm
+build
 !tests/**/*
 !demo/**/*.wat
 !examples/**/*.wat
@@ -12,3 +13,7 @@
 /*.bc
 /*.cc
 /*.json
+
+# clangd
+compile_commands.json
+.cache

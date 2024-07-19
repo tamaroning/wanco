@@ -150,3 +150,6 @@ cmake -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="AArch6
 available targets:
 /llvm-project/llvm/lib/Target
 
+## WASI
+porting 
+https://github.com/bytecodealliance/wasm-micro-runtime/tree/main/core/iwasm/libraries

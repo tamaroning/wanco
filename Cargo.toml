@@ -1,4 +1,4 @@
-workspace = { members = ["examples/rust"] }
+workspace = { members = ["examples/rust", "lib/wasi"] }
 [package]
 name = "wanco"
 version = "0.1.0"

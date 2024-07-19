@@ -59,8 +59,6 @@ extern "C" WasiError fd_write(ExecEnv *exec_env, int fd, int buf_iovec_addr,
   }
   int *size_ptr = (int *)(exec_env->memory_base + size_addr);
   *size_ptr = len;
-  // TODO: remove
-  exit(0);
   return SUCCESS;
 }
 
