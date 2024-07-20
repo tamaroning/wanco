@@ -80,6 +80,8 @@ int main(int argc, char **argv) {
     std::cerr << "[info] Allocating liear memory: " << INIT_MEMORY_SIZE
               << " pages, starting at 0x" << std::hex << (uint64_t)memory
               << std::endl;
+    // Zero out memory
+    std::memset(memory, 0, INIT_MEMORY_SIZE * PAGE_SIZE);
     // Initialize exec_env
     exec_env = ExecEnv{
         .memory_base = memory,
@@ -140,6 +142,7 @@ int main(int argc, char **argv) {
 }
 
 extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
+  assert(inc_pages >= 0);
   int32_t old_size = exec_env->memory_size;
   int32_t new_size = old_size + inc_pages;
 
@@ -149,6 +152,8 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
               << std::endl;
     return -1;
   }
+  // Zero out new memory
+  std::memset(res + old_size * PAGE_SIZE, 0, inc_pages * PAGE_SIZE);
 
   exec_env->memory_base = res;
   exec_env->memory_size = new_size;

@@ -9,6 +9,10 @@ edition = "2021"
 wasi-common = "22.0.0"
 tokio = { version = "1.0", features = ["full"] }
 wiggle = "22.0.0"
+wasmtime-wasi-nn = { version = "22.0.0", features = [] }
+wit-bindgen = "0.28.0"
+anyhow = "1.0.86"
+thiserror = "1.0.63"
 
 [lib]
 crate-type = ["staticlib"]

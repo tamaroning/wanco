@@ -157,3 +157,17 @@ https://github.com/bytecodealliance/wasm-micro-runtime/tree/main/core/iwasm/libr
 
 /wanco/lib/rust/wasi$ cbindgen --output my_header.h
 
+  (type (;2;) (func (param i32) (result i32)))
+  (type (;5;) (func (param i32 i32) (result i32)))
+  (type (;7;) (func (param i32 i32 i32) (result i32)))
+  (type (;10;) (func (param i32 i32 i32 i32 i32) (result i32)))
+
+  (import "wasi_ephemeral_nn" "set_input" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn9set_input17habc1a5a257d08256E (type 7)))
+  (import "wasi_ephemeral_nn" "fini_single" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn11fini_single17h38620d609cfbfec6E (type 2)))
+  (import "wasi_ephemeral_nn" "compute_single" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn14compute_single17hdf087585f88c7b30E (type 2)))
+  (import "wasi_ephemeral_nn" "load_by_name_with_config" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn24load_by_name_with_config17hce74e8b424b5269eE (type 10)))
+  (import "wasi_ephemeral_nn" "init_execution_context" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn22init_execution_context17h92c8f2798d40884dE (type 5)))
+  (import "wasi_ephemeral_nn" "compute" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn7compute17hf8fc249f3c722447E (type 2)))
+  (import "wasi_ephemeral_nn" "get_output" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn10get_output17h79c3d69a05b9703dE (type 10)))
+  (import "wasi_ephemeral_nn" "get_output_single" (func $_ZN16wasmedge_wasi_nn9generated17wasi_ephemeral_nn17get_output_single17h0df47ece3c176f76E (type 10)))
+ 
