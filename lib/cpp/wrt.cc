@@ -50,6 +50,7 @@ struct Config {
 
 int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   uint64_t num_bytes = num_pages * PAGE_SIZE;
+  // FIXME: should use mmap
   int8_t *res = (int8_t *)malloc(num_bytes);
   if (res == NULL) {
     std::cerr << "Error: Failed to allocate " << num_pages * PAGE_SIZE
@@ -203,6 +204,7 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
   int32_t old_size = exec_env->memory_size;
   int32_t new_size = old_size + inc_pages;
 
+  // FIXME: Should use mremap
   int8_t *res = (int8_t *)realloc(exec_env->memory_base, new_size * PAGE_SIZE);
   if (res == NULL) {
     std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
