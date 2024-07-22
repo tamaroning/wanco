@@ -161,8 +161,11 @@ fn compile_import_section(ctx: &mut Context<'_, '_>, imports: ImportSectionReade
         let import = import?;
         match import.ty {
             TypeRef::Func(ty) => {
-                // We discard module names and just use function names
-                ctx.functions.push((import.name.to_string(), ty));
+                let mut name = import.name.to_string();
+                if import.module == "wasi_snapshot_preview1" || import.module == "wasi_unstable" {
+                    name = format!("{}_{}", import.module, name);
+                }
+                ctx.functions.push((name, ty));
             }
             _ => bail!("Unimplemented import type: {:?}", import.ty),
         }

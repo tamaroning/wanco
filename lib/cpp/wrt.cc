@@ -22,6 +22,7 @@ OPTIONS:
   no options: Run the WebAssembly AOT module from the beginning
   --help: Display this message and exit
   --restore <FILE>: Restore an execution from a checkpoint JSON file
+  --llvm-layout: Use LLVM layout for memory (Use 4GB linear memory)
 )";
 
 // from wasm AOT module
@@ -41,7 +42,24 @@ void signal_chkpt_handler(int signum) {
 
 struct Config {
   std::string restore_file;
+  bool use_llvm_layout = false;
 };
+
+int8_t *allocate_memory(const Config &config, int32_t num_pages) {
+  uint64_t num_bytes = num_pages * PAGE_SIZE;
+  int8_t *res = (int8_t *)malloc(num_bytes);
+  if (res == NULL) {
+    std::cerr << "Error: Failed to allocate " << num_pages * PAGE_SIZE
+              << " bytes to linear memory" << std::endl;
+    exit(1);
+  }
+  std::cerr << "[info] Allocating liear memory: " << INIT_MEMORY_SIZE
+            << " pages, starting at 0x" << std::hex << (uint64_t)res
+            << std::endl;
+  // Zero out memory
+  std::memset(res, 0, num_bytes);
+  return res;
+}
 
 Config parse_from_args(int argc, char **argv) {
   Config config;
@@ -53,13 +71,14 @@ Config parse_from_args(int argc, char **argv) {
       }
       config.restore_file = argv[i + 1];
       i++;
+    } else if (std::string(argv[i]) == "--llvm-layout") {
+      config.use_llvm_layout = true;
     } else if (std::string(argv[i]) == "--help") {
       std::cerr << USAGE;
       exit(0);
     } else {
-      std::cerr << "Error: Unknown argument: " << argv[i] << std::endl;
-      std::cerr << USAGE;
-      exit(1);
+      std::cerr << "WARNING: Ignored unknown argument: " << argv[i]
+                << std::endl;
     }
   }
   return config;
@@ -71,27 +90,28 @@ int main(int argc, char **argv) {
 
   if (config.restore_file.empty()) {
     // Allocate memory
-    int8_t *memory = (int8_t *)malloc(INIT_MEMORY_SIZE * PAGE_SIZE);
-    if (memory == NULL) {
-      std::cerr << "Error: Failed to allocate " << INIT_MEMORY_SIZE * PAGE_SIZE
-                << " bytes to linear memory" << std::endl;
-      return 1;
+    int memory_size = INIT_MEMORY_SIZE;
+    if (config.use_llvm_layout) {
+      memory_size = 1024; // 4GB
     }
-    std::cerr << "[info] Allocating liear memory: " << INIT_MEMORY_SIZE
-              << " pages, starting at 0x" << std::hex << (uint64_t)memory
-              << std::endl;
-    // Zero out memory
-    std::memset(memory, 0, INIT_MEMORY_SIZE * PAGE_SIZE);
+    int8_t *memory = allocate_memory(config, memory_size);
     // Initialize exec_env
     exec_env = ExecEnv{
         .memory_base = memory,
-        .memory_size = INIT_MEMORY_SIZE,
+        .memory_size = memory_size,
         .migration_state = MigrationState::STATE_NONE,
         .argc = argc,
         .argv = (uint8_t **)argv,
     };
   } else {
     // Restore from checkpoint
+    if (config.use_llvm_layout) {
+      // TODO: support
+      std::cerr << "Error: --llvm-layout is not supported for restore"
+                << std::endl;
+      return 1;
+    }
+
     std::ifstream ifs(config.restore_file);
     if (!ifs.is_open()) {
       std::cerr << "Error: Failed to open checkpoint" << config.restore_file
@@ -99,20 +119,14 @@ int main(int argc, char **argv) {
       return 1;
     }
 
-    std::cerr << "[info] Reading checkpoint from " << config.restore_file
+    std::cerr << "[info] Loading checkpoint from " << config.restore_file
               << std::endl;
     chkpt = decode_checkpoint_json(ifs);
 
     // ceil(memory.size / PAGE_SIZE)
     int32_t memory_size = (chkpt.memory.size() + PAGE_SIZE - 1) / PAGE_SIZE;
-    std::cerr << "[info] Allocating liear memory: " << memory_size << " pages"
-              << std::endl;
-    int8_t *memory = (int8_t *)malloc(memory_size * PAGE_SIZE);
-    if (memory == NULL) {
-      std::cerr << "Error: Failed to allocate " << chkpt.memory.size()
-                << " bytes to linear memory" << std::endl;
-      return 1;
-    }
+    // Allocate memory
+    int8_t *memory = allocate_memory(config, memory_size);
 
     std::cerr << "[info] Restoring memory: 0x" << std::hex
               << chkpt.memory.size() << " bytes" << std::endl;

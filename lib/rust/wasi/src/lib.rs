@@ -8,7 +8,7 @@ use core::slice;
 use std::cell::UnsafeCell;
 use std::sync::{Mutex, OnceLock};
 
-const PAGE_SIZE: usize = 4096;
+pub const PAGE_SIZE: usize = 4096;
 
 static CTX: OnceLock<Mutex<WasiCtx>> = OnceLock::new();
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
@@ -18,6 +18,8 @@ pub(crate) struct ExecEnv {
     memory: *mut u8,
     memory_size: i32,
     migration_state: i32,
+    argc: i32,
+    argv: *mut *mut u8,
 }
 
 pub(crate) fn memory<'a>(exec_env: &'a ExecEnv) -> wiggle::GuestMemory<'a> {
@@ -29,14 +31,21 @@ pub(crate) fn memory<'a>(exec_env: &'a ExecEnv) -> wiggle::GuestMemory<'a> {
     memory
 }
 
-pub(crate) fn get_ctx_mut() -> &'static Mutex<WasiCtx> {
+pub(crate) fn get_ctx_mut(exec_env: &ExecEnv) -> &'static Mutex<WasiCtx> {
     CTX.get_or_init(|| {
-        let wctx = WasiCtxBuilder::new()
-            .inherit_stdin()
-            .inherit_stdout()
-            .inherit_stderr()
-            .build();
-        Mutex::new(wctx)
+        let mut builder = WasiCtxBuilder::new();
+        let mut builder = builder.inherit_stdin().inherit_stdout().inherit_stderr();
+        let mut buider = builder.inherit_args();
+        let mut builder = builder.inherit_env().unwrap();
+        /*
+        for i in 0..exec_env.argc {
+            let arg = unsafe { *exec_env.argv.offset(i as isize) };
+            let arg = unsafe { std::ffi::CStr::from_ptr(arg as *const i8) };
+            let arg = arg.to_str().unwrap();
+            builder = builder.arg(arg).expect("failed to load CLI arguments");
+        }
+        */
+        Mutex::new(builder.build())
     })
 }
 
