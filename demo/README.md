@@ -1,4 +1,4 @@
-### C/R demo
+## C/R demo
 
 ```
 wanco fib.wat --checkpoint --restore
@@ -15,10 +15,9 @@ restore:
 ./a.out --checkpoint.json
 ```
 
-### llama2
+## llama2
 
 ```
 wanco llama2-c.wasm
-./a.out --llvm-layout --llvm-layout -- model.bin -t 0.9
+./a.out --llvm-layout -- model.bin -t 0.9
 ```
-

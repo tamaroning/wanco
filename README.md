@@ -87,6 +87,8 @@ Restore the execution:
 $ ./a.out --restore checkpoint.json
 ```
 
+Note: The C/R feature is still experimental and may not work correctly.
+
 ### Compile and assemble only
 
 If you do not want to link the object files, specify the `-c` option.
