@@ -13,6 +13,7 @@ build
 /*.bc
 /*.cc
 /*.json
+/*.c
 
 # clangd
 compile_commands.json

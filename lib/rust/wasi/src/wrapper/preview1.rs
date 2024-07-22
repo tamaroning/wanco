@@ -8,7 +8,7 @@ macro_rules! wasi_function {
     ($export:ident, $name:ident,  $( $arg_name: ident : $arg_ty: ty ),*) => {
         #[no_mangle]
         pub extern "C" fn $export(exec_env: &ExecEnv, $( $arg_name: $arg_ty ),*) -> i32 {
-            eprintln!("[debug] call {}{:?}", stringify!($name), ( ($( $arg_name ),*) ));
+            //eprintln!("[debug] call {}{:?}", stringify!($name), ( ($( $arg_name ),*) ));
             let mut ctx = get_ctx_mut(exec_env).lock().unwrap();
             let mut memory = memory(exec_env);
             let res = get_runtime().block_on(preview1::$name(
@@ -69,7 +69,7 @@ wasi_function!(wasi_snapshot_preview1_sock_shutdown,sock_shutdown, arg0: i32, ar
 
 #[no_mangle]
 pub extern "C" fn wasi_snapshot_preview1_proc_exit(exec_env: &ExecEnv, arg0: i32) -> () {
-    eprintln!("[debug] call proc_exit{:?}", (arg0));
+    //eprintln!("[debug] call proc_exit{:?}", (arg0,));
     let mut ctx = get_ctx_mut(exec_env).lock().unwrap();
     let mut memory = memory(exec_env);
     let res = get_runtime().block_on(preview1::proc_exit(&mut *ctx, &mut memory, arg0));

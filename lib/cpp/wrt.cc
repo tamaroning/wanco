@@ -7,6 +7,9 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sys/mman.h>
+#include <ucontext.h>
+#include <unistd.h>
 
 const int32_t PAGE_SIZE = 65536;
 // 10 and 12 are reserved for SIGUSR1 and SIGUSR2
@@ -53,12 +56,34 @@ int8_t *allocate_memory(const Config &config, int32_t num_pages) {
               << " bytes to linear memory" << std::endl;
     exit(1);
   }
-  std::cerr << "[info] Allocating liear memory: " << INIT_MEMORY_SIZE
+  std::cerr << "[info] Allocating liear memory: " << num_pages
             << " pages, starting at 0x" << std::hex << (uint64_t)res
             << std::endl;
   // Zero out memory
   std::memset(res, 0, num_bytes);
   return res;
+}
+
+void segv_handler(int signum, siginfo_t *info, void *context) {
+  ucontext_t *uc = (ucontext_t *)context;
+  void *fault_address = info->si_addr;
+
+  if (!(exec_env.memory_base <= fault_address &&
+        fault_address < exec_env.memory_base + 64 * 1024 * 1024)) {
+    printf("Segmentation fault at address: %p\n", fault_address);
+    exit(EXIT_FAILURE);
+  }
+
+  printf("[debug] Try mmap : %p\n", fault_address);
+
+  void *page_start = (void *)((uintptr_t)fault_address & ~(PAGE_SIZE - 1));
+  if (mmap(page_start, PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC,
+           MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == MAP_FAILED) {
+    perror("mmap");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("[debug] mmap succeeded at address: %p\n", page_start);
 }
 
 Config parse_from_args(int argc, char **argv) {
@@ -76,6 +101,8 @@ Config parse_from_args(int argc, char **argv) {
     } else if (std::string(argv[i]) == "--help") {
       std::cerr << USAGE;
       exit(0);
+    } else if (std::string(argv[i]) == "--") {
+      return config;
     } else {
       std::cerr << "WARNING: Ignored unknown argument: " << argv[i]
                 << std::endl;
@@ -88,11 +115,23 @@ int main(int argc, char **argv) {
   // Parse CLI arguments
   Config config = parse_from_args(argc, argv);
 
+  // Since we cannot allocate entire 64bit address space, we trap SIGSEGV and mmap the page on demand
+  if (config.use_llvm_layout) {
+    struct sigaction sa;
+    sa.sa_sigaction = segv_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
+      std::cerr << "Error: Failed to set signal handler" << std::endl;
+      exit(EXIT_FAILURE);
+    }
+  }
+
   if (config.restore_file.empty()) {
     // Allocate memory
     int memory_size = INIT_MEMORY_SIZE;
     if (config.use_llvm_layout) {
-      memory_size = 1024; // 4GB
+      memory_size = 64; // 64KiB
     }
     int8_t *memory = allocate_memory(config, memory_size);
     // Initialize exec_env
