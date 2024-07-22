@@ -14,8 +14,12 @@ target_sources(wanco_rt PRIVATE
     cpp/chkpt_encode.cc 
     )
 
+
+file(GLOB_RECURSE wanco_wasi_src "${CMAKE_SOURCE_DIR}/rust/**/*")
+set_source_files_properties(wanco_wasi_src PROPERTIES GENERATED TRUE)
+
 # https://stackoverflow.com/questions/31162438/how-can-i-build-rust-code-with-a-c-qt-cmake-project
-ExternalProject_Add(rust-libs
+ExternalProject_Add(wanco_wasi
     DOWNLOAD_COMMAND ""
     CONFIGURE_COMMAND ""
     BINARY_DIR "${CMAKE_SOURCE_DIR}/rust"

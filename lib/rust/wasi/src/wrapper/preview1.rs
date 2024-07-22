@@ -8,7 +8,7 @@ macro_rules! wasi_function {
     ($name:ident,  $( $arg_name: ident : $arg_ty: ty ),*) => {
         #[no_mangle]
         pub extern "C" fn $name(exec_env: &ExecEnv, $( $arg_name: $arg_ty ),*) -> i32 {
-            let mut ctx = get_ctx_mut().lock().unwrap();
+            let mut ctx = get_ctx_mut(exec_env).lock().unwrap();
             let mut memory = memory(exec_env);
             let res = get_runtime().block_on(preview1::$name(
                 &mut *ctx,
@@ -68,7 +68,7 @@ wasi_function!(sock_shutdown, arg0: i32, arg1: i32);
 
 #[no_mangle]
 pub extern "C" fn proc_exit(exec_env: &ExecEnv, arg0: i32) -> () {
-    let mut ctx = get_ctx_mut().lock().unwrap();
+    let mut ctx = get_ctx_mut(exec_env).lock().unwrap();
     let mut memory = memory(exec_env);
     let res = get_runtime().block_on(preview1::proc_exit(
         &mut *ctx,

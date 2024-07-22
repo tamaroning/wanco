@@ -72,4 +72,6 @@ extern "C" struct ExecEnv {
   int8_t *memory_base;
   int32_t memory_size;
   MigrationState migration_state;
+  int32_t argc;
+  uint8_t **argv;
 };

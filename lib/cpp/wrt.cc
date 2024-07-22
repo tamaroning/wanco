@@ -87,6 +87,8 @@ int main(int argc, char **argv) {
         .memory_base = memory,
         .memory_size = INIT_MEMORY_SIZE,
         .migration_state = MigrationState::STATE_NONE,
+        .argc = argc,
+        .argv = (uint8_t **)argv,
     };
   } else {
     // Restore from checkpoint
@@ -120,6 +122,8 @@ int main(int argc, char **argv) {
         .memory_base = memory,
         .memory_size = memory_size,
         .migration_state = MigrationState::STATE_RESTORE,
+        .argc = argc,
+        .argv = (uint8_t **)argv,
     };
     std::cerr << "[info] Restore start" << std::endl;
   }
