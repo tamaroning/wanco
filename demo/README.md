@@ -19,5 +19,5 @@ restore:
 
 ```
 wanco llama2-c.wasm
-./a.out --llvm-layout -- model.bin -t 0.9
+./a.out -- model.bin -t 0.9
 ```

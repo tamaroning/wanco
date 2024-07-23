@@ -112,7 +112,8 @@ $ cargo test
     - tables are not supported
 - [x] Restore
     - tables and global variables are not supported
-- [ ] supports targets other than host platforms
+- [ ] cross-compilation
+- [ ] dynamic-memory
 
 ## LICENSE
 

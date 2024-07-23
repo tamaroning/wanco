@@ -116,7 +116,10 @@ int main(int argc, char **argv) {
   // Parse CLI arguments
   Config config = parse_from_args(argc, argv);
 
-  // Since we cannot allocate entire 64bit address space, we trap SIGSEGV and mmap the page on demand
+  // FIXME: call to mmap in signal handler violates async-signal-safety
+  // Since we cannot allocate entire 64bit address space, we trap SIGSEGV and
+  // mmap the page on demand
+  /*
   if (config.use_llvm_layout) {
     struct sigaction sa;
     sa.sa_sigaction = segv_handler;
@@ -127,6 +130,7 @@ int main(int argc, char **argv) {
       exit(EXIT_FAILURE);
     }
   }
+  */
 
   if (config.restore_file.empty()) {
     // Allocate memory
