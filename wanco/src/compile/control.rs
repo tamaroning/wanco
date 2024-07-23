@@ -10,7 +10,7 @@ use wasmparser::{BlockType, BrTable};
 use super::{
     compile_type::wasmty_to_llvmty,
     cr::{
-        checkpoint::{gen_checkpoint_after_call, gen_checkpoint_before_call},
+        checkpoint::{gen_checkpoint_before_call, gen_checkpoint_unwind},
         restore::gen_restore_point_before_call,
     },
 };
@@ -545,18 +545,24 @@ pub fn gen_call<'a>(
     callee_function_index: u32,
 ) -> Result<()> {
     let fn_called = ctx.function_values[callee_function_index as usize];
-    let current_fn = ctx.current_fn.expect("fail to get current_fn");
 
-    // Starts checkpoint if necessary
+    // Generate checkpoint
     if ctx.config.checkpoint {
         gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
-
+    
+    // Generate restore point and get arguments for callee
     let before_restore_bb = ctx.builder.get_insert_block().unwrap();
     let mut args = if ctx.config.restore {
-        gen_restore_point_before_call(ctx, exec_env_ptr, locals, before_restore_bb, fn_called)
-            .expect("fail to gen_restore_point_before_call")
+        gen_restore_point_before_call(
+            ctx,
+            exec_env_ptr,
+            locals,
+            before_restore_bb,
+            fn_called.get_type(),
+        )
+        .expect("fail to gen_restore_point_before_call")
     } else {
         let mut args: Vec<BasicValueEnum> = Vec::new();
         for _ in fn_called.get_params().iter().skip(1) {
@@ -577,9 +583,9 @@ pub fn gen_call<'a>(
         .build_call(fn_called, &args, "")
         .expect("should build call");
 
-    // Continue checkpoint if necessary
+    // Generate unwinding code for checkpoint
     if ctx.config.checkpoint {
-        gen_checkpoint_after_call(ctx, exec_env_ptr, locals)
+        gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
 
@@ -597,12 +603,13 @@ pub fn gen_call<'a>(
 pub fn gen_call_indirect<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    _locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
     type_index: u32,
     table_index: u32,
 ) -> Result<()> {
     // TODO: support larger
     assert_eq!(table_index, 0);
+    let callee_type = ctx.signatures[type_index as usize];
 
     // Load function pointer
     let idx = ctx.pop().expect("stack empty").into_int_value();
@@ -622,22 +629,26 @@ pub fn gen_call_indirect<'a>(
         .build_load(ctx.inkwell_types.i8_ptr_type, dst_addr, "fptr")
         .expect("should build load");
 
+    // Generate checkpoint
     if ctx.config.checkpoint {
-        todo!("TODO:")
+        gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
     }
 
-    // args
-    let func_type = ctx.signatures[type_index as usize];
-    let mut args: Vec<BasicValueEnum> = Vec::new();
-    for _ in 1..func_type.get_param_types().len() {
-        args.push(ctx.pop().expect("stack empty"));
-    }
+    // Generate restore point and get arguments for callee
+    let before_restore_bb = ctx.builder.get_insert_block().unwrap();
+    let mut args = if ctx.config.restore {
+        gen_restore_point_before_call(ctx, exec_env_ptr, locals, before_restore_bb, callee_type)
+            .expect("fail to gen_restore_point_before_call")
+    } else {
+        let mut args: Vec<BasicValueEnum> = Vec::new();
+        for _ in 1..callee_type.get_param_types().len() {
+            args.push(ctx.pop().expect("stack empty"));
+        }
+        args
+    };
     args.reverse();
     args.insert(0, exec_env_ptr.as_basic_value_enum());
-
-    if ctx.config.restore {
-        todo!("TODO:")
-    }
 
     // call and push result
     let args = args
@@ -646,7 +657,7 @@ pub fn gen_call_indirect<'a>(
         .collect::<Vec<_>>();
     let call_site = ctx
         .builder
-        .build_indirect_call(func_type, fptr.into_pointer_value(), &args, "call_site")
+        .build_indirect_call(callee_type, fptr.into_pointer_value(), &args, "call_site")
         .expect("should build indirect call");
     if call_site.try_as_basic_value().is_left() {
         ctx.push(
@@ -655,6 +666,12 @@ pub fn gen_call_indirect<'a>(
                 .left()
                 .expect("fail translate call_site"),
         );
+    }
+
+    // Generate unwinding code for checkpoint
+    if ctx.config.checkpoint {
+        gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
     }
 
     Ok(())

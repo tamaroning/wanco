@@ -1,8 +1,8 @@
 use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
-    types::BasicTypeEnum,
-    values::{AnyValue, BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, PointerValue},
+    types::{BasicTypeEnum, FunctionType},
+    values::{AnyValue, BasicValue, BasicValueEnum, CallSiteValue, PointerValue},
 };
 
 use crate::context::Context;
@@ -68,7 +68,7 @@ pub fn gen_restore_point_before_call<'a>(
     exec_env_ptr: &PointerValue<'a>,
     locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
     before_restore_bb: BasicBlock<'a>,
-    fn_called: FunctionValue<'a>,
+    fn_called: FunctionType<'a>,
 ) -> Result<Vec<BasicValueEnum<'a>>> {
     let current_fn = ctx.current_fn.unwrap();
     let op_index = ctx.current_op.unwrap();
@@ -103,9 +103,8 @@ pub fn gen_restore_point_before_call<'a>(
     ctx.builder.position_at_end(restore_end_bb);
 
     let mut args = Vec::new();
-    for (i, p) in fn_called.get_params().iter().skip(1).enumerate() {
-        let ty = p.get_type();
-        let phi = ctx.builder.build_phi(ty, "").expect("should build phi");
+    for (i, ty) in fn_called.get_param_types().iter().skip(1).enumerate() {
+        let phi = ctx.builder.build_phi(*ty, "").expect("should build phi");
         phi.add_incoming(&[(&ctx.pop().expect("stack empty"), before_restore_bb)]);
         phi.add_incoming(&[(&restored_args[i], restore_last_bb)]);
         args.push(phi.as_basic_value());
@@ -163,7 +162,7 @@ fn gen_restore_wasm_stack<'a>(
     restore_start_bb: &BasicBlock<'a>,
     restore_end_bb: &BasicBlock<'a>,
     // For restoring before function call, function called
-    callee: Option<FunctionValue<'a>>,
+    callee: Option<FunctionType<'a>>,
 ) -> Result<(BasicBlock<'a>, Option<Vec<BasicValueEnum<'a>>>)> {
     // Restore a frame (locals)
     ctx.builder.position_at_end(*restore_start_bb);
@@ -187,7 +186,7 @@ fn gen_restore_wasm_stack<'a>(
     let stack = frame.stack.clone();
     let mut restored_stack = Vec::new();
     let skip_stack_top = if let Some(callee) = callee {
-        callee.get_params().len() - 1
+        callee.get_param_types().len() - 1
     } else {
         0
     };
@@ -236,10 +235,9 @@ fn gen_restore_wasm_stack<'a>(
 
         ctx.builder.position_at_end(restore_args_bb);
         let mut restored_args = Vec::new();
-        for p in callee.get_params().iter().skip(1) {
-            let ty = p.get_type();
+        for ty in callee.get_param_types().iter().skip(1) {
             let restored =
-                gen_restore_stack_value(ctx, exec_env_ptr, ty).expect("should build pop_T");
+                gen_restore_stack_value(ctx, exec_env_ptr, *ty).expect("should build pop_T");
             restored_args.push(restored);
         }
         ctx.builder

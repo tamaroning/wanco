@@ -150,7 +150,7 @@ pub(crate) fn gen_checkpoint_before_call<'a>(
     Ok(())
 }
 
-pub fn gen_checkpoint_after_call<'a>(
+pub fn gen_checkpoint_unwind<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],

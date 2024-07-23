@@ -27,7 +27,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     log::debug!("Start compilation");
     compile_module(wasm, &mut ctx)?;
 
-    let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
+    //let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
     //let triple = target.get_triple();
     //log::debug!("target triple: {}", triple.as_str().to_str().unwrap());
 
