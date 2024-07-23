@@ -28,12 +28,20 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     compile_module(wasm, &mut ctx)?;
 
     let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
+    //let triple = target.get_triple();
+    //log::debug!("target triple: {}", triple.as_str().to_str().unwrap());
 
-    let obj_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned()))
-        .with_extension("o");
+    // TODO: Linker should use .bc file instead of .ll file.
+    // Linker take .ll file for now since backward compatibility of the bc file is not guaranteed.
+    // It enables to use the different version of clang as a linker.
+    /*
+    let llobj_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned()))
+        .with_extension("bc");
+    */
     let asm_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.ll".to_owned()))
         .with_extension("ll");
-    let tmp_obj_path = path::Path::new("/tmp/wasm.o");
+    //let tmp_llobj_path = path::Path::new("/tmp/wasm.bc");
+    let tmp_asm_path = path::Path::new("/tmp/wasm.ll");
     let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
     let exe_path = path::Path::new(&exe_path);
 
@@ -45,45 +53,49 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
             .context("Failed to write to the ll file")?;
         log::debug!("wrote to {}", asm_path.display());
 
-        log::debug!("write to {}", obj_path.display());
-        target
-            .write_to_file(
-                ctx.module,
-                targets::FileType::Object,
-                std::path::Path::new(obj_path.to_str().expect("error obj_path")),
-            )
-            .map_err(|e| anyhow!(e.to_string()))
-            .context("Failed to write to the object file")?;
-        log::debug!("wrote to {}", obj_path.display());
+        /*
+        log::debug!("write to {}", llobj_path.display());
+        if !ctx.module.write_bitcode_to_path(&llobj_path) {
+            return Err(anyhow!("Failed to write the LLVM object file"));
+        }
+        log::debug!("wrote to {}", llobj_path.display());
+        */
 
         return Ok(());
     }
 
     // Link
-    log::debug!("write to {}", tmp_obj_path.display());
-    target
-        .write_to_file(
-            ctx.module,
-            targets::FileType::Object,
-            std::path::Path::new(tmp_obj_path.to_str().expect("error tmp_obj_path")),
-        )
+    /*
+    log::debug!("write to {}", tmp_llobj_path.display());
+    if !ctx.module.write_bitcode_to_path(&tmp_llobj_path) {
+        return Err(anyhow!("Failed to write to the LLVM object file"));
+    }
+    log::debug!("wrote to {}", tmp_llobj_path.display());
+    */
+
+    log::debug!("write to {}", tmp_asm_path.display());
+    ctx.module
+        .print_to_file(tmp_asm_path.to_str().expect("error ll_path"))
         .map_err(|e| anyhow!(e.to_string()))
-        .context("Failed to write to the object file")?;
-    log::debug!("wrote to {}", tmp_obj_path.display());
+        .context("Failed to write to the ll file")?;
+    log::debug!("wrote to {}", tmp_asm_path.display());
+
+    let cxx = "clang++";
 
     log::debug!("linking object file");
-    log::debug!(
-        "g++ {} /usr/local/lib/libwanco_rt.a -o {} -no-pie",
-        tmp_obj_path.display(),
-        exe_path.display(),
-    );
-    let o = std::process::Command::new("g++")
-        .arg(tmp_obj_path)
+    let mut cmd = std::process::Command::new(cxx);
+    let cmd = cmd
+        .arg(tmp_asm_path)
         .arg("/usr/local/lib/libwanco_rt.a")
         .arg("/usr/local/lib/libwanco_wasi.a")
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")
+        .arg("-flto")
+        .arg(format!("-{}", args.optimization));
+    log::debug!("{:?}", cmd);
+
+    let o = cmd
         .output()
         .map_err(|e| anyhow!(e.to_string()))
         .context("Failed to link object files")?;

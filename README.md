@@ -7,11 +7,11 @@ wanco is a WebAssembly AOT compiler which supports Checkpoint/Restore functional
 ## Build
 
 Prerequisites:
-- C++ compiler
-- CMake
+- CMake and C++ compiler
 - Cargo
 - LLVM 17
-- Linux (Unix and macOS probably work but are not tested)
+- POSIX compliant OS (Linux, macOS, etc. NOTE: Windows is not tested)
+- clang or clang++ (version 18 or later)
 
 First you need to clone the project:
 ```
@@ -25,7 +25,7 @@ Wanco libraries (libwanco_rt.a and libwanco_wasi.a) will be installed in /usr/lo
 ```
 $ mkdir build
 $ cd build
-$ cmake ../lib
+$ cmake -DCMAKE_BUILD_TYPE=Release ../lib
 $ make && sudo make install
 $ cd ..
 ```
@@ -38,25 +38,15 @@ $ cp target/release/wanco .
 
 ## Run
 
+To show the help, run:
 ```
 $ wanco --help
-Usage: wanco [OPTIONS] <INPUT_FILE>
-
-Arguments:
-    <INPUT_FILE>  
-
-Options:
-    -o, --output-file <OUTPUT_FILE>  Place the output file
-    -c                               Compile and assemble, but do not link
-    --checkpoint                     Enable the checkpoint feature
-    --restore                        Enable the restore feature
-    -O <OPTIMIZATION>                [default: 2] [possible values: 0, 1, 2, 3]
-    -h, --help                       Print help
 ```
 
-Before running the compiler, make sure that a C++ compiler can be invoked via the `c++` command and the wanco libraries is installed in /usr/local/lib/.
+Before running the compiler, add clang to the PATH environment variable or specify the path to clang or clang++ by using the `--clang-path` option.
 
-Specify an input file which is a WebAssembly text or binary format.
+
+Compile the hello-world example, run:
 
 ```
 $ wanco examples/hello.wat -o hello
@@ -73,7 +63,7 @@ $ ./wanco --checkpoint --restore demo/fib.wat
 $ a.out
 ```
 
-Trigger checkpoint by sending `SIGUSR1` signal from another teminal:
+While tje process is running, you can trigger checkpoint by sending `SIGUSR1` signal from another teminal:
 
 (The running process is automatically terminated and the snapshot file is created.)
 
@@ -81,7 +71,7 @@ Trigger checkpoint by sending `SIGUSR1` signal from another teminal:
 $ pkill -10 a.out
 ```
 
-Restore the execution:
+To restore the execution, run:
 
 ```
 $ ./a.out --restore checkpoint.json
@@ -92,16 +82,16 @@ Note: The C/R feature is still experimental and may not work correctly.
 ### Compile and assemble only
 
 If you do not want to link the object files, specify the `-c` option.
-LLVM assembly file (`.ll`) will also be generated.
+LLVM assembly file (`.ll`) will be generated.
 
 ```
-$ wanco examples/hello.wat -c -o hello.o
+$ wanco examples/hello.wat -c -o hello.ll
 ```
 
-After that, you can link it with the runtime library together by using C++ compiler.
+After that, you can link it with the runtime library together by using clang
 
 ```
-$ c++ -no-pie hello.o /usr/local/lib/libwanco_rt.a /usr/local/lib/libwanco_wasi.a -o hello
+$ clang -flto -no-pie hello.ll /usr/local/lib/libwanco_rt.a /usr/local/lib/libwanco_wasi.a -o hello
 ```
 
 ## Test
@@ -115,7 +105,6 @@ $ cargo test
 ## TODO
 
 - [x] WASI preview 0
-    - some are missing
 - [ ] WASI preview 1
 - [ ] WASI preview 2
 - [ ] WASI NN

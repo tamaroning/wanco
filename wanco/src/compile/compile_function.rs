@@ -109,7 +109,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     let mut num_op = 0;
     while !op_reader.eof() {
         let op = op_reader.read_operator()?;
-        log::debug!("- op[{}]: {:?}", num_op, &op);
+        log::trace!("- op[{}]: {:?}", num_op, &op);
 
         ctx.current_op = Some(num_op);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
@@ -135,7 +135,7 @@ fn compile_op<'a>(
     locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     if ctx.unreachable_depth != 0 {
-        log::debug!("- under unreachable");
+        log::trace!("- under unreachable");
         match op {
             Operator::Block { blockty: _ }
             | Operator::Loop { blockty: _ }
@@ -148,7 +148,7 @@ fn compile_op<'a>(
                     gen_else(ctx).context("error gen Else")?;
                     ctx.unreachable_depth -= 1;
                     ctx.unreachable_reason = UnreachableReason::Reachable;
-                    log::debug!("- end of unreachable");
+                    log::trace!("- end of unreachable");
                     return Ok(());
                 } else {
                     return Ok(());
@@ -162,7 +162,7 @@ fn compile_op<'a>(
                     gen_end(ctx).context("error gen End")?;
                     ctx.unreachable_depth -= 1;
                     ctx.unreachable_reason = UnreachableReason::Reachable;
-                    log::debug!("- end of unreachable");
+                    log::trace!("- end of unreachable");
                     return Ok(());
                 }
                 _ => {
@@ -202,7 +202,7 @@ fn compile_op<'a>(
             gen_br_table(ctx, targets).context("error gen BrTable")?;
         }
         Operator::End => {
-            log::debug!(
+            log::trace!(
                 "- gen_end, fn = {:?}, ret = {:?}",
                 ctx.current_fn.unwrap().get_name(),
                 ctx.current_fn.unwrap().get_type().get_return_type()

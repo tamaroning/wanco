@@ -24,6 +24,17 @@ impl Default for OptimizationLevel {
     }
 }
 
+impl std::fmt::Display for OptimizationLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OptimizationLevel::O0 => write!(f, "O0"),
+            OptimizationLevel::O1 => write!(f, "O1"),
+            OptimizationLevel::O2 => write!(f, "O2"),
+            OptimizationLevel::O3 => write!(f, "O3"),
+        }
+    }
+}
+
 #[derive(Parser, Debug, Default)]
 pub struct Args {
     pub input_file: path::PathBuf,
@@ -48,8 +59,13 @@ pub struct Args {
     #[arg(long)]
     pub restore: bool,
 
+    /// Optimization level.
     #[arg(short = 'O', value_enum, default_value = "2")]
     pub optimization: OptimizationLevel,
+
+    /// Custom path to clang or clang++.
+    #[arg(long, default_value = "clang")]
+    pub clang_path: String,
 }
 
 pub fn run_compiler(args: &Args) -> Result<()> {
