@@ -11,7 +11,7 @@ Prerequisites:
 - Cargo
 - LLVM 17
 - POSIX compliant OS (Linux, macOS, etc. NOTE: Windows is not tested)
-- clang or clang++ (version 18 or later)
+- clang or clang++ (version 17 or later)
 
 First you need to clone the project:
 ```
