@@ -30,7 +30,7 @@ pub(crate) fn memory<'a>(exec_env: &'a ExecEnv) -> wiggle::GuestMemory<'a> {
     let memory_size = if USE_LLVM_LAYOUT.load(std::sync::atomic::Ordering::SeqCst) {
         exec_env.memory_size as usize * PAGE_SIZE
     } else {
-        64 * 1024 * 1024
+        4 * 1024 * 1024
     };
     let slice = unsafe { slice::from_raw_parts_mut(exec_env.memory, memory_size) };
     let cell_slice: &[UnsafeCell<u8>] = unsafe { &*(slice as *mut [u8] as *mut [UnsafeCell<u8>]) };
