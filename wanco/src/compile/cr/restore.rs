@@ -103,7 +103,7 @@ pub fn gen_restore_point_before_call<'a>(
     ctx.builder.position_at_end(restore_end_bb);
 
     let mut args = Vec::new();
-    for (i, ty) in fn_called.get_param_types().iter().skip(1).enumerate() {
+    for (i, ty) in fn_called.get_param_types().iter().skip(1).enumerate().rev() {
         let phi = ctx.builder.build_phi(*ty, "").expect("should build phi");
         phi.add_incoming(&[(&ctx.pop().expect("stack empty"), before_restore_bb)]);
         phi.add_incoming(&[(&restored_args[i], restore_last_bb)]);
@@ -250,7 +250,7 @@ fn gen_restore_wasm_stack<'a>(
         //   br %restore_op_N_end
         ctx.builder.position_at_end(restore_args_end_bb);
         let mut args = Vec::new();
-        for (i, arg) in restored_args.iter().enumerate().rev() {
+        for (i, arg) in restored_args.iter().enumerate() {
             let arg = arg.try_as_basic_value().left().unwrap();
             let ty = arg.get_type();
             let phi = ctx
