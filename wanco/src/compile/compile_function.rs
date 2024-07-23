@@ -7,13 +7,13 @@ use wasmparser::{FunctionBody, MemArg, Operator};
 
 use crate::{
     compile::{
-        checkpoint::{gen_finalize_restore_dispatch, gen_restore_dispatch},
         compile_type::wasmty_to_llvmty,
         control::{
             gen_block, gen_br, gen_br_table, gen_brif, gen_call, gen_call_indirect, gen_drop,
             gen_else, gen_end, gen_if, gen_loop, gen_return, gen_select, gen_unreachable,
             ControlFrame, UnreachableReason,
         },
+        cr::restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
         helper::{self, gen_float_compare, gen_int_compare, gen_llvm_intrinsic},
     },
     context::{Context, Global, StackFrame},

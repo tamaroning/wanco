@@ -5,7 +5,7 @@ use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpac
 
 use crate::context::Context;
 
-use super::checkpoint::gen_store_globals;
+use super::cr::checkpoint::gen_store_globals;
 
 pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     // Define ExecEnv struct
