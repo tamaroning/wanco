@@ -50,8 +50,9 @@ struct Config {
 
 int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   uint64_t num_bytes = num_pages * PAGE_SIZE;
-  // FIXME: should use mmap
-  int8_t *res = (int8_t *)malloc(num_bytes);
+
+  int8_t *res = (int8_t *)mmap(NULL, num_bytes, PROT_READ | PROT_WRITE,
+                               MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   if (res == NULL) {
     std::cerr << "Error: Failed to allocate " << num_pages * PAGE_SIZE
               << " bytes to linear memory" << std::endl;
@@ -63,28 +64,6 @@ int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   // Zero out memory
   std::memset(res, 0, num_bytes);
   return res;
-}
-
-void segv_handler(int signum, siginfo_t *info, void *context) {
-  ucontext_t *uc = (ucontext_t *)context;
-  void *fault_address = info->si_addr;
-
-  if (!(exec_env.memory_base <= fault_address &&
-        fault_address < exec_env.memory_base + 64 * 1024 * 1024)) {
-    printf("Segmentation fault at address: %p\n", fault_address);
-    exit(EXIT_FAILURE);
-  }
-
-  printf("[debug] Try mmap : %p\n", fault_address);
-
-  void *page_start = (void *)((uintptr_t)fault_address & ~(PAGE_SIZE - 1));
-  if (mmap(page_start, PAGE_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC,
-           MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == MAP_FAILED) {
-    perror("mmap");
-    exit(EXIT_FAILURE);
-  }
-
-  printf("[debug] mmap succeeded at address: %p\n", page_start);
 }
 
 Config parse_from_args(int argc, char **argv) {
@@ -116,27 +95,12 @@ int main(int argc, char **argv) {
   // Parse CLI arguments
   Config config = parse_from_args(argc, argv);
 
-  // FIXME: call to mmap in signal handler violates async-signal-safety
-  // Since we cannot allocate entire 64bit address space, we trap SIGSEGV and
-  // mmap the page on demand
-  /*
-  if (config.use_llvm_layout) {
-    struct sigaction sa;
-    sa.sa_sigaction = segv_handler;
-    sa.sa_flags = SA_SIGINFO;
-    sigemptyset(&sa.sa_mask);
-    if (sigaction(SIGSEGV, &sa, NULL) == -1) {
-      std::cerr << "Error: Failed to set signal handler" << std::endl;
-      exit(EXIT_FAILURE);
-    }
-  }
-  */
-
   if (config.restore_file.empty()) {
     // Allocate memory
     int memory_size = INIT_MEMORY_SIZE;
     if (config.use_llvm_layout) {
-      memory_size = 64; // 64KiB
+      // Override memory size to 4GB
+      memory_size = 64;
     }
     int8_t *memory = allocate_memory(config, memory_size);
     // Initialize exec_env
@@ -199,7 +163,7 @@ int main(int argc, char **argv) {
   }
 
   // cleanup
-  free(exec_env.memory_base);
+  munmap(exec_env.memory_base, exec_env.memory_size * PAGE_SIZE);
   return 0;
 }
 
@@ -208,8 +172,8 @@ extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
   int32_t old_size = exec_env->memory_size;
   int32_t new_size = old_size + inc_pages;
 
-  // FIXME: Should use mremap
-  int8_t *res = (int8_t *)realloc(exec_env->memory_base, new_size * PAGE_SIZE);
+  int8_t *res = (int8_t *)mremap(exec_env->memory_base, old_size * PAGE_SIZE,
+                                 new_size * PAGE_SIZE, MREMAP_MAYMOVE);
   if (res == NULL) {
     std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
               << std::endl;
