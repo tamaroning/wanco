@@ -5,7 +5,7 @@ use inkwell::{
     values::{AnyValue, BasicValue, BasicValueEnum, CallSiteValue, PointerValue},
 };
 
-use crate::context::Context;
+use crate::context::{Context, Global};
 
 use super::{gen_compare_migration_state, MIGRATION_STATE_RESTORE};
 
@@ -383,6 +383,104 @@ fn gen_restore_local<'a>(
             ctx.builder
                 .build_call(
                     ctx.fn_pop_front_local_f64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else {
+            bail!("Unsupported type {:?}", ty)
+        }
+    } else {
+        bail!("Unsupported type {:?}", ty)
+    };
+    let inst = cs
+        .try_as_basic_value()
+        .left()
+        .unwrap()
+        .as_instruction_value()
+        .unwrap();
+    inst.set_volatile(true).expect("fail to set_volatile");
+    Ok(cs)
+}
+
+pub(crate) fn gen_restore_globals<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let current_fn = ctx.current_fn.unwrap();
+    let then_bb = ctx.ictx.append_basic_block(current_fn, "restore.then");
+    let else_bb = ctx.ictx.append_basic_block(current_fn, "restore.else");
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_RESTORE)
+        .expect("fail to gen_compare_migration_state");
+    ctx.builder
+        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
+        .expect("should build conditional branch");
+    ctx.builder.position_at_end(then_bb);
+
+    // add globals
+    for global in &ctx.globals {
+        match global {
+            Global::Const { value } => {
+                let ty = value.get_type();
+                gen_restore_global(ctx, exec_env_ptr, ty)
+                    .expect("should build pop_front_global for mut global");
+            }
+            Global::Mut { ptr, ty } => {
+                let v = gen_restore_global(ctx, exec_env_ptr, *ty)
+                    .expect("should build pop_front_global for mut global");
+                let v = v.try_as_basic_value().left().unwrap();
+                ctx.builder
+                    .build_store(ptr.as_pointer_value(), v)
+                    .expect("should build load");
+            }
+        };
+    }
+    ctx.builder
+        .build_unconditional_branch(else_bb)
+        .expect("should build unconditonal branch");
+    // Move back to else bb
+    ctx.builder.position_at_end(else_bb);
+    Ok(())
+}
+
+fn gen_restore_global<'a>(
+    ctx: &Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    ty: BasicTypeEnum<'a>,
+) -> Result<CallSiteValue<'a>> {
+    let cs = if ty.is_int_type() {
+        if ty.into_int_type() == ctx.inkwell_types.i32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_global_i32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else if ty.into_int_type() == ctx.inkwell_types.i64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_global_i64.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else {
+            bail!("Unsupported type {:?}", ty);
+        }
+    } else if ty.is_float_type() {
+        if ty.into_float_type() == ctx.inkwell_types.f32_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_global_f32.unwrap(),
+                    &[exec_env_ptr.as_basic_value_enum().into()],
+                    "",
+                )
+                .expect("should build call")
+        } else if ty.into_float_type() == ctx.inkwell_types.f64_type {
+            ctx.builder
+                .build_call(
+                    ctx.fn_pop_front_global_f64.unwrap(),
                     &[exec_env_ptr.as_basic_value_enum().into()],
                     "",
                 )

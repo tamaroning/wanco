@@ -5,7 +5,7 @@ use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpac
 
 use crate::context::Context;
 
-use super::cr::checkpoint::gen_store_globals;
+use super::cr::{checkpoint::gen_store_globals, restore::gen_restore_globals};
 
 pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     // Define ExecEnv struct
@@ -370,6 +370,10 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     ctx.builder
         .position_at_end(ctx.aot_main_block.expect("should move to aot_main_block"));
 
+    if ctx.config.restore {
+        gen_restore_globals(ctx, &exec_env_ptr).expect("should gen restore globals");
+    }
+
     // Call the start WASM function
     let Some(start_idx) = ctx.start_function_idx else {
         bail!("start function not defined");
@@ -380,7 +384,6 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .expect("should build call");
 
     if ctx.config.checkpoint {
-        // store globals
         gen_store_globals(ctx, &exec_env_ptr).expect("should gen store globals");
     }
 

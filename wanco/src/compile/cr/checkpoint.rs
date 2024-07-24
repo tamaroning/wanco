@@ -53,7 +53,7 @@ pub(crate) fn gen_store_globals<'a>(
 }
 
 fn gen_push_global_value<'a>(
-    ctx: &mut Context<'a, '_>,
+    ctx: &Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     value: BasicValueEnum<'a>,
 ) -> Result<()> {
