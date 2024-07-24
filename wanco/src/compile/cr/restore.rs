@@ -393,13 +393,6 @@ fn gen_restore_local<'a>(
     } else {
         bail!("Unsupported type {:?}", ty)
     };
-    let inst = cs
-        .try_as_basic_value()
-        .left()
-        .unwrap()
-        .as_instruction_value()
-        .unwrap();
-    inst.set_volatile(true).expect("fail to set_volatile");
     Ok(cs)
 }
 
