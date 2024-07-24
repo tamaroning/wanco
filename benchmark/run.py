@@ -20,6 +20,8 @@ test_cases = [
     }
 ]
 
+results = []
+
 def measure_time(command):
     start_time = time.time()
     start_resources = resource.getrusage(resource.RUSAGE_CHILDREN)
@@ -32,44 +34,66 @@ def measure_time(command):
     real = end_time - start_time
     usr = end_resources.ru_utime - start_resources.ru_utime
     sys = end_resources.ru_stime - start_resources.ru_stime
-    return real, usr, sys
+    return [real, usr, sys]
 
 # main
 if __name__ == "__main__":
+    # suppress wasmtime new CLI warning
+    os.environ["WASMTIME_NEW_CLI"] = "0"
+    
     devnull = open(os.devnull, 'w')
     for t in test_cases:
         name = t["name"]
         src = t["src"]
         args = t["args"]
-        opt = "-O3"
+        opt_level = 2
+        opt = f"-O{opt_level}"
         
+        ##### native
         print(f"compile and execute native-{name}")
-        
-        # compile native
+        # compile
         exe = os.path.join(benchdir, f"{name}.clang.native")
-        cmd = [clang, opt, "-o", exe, os.path.join(benchdir, src)]
+        cmd = [clang, opt,"-o", exe, os.path.join(benchdir, src)]
         subprocess.run(cmd)
-        
-        # execute native
+        # execute
         cmd = [exe] + args
-        real, usr, sys = measure_time(cmd)
+        native_res = measure_time(cmd)
         
-        print(f"native-{name}: real={real:.3f}s usr={usr:.3f}s sys={sys:.3f}s")
-
-        print(f"compile and execute wanco-{name}")
-        
-        # compile to wasm
+        ##### compile c to wasm
         wasm = os.path.join(benchdir, f"{name}.clang.wasm")
         cmd = [wasi_clang, opt, "-o", wasm, os.path.join(benchdir, src)]
         subprocess.run(cmd)
+        
+        ##### wanco
+        print(f"compile and execute wanco-{name}")
+        # compile
         exe = os.path.join(benchdir, f"{name}.wanco.aot")
         cmd = [wanco, opt, "-o", exe, wasm]
         subprocess.run(cmd)
+        # execute
+        cmd = [exe, "--"] + args
+        wanco_res = measure_time(cmd)
         
-        # execute native
-        cmd = [exe, "--llvm-layout", "--"] + args
-        real, usr, sys = measure_time(cmd)
+        ##### wasmtime
+        print(f"compile and execute wasmtime-{name}")
+        # compile
+        cwasm = os.path.join(benchdir, f"{name}.wasmtime.cwasm")
+        cmd = ["wasmtime", "compile", 
+               # FIXME: why does this not work?
+               #"-O", f"opt-level={str(opt_level)}", 
+               "-o", cwasm, wasm]
+        subprocess.run(cmd)
+        # execute
+        cmd = ["wasmtime", "--allow-precompiled", cwasm] + args
+        wasmtime_res = measure_time(cmd)
         
-        print(f"wanco-{name}: real={real:.3f}s usr={usr:.3f}s sys={sys:.3f}s")
-        
+        results.append({
+            "name": name,
+            # only use the first element (real) and discard usr and sys
+            "native": native_res[0],
+            "wanco": wanco_res[0],
+            "wasmtime": wasmtime_res[0]
+        })
+    
+    print(results)
 

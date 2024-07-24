@@ -5,6 +5,7 @@
 **/a.out
 **/*.wat
 **/*.wasm
+**/*.cwasm
 build
 !wanco/tests/**/*
 !demo/**/*.wat
