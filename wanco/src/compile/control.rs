@@ -10,7 +10,7 @@ use wasmparser::{BlockType, BrTable};
 use super::{
     compile_type::wasmty_to_llvmty,
     cr::{
-        checkpoint::{gen_checkpoint_before_call, gen_checkpoint_unwind},
+        checkpoint::{gen_checkpoint, gen_checkpoint_unwind},
         restore::{gen_restore_point, gen_restore_point_before_call},
     },
 };
@@ -165,11 +165,10 @@ pub fn gen_loop<'a>(
 
     // Generate checkpoint
     if ctx.config.checkpoint {
-        gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
-            .expect("fail to gen_check_state_and_snapshot");
+        gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
     }
 
-    // Generate restore point and get arguments for callee
+    // Generate restore point
     if ctx.config.restore {
         gen_restore_point(ctx, exec_env_ptr, locals, &body_block)
             .expect("fail to gen_restore_point_before_call");
@@ -565,15 +564,16 @@ pub fn gen_call<'a>(
     let fn_called = ctx.function_values[callee_function_index as usize];
     let is_imported = callee_function_index < ctx.num_imports as u32;
 
-    // Generate checkpoint
+    // Generate checkpoint.
+    // We only generate checkpoint for call to imported functions assuming it takes > O(1).
     if is_imported && ctx.config.checkpoint {
-        gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
-            .expect("fail to gen_check_state_and_snapshot");
+        gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
     }
 
-    // Generate restore point and get arguments for callee
+    // Generate restore point and get arguments for callee.
+    // Note that we need to generate restore point before any call instruction.
     let before_restore_bb = ctx.builder.get_insert_block().unwrap();
-    let mut args = if is_imported && ctx.config.restore {
+    let mut args = if ctx.config.restore {
         gen_restore_point_before_call(
             ctx,
             exec_env_ptr,
@@ -650,8 +650,7 @@ pub fn gen_call_indirect<'a>(
 
     // Generate checkpoint
     if ctx.config.checkpoint {
-        gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
-            .expect("fail to gen_check_state_and_snapshot");
+        gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
     }
 
     // Generate restore point and get arguments for callee

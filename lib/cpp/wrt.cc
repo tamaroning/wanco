@@ -183,7 +183,6 @@ int main(int argc, char **argv) {
         .argc = argc,
         .argv = (uint8_t **)argv,
     };
-    std::cerr << "[info] Restore start" << std::endl;
   }
   // Register signal handler
   signal(SIGCHKPT, signal_chkpt_handler);
@@ -196,6 +195,7 @@ int main(int argc, char **argv) {
                                            exec_env.memory_size * PAGE_SIZE);
     std::ofstream ofs("checkpoint.json");
     encode_checkpoint_json(ofs, chkpt);
+    std::cerr << "[info] Snapshot saved to checkpoint.json" << std::endl;
   }
 
   // cleanup

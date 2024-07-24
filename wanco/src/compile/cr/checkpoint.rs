@@ -7,7 +7,7 @@ use inkwell::{
 use crate::context::{Context, Global};
 
 use super::{
-    gen_compare_migration_state, MIGRATION_STATE_CHECKPOINT_CONTINUE,
+    gen_compare_migration_state, gen_set_migration_state, MIGRATION_STATE_CHECKPOINT_CONTINUE,
     MIGRATION_STATE_CHECKPOINT_START,
 };
 
@@ -103,31 +103,7 @@ fn gen_push_global_value<'a>(
     Ok(())
 }
 
-fn gen_set_migration_state<'a>(
-    ctx: &mut Context<'a, '_>,
-    exec_env_ptr: &PointerValue<'a>,
-    migration_state: i32,
-) -> Result<()> {
-    let migration_state_ptr = ctx
-        .builder
-        .build_struct_gep(
-            ctx.exec_env_type.unwrap(),
-            *exec_env_ptr,
-            *ctx.exec_env_fields.get("migration_state").unwrap(),
-            "migration_state_ptr",
-        )
-        .expect("fail to build_struct_gep");
-    let migration_state = ctx
-        .inkwell_types
-        .i32_type
-        .const_int(migration_state as u64, false);
-    ctx.builder
-        .build_store(migration_state_ptr, migration_state)
-        .expect("fail to build store");
-    Ok(())
-}
-
-pub(crate) fn gen_checkpoint_before_call<'a>(
+pub(crate) fn gen_checkpoint<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
@@ -169,30 +145,6 @@ pub fn gen_checkpoint_unwind<'a>(
     gen_return_default_value(ctx).expect("fail to gen_return_default_value");
     ctx.builder.position_at_end(else_bb);
     Ok(())
-}
-
-fn gen_migration_state<'a>(
-    ctx: &mut Context<'a, '_>,
-    exec_env_ptr: &PointerValue<'a>,
-) -> Result<BasicValueEnum<'a>> {
-    let migration_state_ptr = ctx
-        .builder
-        .build_struct_gep(
-            ctx.inkwell_types.i32_type,
-            *exec_env_ptr,
-            *ctx.exec_env_fields.get("migration_state").unwrap(),
-            "migration_state_ptr",
-        )
-        .expect("fail to build_struct_gep");
-    let migration_state = ctx
-        .builder
-        .build_load(
-            ctx.inkwell_types.i32_type,
-            migration_state_ptr,
-            "migration_state",
-        )
-        .expect("fail to build load");
-    Ok(migration_state)
 }
 
 fn gen_store_frame<'a>(
