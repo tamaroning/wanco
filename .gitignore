@@ -8,7 +8,9 @@
 build
 !wanco/tests/**/*
 !demo/**/*.wat
+!demo/**/*.wasm
 !examples/**/*.wat
+!examples/**/*.wasm
 
 /*.bc
 /*.cc

@@ -1,3 +1,6 @@
+This directory is for research demos.
+See [../examples](../examples) instead for general usage.
+
 ## C/R demo
 
 ```

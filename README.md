@@ -4,6 +4,9 @@
 
 wanco is a WebAssembly AOT compiler which supports Checkpoint/Restore functionalities.
 
+
+See [examples](./examples) for quick start.
+
 ## Build
 
 Prerequisites:
