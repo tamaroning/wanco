@@ -41,7 +41,9 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     let asm_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.ll".to_owned()))
         .with_extension("ll");
     //let tmp_llobj_path = path::Path::new("/tmp/wasm.bc");
-    let tmp_asm_path = path::Path::new("/tmp/wasm.ll");
+    let random_suffix = rand::random::<u64>();
+    let tmp_asm_path = format!("/tmp/wasm-{}.ll", random_suffix);
+    let tmp_asm_path = path::Path::new(&tmp_asm_path);
     let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
     let exe_path = path::Path::new(&exe_path);
 

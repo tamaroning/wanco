@@ -3,10 +3,6 @@ use std::{path::PathBuf, process::Command};
 use wanco::*;
 
 const TEST_DIR: &str = "tests/wasker/";
-const LIBS: [&str; 2] = [
-    "/usr/local/lib/libwanco_rt.a",
-    "/usr/local/lib/libwanco_wasi.a",
-];
 
 macro_rules! ident_to_str {
     ($ident:ident) => {
@@ -33,32 +29,17 @@ fn run_test(test_name: &str) {
         .join(test_name)
         .with_extension("wat");
     let tmp_filename = format!("wanco_wasker_{}", test_name);
-    let obj = std::path::PathBuf::from("/tmp")
-        .join(tmp_filename.clone())
-        .with_extension("o")
-        .to_str()
-        .unwrap()
-        .to_string();
     let exe = std::path::PathBuf::from("/tmp").join(tmp_filename);
 
     // Compile
     let args = Args {
         input_file: path,
-        output_file: Some(obj.clone()),
-        compile_only: true,
+        output_file: Some(exe.to_str().unwrap().to_owned()),
         ..Default::default()
     };
     if let Err(e) = run_compiler(&args) {
         panic!("Could not compile {:?} ({})", &args.input_file, e);
     }
-    // Link
-    let mut cmd = Command::new("g++");
-    let mut cmd = cmd.arg(obj).arg("-no-pie").arg("-o").arg(exe.clone());
-    for lib in LIBS.iter() {
-        cmd = cmd.arg(lib);
-    }
-    cmd.output().unwrap();
-
     // Execute
     let output = Command::new(exe).output().unwrap();
 
