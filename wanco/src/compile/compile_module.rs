@@ -248,6 +248,11 @@ fn compile_element_section(
                         }
                         let initializer = ctx.inkwell_types.i8_ptr_type.const_array(&fpointers);
                         global_table.set_initializer(&initializer);
+
+                        // TODO: support function table C/R
+                        if ctx.config.checkpoint || ctx.config.restore {
+                            log::warn!("Checkpoint/Restore is not supported with function table. Note that the compiled program may not work correctly.");
+                        }
                     }
                     ElementItems::Expressions { .. } => {
                         bail!("ElementSection: Expressions item Unsupported");
