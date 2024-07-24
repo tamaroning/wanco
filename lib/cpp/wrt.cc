@@ -478,6 +478,8 @@ extern "C" double pop_f64(ExecEnv *exec_env) {
 extern "C" int32_t pop_front_global_i32(ExecEnv *exec_env) {
   assert(!chkpt.globals.empty() && "No global to pop");
   Value v = chkpt.globals.front();
+  std::cerr << "[debug] call to pop_front_global -> " << v.to_string()
+            << std::endl;
   chkpt.globals.pop_front();
   assert(v.get_type() == Value::Type::I32 && "Invalid type");
   return v.i32;
@@ -486,6 +488,8 @@ extern "C" int32_t pop_front_global_i32(ExecEnv *exec_env) {
 extern "C" int64_t pop_front_global_i64(ExecEnv *exec_env) {
   assert(!chkpt.globals.empty() && "No global to pop");
   Value v = chkpt.globals.front();
+  std::cerr << "[debug] call to pop_front_global -> " << v.to_string()
+            << std::endl;
   chkpt.globals.pop_front();
   assert(v.get_type() == Value::Type::I64 && "Invalid type");
   return v.i64;
@@ -494,6 +498,8 @@ extern "C" int64_t pop_front_global_i64(ExecEnv *exec_env) {
 extern "C" float pop_front_global_f32(ExecEnv *exec_env) {
   assert(!chkpt.globals.empty() && "No global to pop");
   Value v = chkpt.globals.front();
+  std::cerr << "[debug] call to pop_front_global -> " << v.to_string()
+            << std::endl;
   chkpt.globals.pop_front();
   assert(v.get_type() == Value::Type::F32 && "Invalid type");
   return v.f32;
@@ -502,6 +508,8 @@ extern "C" float pop_front_global_f32(ExecEnv *exec_env) {
 extern "C" double pop_front_global_f64(ExecEnv *exec_env) {
   assert(!chkpt.globals.empty() && "No global to pop");
   Value v = chkpt.globals.front();
+  std::cerr << "[debug] call to pop_front_global -> " << v.to_string()
+            << std::endl;
   chkpt.globals.pop_front();
   assert(v.get_type() == Value::Type::F64 && "Invalid type");
   return v.f64;

@@ -111,7 +111,7 @@ $ cargo test
 - [x] Checkpoint
     - tables are not supported
 - [x] Restore
-    - tables and global variables are not supported
+    - tables are not supported
 - [ ] cross-compilation
 - [ ] dynamic-memory
 
