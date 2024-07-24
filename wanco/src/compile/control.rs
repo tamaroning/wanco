@@ -11,7 +11,7 @@ use super::{
     compile_type::wasmty_to_llvmty,
     cr::{
         checkpoint::{gen_checkpoint_before_call, gen_checkpoint_unwind},
-        restore::gen_restore_point_before_call,
+        restore::{gen_restore_point, gen_restore_point_before_call},
     },
 };
 
@@ -111,7 +111,12 @@ pub fn gen_block(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_loop(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
+pub fn gen_loop<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
+    blockty: &BlockType,
+) -> Result<()> {
     let current_block = ctx.builder.get_insert_block().unwrap();
 
     // Create blocks
@@ -157,6 +162,19 @@ pub fn gen_loop(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
         .build_unconditional_branch(body_block)
         .expect("should build unconditional branch");
     ctx.builder.position_at_end(body_block);
+
+    // Generate checkpoint
+    if ctx.config.checkpoint {
+        gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
+    }
+
+    // Generate restore point and get arguments for callee
+    if ctx.config.restore {
+        gen_restore_point(ctx, exec_env_ptr, locals, &body_block)
+            .expect("fail to gen_restore_point_before_call");
+    }
+
     Ok(())
 }
 
@@ -545,16 +563,17 @@ pub fn gen_call<'a>(
     callee_function_index: u32,
 ) -> Result<()> {
     let fn_called = ctx.function_values[callee_function_index as usize];
+    let is_imported = callee_function_index < ctx.num_imports as u32;
 
     // Generate checkpoint
-    if ctx.config.checkpoint {
+    if is_imported && ctx.config.checkpoint {
         gen_checkpoint_before_call(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
-    
+
     // Generate restore point and get arguments for callee
     let before_restore_bb = ctx.builder.get_insert_block().unwrap();
-    let mut args = if ctx.config.restore {
+    let mut args = if is_imported && ctx.config.restore {
         gen_restore_point_before_call(
             ctx,
             exec_env_ptr,

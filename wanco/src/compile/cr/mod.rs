@@ -33,6 +33,10 @@ pub(self) fn gen_compare_migration_state<'a>(
             "current_migration_state",
         )
         .expect("fail to build load");
+    // Since the load instruction is moved to outside of the loop, we need to set it as volatile
+    let load_inst = current_migration_state.as_instruction_value().unwrap();
+    load_inst.set_volatile(true).expect("fail to set_volatile");
+
     let migration_state = ctx
         .inkwell_types
         .i32_type

@@ -184,7 +184,7 @@ fn compile_op<'a>(
             gen_block(ctx, blockty).context("error gen Block")?;
         }
         Operator::Loop { blockty } => {
-            gen_loop(ctx, blockty).context("error gen Loop")?;
+            gen_loop(ctx, exec_env_ptr, locals, blockty).context("error gen Loop")?;
         }
         Operator::If { blockty } => {
             gen_if(ctx, blockty).context("error gen If")?;

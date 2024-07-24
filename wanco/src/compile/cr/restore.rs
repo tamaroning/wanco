@@ -9,7 +9,7 @@ use crate::context::Context;
 
 use super::{gen_compare_migration_state, MIGRATION_STATE_RESTORE};
 
-pub fn gen_restore_dispatch<'a>(
+pub(crate) fn gen_restore_dispatch<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
 ) -> Result<()> {
@@ -30,7 +30,7 @@ pub fn gen_restore_dispatch<'a>(
     Ok(())
 }
 
-pub fn gen_finalize_restore_dispatch<'a>(
+pub(crate) fn gen_finalize_restore_dispatch<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
 ) -> Result<()> {
@@ -63,7 +63,7 @@ pub fn gen_finalize_restore_dispatch<'a>(
     Ok(())
 }
 
-pub fn gen_restore_point_before_call<'a>(
+pub(crate) fn gen_restore_point_before_call<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
@@ -113,7 +113,7 @@ pub fn gen_restore_point_before_call<'a>(
     Ok(args)
 }
 
-pub fn gen_restore_point<'a>(
+pub(crate) fn gen_restore_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
