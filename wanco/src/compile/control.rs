@@ -630,22 +630,38 @@ pub fn gen_call_indirect<'a>(
     assert_eq!(table_index, 0);
     let callee_type = ctx.signatures[type_index as usize];
 
-    // Load function pointer
+    // Load function index
     let idx = ctx.pop().expect("stack empty").into_int_value();
-    let dst_addr = unsafe {
+    let fnidx_ptr = unsafe {
         ctx.builder.build_gep(
-            ctx.inkwell_types.i8_ptr_type,
+            ctx.inkwell_types.i32_type,
             ctx.global_table
                 .expect("should define global_table")
                 .as_pointer_value(),
             &[idx],
-            "dst_addr",
+            "fnidx_ptr",
         )
     }
     .expect("should build gep");
+    let fnidx = ctx
+        .builder
+        .build_load(ctx.inkwell_types.i32_type, fnidx_ptr, "fnidx")
+        .expect("should build load");
+    let fptr_ptr = unsafe {
+        ctx.builder
+            .build_gep(
+                ctx.inkwell_types.i8_ptr_type,
+                ctx.global_fptr_array
+                    .expect("should define global_fptr_array")
+                    .as_pointer_value(),
+                &[fnidx.into_int_value()],
+                "fptr",
+            )
+            .expect("should build gep")
+    };
     let fptr = ctx
         .builder
-        .build_load(ctx.inkwell_types.i8_ptr_type, dst_addr, "fptr")
+        .build_load(ctx.inkwell_types.i8_ptr_type, fptr_ptr, "fptr")
         .expect("should build load");
 
     // Generate checkpoint

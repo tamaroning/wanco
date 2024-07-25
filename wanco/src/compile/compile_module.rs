@@ -1,5 +1,9 @@
 use anyhow::{bail, Result};
-use inkwell::{attributes::Attribute, values::PointerValue, AddressSpace};
+use inkwell::{
+    attributes::Attribute,
+    values::{IntValue, PointerValue},
+    AddressSpace,
+};
 use wasmparser::{
     Chunk, Element, ElementItems, ElementKind, ElementSectionReader, ExportSectionReader,
     FunctionSectionReader, ImportSectionReader, Operator, Parser, Payload, SectionLimited,
@@ -222,33 +226,52 @@ fn compile_element_section(
                 };
                 match element.items {
                     ElementItems::Functions(elems) => {
-                        // Declare function pointer array as global
-                        let count = elems.count();
-                        let array_fpointer = ctx
-                            .inkwell_types
-                            .i8_ptr_type
-                            .array_type(count + offset as u32);
-                        let global_table = ctx.module.add_global(
-                            array_fpointer,
-                            Some(AddressSpace::default()),
-                            "global_table",
-                        );
-                        ctx.global_table = Some(global_table);
-
-                        // Initialize function pointer array
-                        let mut fpointers: Vec<PointerValue> = Vec::new();
-                        for _ in 0..offset {
-                            fpointers.push(ctx.inkwell_types.i8_ptr_type.const_null());
+                        // Declare function pointer array
+                        {
+                            let mut fpointers: Vec<PointerValue> = Vec::new();
+                            for f in ctx.function_values.iter() {
+                                fpointers.push(f.as_global_value().as_pointer_value());
+                            }
+                            let fptr_array = ctx
+                                .inkwell_types
+                                .i8_ptr_type
+                                .array_type(fpointers.len() as u32);
+                            let global_fptr_array = ctx.module.add_global(
+                                fptr_array,
+                                Some(AddressSpace::default()),
+                                "GLOBAL_FPTR_ARRAY",
+                            );
+                            global_fptr_array.set_constant(true);
+                            let initializer = ctx.inkwell_types.i8_ptr_type.const_array(&fpointers);
+                            global_fptr_array.set_initializer(&initializer);
+                            ctx.global_fptr_array = Some(global_fptr_array);
                         }
-                        for (i, elem) in elems.into_iter().enumerate() {
-                            let elem = elem?;
-                            let func = ctx.function_values[elem as usize];
-                            fpointers.push(func.as_global_value().as_pointer_value());
-                            log::debug!("- elem[{}] = Function[{}]", i + offset as usize, elem);
-                        }
-                        let initializer = ctx.inkwell_types.i8_ptr_type.const_array(&fpointers);
-                        global_table.set_initializer(&initializer);
+                        // Declare function table
+                        {
+                            let count = elems.count();
+                            let fnidx_array =
+                                ctx.inkwell_types.i32_type.array_type(count + offset as u32);
+                            let global_table = ctx.module.add_global(
+                                fnidx_array,
+                                Some(AddressSpace::default()),
+                                "global_table",
+                            );
+                            ctx.global_table = Some(global_table);
 
+                            // Initialize function index array
+                            let mut fn_indices: Vec<IntValue> = Vec::new();
+                            for _ in 0..offset {
+                                fn_indices.push(ctx.inkwell_types.i32_type.const_int(0, false));
+                            }
+                            for (i, elem) in elems.into_iter().enumerate() {
+                                let elem = elem?;
+                                fn_indices
+                                    .push(ctx.inkwell_types.i32_type.const_int(elem as u64, false));
+                                log::debug!("- elem[{}] = Function[{}]", i + offset as usize, elem);
+                            }
+                            let initializer = ctx.inkwell_types.i32_type.const_array(&fn_indices);
+                            global_table.set_initializer(&initializer);
+                        }
                         // TODO: support function table C/R
                         if ctx.config.checkpoint || ctx.config.restore {
                             log::warn!("Checkpoint/Restore is not supported with function table. Note that the compiled program may not work correctly.");
