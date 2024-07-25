@@ -8,12 +8,14 @@ include(ExternalProject)
 add_library(wanco_rt)
 target_compile_options(wanco_rt PRIVATE -Wall -g)
 target_sources(wanco_rt PRIVATE
-    cpp/lib.cc
+    cpp/api.cc
     cpp/wrt.cc
     cpp/chkpt_decode.cc
     cpp/chkpt_encode.cc 
+    cpp/lz4/lz4.c
     )
-
+include_directories(wanco_rt PRIVATE cpp)
+target_link_libraries(wanco_rt PUBLIC lz4)
 
 file(GLOB_RECURSE wanco_wasi_src "${CMAKE_SOURCE_DIR}/rust/**/*")
 set_source_files_properties(wanco_wasi_src PROPERTIES GENERATED TRUE)

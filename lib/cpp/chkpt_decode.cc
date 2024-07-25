@@ -1,7 +1,11 @@
-#include "exec_env.h"
+#include "aot.h"
+#include "chkpt.h"
+#include "lz4/lz4.h"
 #include "nlohmann/json.h"
+#include "tobiaslocker/base64.h"
 #include <cassert>
 #include <fstream>
+#include <iostream>
 
 using nlohmann::json;
 
@@ -48,9 +52,21 @@ Checkpoint decode_checkpoint_json(std::ifstream &f) {
     chkpt.globals.push_back(value);
   }
 
+  chkpt.memory_size = j["memory-size"].get<int32_t>();
+
+  /*
   for (auto &m : j["memory"]) {
     chkpt.memory.push_back(m.get<uint8_t>());
   }
+  */
+
+  std::cerr << "[info] Decompressing memory" << std::endl;
+  std::string base64 = j["memory-lz4"];
+  std::string compressed = base64::from_base64(base64);
+  chkpt.memory.resize(chkpt.memory_size * PAGE_SIZE);
+  int size = LZ4_decompress_safe(compressed.data(), (char *)chkpt.memory.data(),
+                                 compressed.size(), chkpt.memory.size());
+  assert(size == chkpt.memory.size());
 
   return chkpt;
 }

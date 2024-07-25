@@ -1,5 +1,10 @@
 #include "chkpt.h"
+#include "lz4/lz4.h"
+#include "tobiaslocker/base64.h"
 #include <fstream>
+#include <iostream>
+#include <string_view>
+#include "chkpt.h"
 
 static void write_value_json(std::ofstream &ofs, const Value v) {
   ofs << "{ \"type\": \"";
@@ -83,7 +88,9 @@ void encode_checkpoint_json(std::ofstream &ofs, Checkpoint &chkpt) {
   }
   ofs << "  ],\n";
   // memory
-  // TODO: should use base64?
+   ofs << "  \"memory-size\": " << chkpt.memory_size << ",\n";
+  
+  /*
   ofs << "  \"memory\": [\n";
   for (size_t i = 0; i < chkpt.memory.size(); i++) {
     int8_t byte = chkpt.memory[i];
@@ -95,7 +102,23 @@ void encode_checkpoint_json(std::ofstream &ofs, Checkpoint &chkpt) {
     if (i % 64 == 63)
       ofs << "\n";
   }
-  ofs << "  ]\n";
+  ofs << "  ],\n";
+  */
+
+  std::cerr << "[info] Compressing memory" << std::endl;
+  int guarantee = LZ4_compressBound(chkpt.memory.size());
+  std::vector<char> compressed;
+  compressed.resize(guarantee);
+  int sz = LZ4_compress_default((char *)chkpt.memory.data(), compressed.data(),
+                                chkpt.memory.size(), compressed.capacity());
+  compressed.resize(sz);
+
+  std::cout << "[info] compression ratio: " << (double)sz / chkpt.memory.size()
+            << std::endl;
+
+  auto base64 =
+      base64::to_base64(std::string_view(compressed.data(), compressed.size()));
+  ofs << "  \"memory-lz4\": \"" << base64 << "\"\n";
 
   ofs << "}\n";
 }
