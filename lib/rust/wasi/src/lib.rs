@@ -6,6 +6,7 @@ use wasi_common::WasiCtx;
 
 use core::slice;
 use std::cell::UnsafeCell;
+use std::os::raw::c_char;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, OnceLock};
 
@@ -23,7 +24,7 @@ pub(crate) struct ExecEnv {
     memory_size: i32,
     migration_state: i32,
     argc: i32,
-    argv: *mut *mut u8,
+    argv: *mut *mut c_char,
 }
 
 pub(crate) fn memory<'a>(exec_env: &'a ExecEnv) -> wiggle::GuestMemory<'a> {
@@ -49,7 +50,7 @@ pub(crate) fn get_ctx_mut(exec_env: &ExecEnv) -> &'static Mutex<WasiCtx> {
         let mut saw_dashdash = false;
         for i in 0..exec_env.argc {
             let arg = unsafe { *exec_env.argv.offset(i as isize) };
-            let arg = unsafe { std::ffi::CStr::from_ptr(arg as *const i8) };
+            let arg = unsafe { std::ffi::CStr::from_ptr(arg as *const c_char) };
             let arg = arg.to_str().unwrap();
             if !saw_dashdash && arg == "--llvm-layout" {
                 USE_LLVM_LAYOUT.store(true, std::sync::atomic::Ordering::SeqCst);

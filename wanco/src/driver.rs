@@ -66,6 +66,10 @@ pub struct Args {
     /// Custom path to clang or clang++.
     #[arg(long, default_value = "clang")]
     pub clang_path: String,
+
+    /// Library path. (default to /usr/local/lib on Unix)
+    #[arg(short, default_value = "/usr/local/lib")]
+    pub library_path: String,
 }
 
 pub fn run_compiler(args: &Args) -> Result<()> {

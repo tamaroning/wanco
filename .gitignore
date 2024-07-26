@@ -6,7 +6,7 @@
 **/*.wat
 **/*.wasm
 **/*.cwasm
-build
+*build
 !wanco/tests/**/*
 !demo/**/*.wat
 !demo/**/*.wasm

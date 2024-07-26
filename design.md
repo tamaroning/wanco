@@ -138,7 +138,7 @@ RestoreState {
 
 ## cross-compile
 
-build LLVM
+### build LLVM17
 
 1. git clone llvm
 2. checkout to version 17
@@ -149,6 +149,42 @@ cmake -DLLVM_TARGETS_TO_BUILD="X86" -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="AArch6
 ```
 available targets:
 /llvm-project/llvm/lib/Target
+
+### rustup
+
+```
+rustup target add aarch64-unknown-linux-gnu
+```
+
+wasmtime libaray requires aarch64-linux-gnu-gcc
+
+sudo apt install gcc-aarch64-linux-gnu
+
+```
+sudo apt-get install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+#maybe?
+sudo apt install libstdc++-11-dev-arm64-cross
+#maybe?
+sudo apt install g++-multilib
+```
+
+### build lib
+
+```
+cmake ../lib -DTARGET="aarch64" -DCMAKE_INSTALL_PREFIX="/usr/local/wanco-aarch64"
+sudo make install
+```
+
+### QEMU
+
+sudo apt install qemu-user qemu-user-static 
+
+QEMU_LD_PREFIX=/usr/aarch64-linux-gnu/ qemu-aarch64 a.out
+
+### Wanco
+
+
+RUST_LOG="debug" cargo run -- -l/usr/local/wanco-aarch64/lib demo/fib.wat --target aarch64-linux-gnu
 
 ## WASI
 porting 

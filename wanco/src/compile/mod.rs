@@ -88,13 +88,16 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     let mut cmd = std::process::Command::new(cxx);
     let cmd = cmd
         .arg(tmp_asm_path)
-        .arg("/usr/local/lib/libwanco_rt.a")
-        .arg("/usr/local/lib/libwanco_wasi.a")
+        .arg(format!("{}/libwanco_rt.a", args.library_path))
+        .arg(format!("{}/libwanco_wasi.a", args.library_path))
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")
         .arg("-flto")
         .arg(format!("-{}", args.optimization));
+    if let Some(ref target) = args.target {
+        cmd.arg(format!("--target={}", target));
+    }
     log::debug!("{:?}", cmd);
 
     let o = cmd
