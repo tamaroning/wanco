@@ -51,6 +51,12 @@ struct Config {
 int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   uint64_t num_bytes = num_pages * PAGE_SIZE;
 
+  // Memory layout
+  // 0x100000000000 - 0x100000000000 + 0x400000: linear memory
+  // Guard pages are placed at the beginning and the end of the linear memory
+  // (Unused linear memory is allocated as guard pages before memory.grow is
+  // called)
+
   // Add guard pages
   std::cerr << "[info] Allocating guard pages" << std::endl;
   if (mmap((void *)(LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
