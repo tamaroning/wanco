@@ -8,24 +8,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+int32_t extend_memory(ExecEnv *exec_env, int32_t inc_pages);
+
 extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
-  assert(inc_pages >= 0);
-  int32_t old_size = exec_env->memory_size;
-  int32_t new_size = old_size + inc_pages;
-
-  int8_t *res = (int8_t *)mremap(exec_env->memory_base, old_size * PAGE_SIZE,
-                                 new_size * PAGE_SIZE, MREMAP_MAYMOVE);
-  if (res == NULL) {
-    std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
-              << std::endl;
-    return -1;
-  }
-  // Zero out new memory
-  std::memset(res + old_size * PAGE_SIZE, 0, inc_pages * PAGE_SIZE);
-
-  exec_env->memory_base = res;
-  exec_env->memory_size = new_size;
-  return old_size;
+  return extend_memory(exec_env, inc_pages);
 }
 
 /* Print a string from memory */

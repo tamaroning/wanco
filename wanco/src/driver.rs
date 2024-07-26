@@ -63,13 +63,13 @@ pub struct Args {
     #[arg(short = 'O', value_enum, default_value = "2")]
     pub optimization: OptimizationLevel,
 
-    /// Custom path to clang or clang++.
-    #[arg(long, default_value = "clang")]
-    pub clang_path: String,
+    /// Custom path to clang or clang++. (default to clang++)
+    #[arg(long)]
+    pub clang_path: Option<String>,
 
     /// Library path. (default to /usr/local/lib on Unix)
-    #[arg(short, default_value = "/usr/local/lib")]
-    pub library_path: String,
+    #[arg(short)]
+    pub library_path: Option<String>,
 }
 
 pub fn run_compiler(args: &Args) -> Result<()> {

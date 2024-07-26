@@ -11,9 +11,16 @@
 #include <ucontext.h>
 #include <unistd.h>
 
-// execution environment
+// global instancce of execution environment
 ExecEnv exec_env;
+// global instance of checkpoint
 Checkpoint chkpt;
+
+// linear memory: 4GiB
+static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0x100000000000;
+static constexpr uint64_t MAX_LINEAR_MEMORY_SIZE = 0x400000; // 4GiB
+// guard page: 2GiB
+static constexpr uint64_t GUARD_PAGE_SIZE = 0x200000;
 
 std::string_view USAGE = R"(This file is a WebAssembly AOT executable.
 USAGE: <this file> [options]
@@ -44,7 +51,21 @@ struct Config {
 int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   uint64_t num_bytes = num_pages * PAGE_SIZE;
 
-  int8_t *res = (int8_t *)mmap(NULL, num_bytes, PROT_READ | PROT_WRITE,
+  // Add guard pages
+  std::cerr << "[info] Allocating guard pages" << std::endl;
+  if (mmap((void *)(LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
+           GUARD_PAGE_SIZE * 2 + MAX_LINEAR_MEMORY_SIZE, PROT_NONE,
+           MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == NULL) {
+    std::cerr << "Error: Failed to allocate guard pages" << std::endl;
+  }
+
+  // Allocate linear memory
+  if (munmap((void *)LINEAR_MEMORY_BEGIN, num_bytes) < 0) {
+    std::cerr << "Error: Failed to unmap part of guard pages" << std::endl;
+    exit(1);
+  };
+  int8_t *res = (int8_t *)mmap((void *)LINEAR_MEMORY_BEGIN, num_bytes,
+                               PROT_READ | PROT_WRITE,
                                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   if (res == NULL) {
     std::cerr << "Error: Failed to allocate " << num_pages * PAGE_SIZE
@@ -54,9 +75,45 @@ int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   std::cerr << "[info] Allocating liear memory: " << num_pages
             << " pages, starting at 0x" << std::hex << (uint64_t)res
             << std::endl;
-  // Zero out memory
+// Zero out memory
+#ifdef __FreeBSD__
   std::memset(res, 0, num_bytes);
+#endif
+
   return res;
+}
+
+int32_t extend_memory(ExecEnv *exec_env, int32_t inc_pages) {
+  assert(inc_pages >= 0);
+  int32_t old_size = exec_env->memory_size;
+  int32_t new_size = old_size + inc_pages;
+
+  if (inc_pages == 0) {
+    return old_size;
+  }
+
+  // Unmap requested pages
+  if (munmap(exec_env->memory_base + old_size * PAGE_SIZE,
+             inc_pages * PAGE_SIZE) < 0) {
+    std::cerr << "Error: Failed to unmap guard pages: inc_pages=" << std::dec
+              << inc_pages << std::endl;
+    exit(1);
+  }
+  int8_t *res = (int8_t *)mremap(exec_env->memory_base, old_size * PAGE_SIZE,
+                                 new_size * PAGE_SIZE, MREMAP_MAYMOVE);
+  if (res == NULL) {
+    std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
+              << std::endl;
+    exit(1);
+  }
+// Zero out new memory
+#ifdef __FreeBSD__
+  std::memset(res + old_size * PAGE_SIZE, 0, inc_pages * PAGE_SIZE);
+#endif
+
+  exec_env->memory_base = res;
+  exec_env->memory_size = new_size;
+  return old_size;
 }
 
 Config parse_from_args(int argc, char **argv) {

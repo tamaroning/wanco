@@ -82,14 +82,17 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         .context("Failed to write to the ll file")?;
     log::debug!("wrote to {}", tmp_asm_path.display());
 
-    let cxx = "clang++";
-
+    let clangxx = args.clang_path.clone().unwrap_or("clang++".to_owned());
+    let library_path = args
+        .library_path
+        .clone()
+        .unwrap_or("/usr/local/lib".to_owned());
     log::debug!("linking object file");
-    let mut cmd = std::process::Command::new(cxx);
+    let mut cmd = std::process::Command::new(clangxx);
     let cmd = cmd
         .arg(tmp_asm_path)
-        .arg(format!("{}/libwanco_rt.a", args.library_path))
-        .arg(format!("{}/libwanco_wasi.a", args.library_path))
+        .arg(format!("{}/libwanco_rt.a", library_path))
+        .arg(format!("{}/libwanco_wasi.a", library_path))
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")
