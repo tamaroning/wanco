@@ -2,7 +2,7 @@
 
 ![plot](./animal_dance_dog.png)
 
-wanco is a WebAssembly AOT compiler which supports Checkpoint/Restore functionalities.
+wanco is a WebAssembly AOT compiler which supports cross-platform (ISA/OS) Checkpoint/Restore functionalities.
 
 
 See [examples](./examples) for quick start.
