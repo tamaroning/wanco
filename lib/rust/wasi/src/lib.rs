@@ -15,9 +15,6 @@ pub(crate) const PAGE_SIZE: usize = 65536;
 static CTX: OnceLock<Mutex<WasiCtx>> = OnceLock::new();
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
-// TODO: remove.
-static USE_LLVM_LAYOUT: AtomicBool = AtomicBool::new(false);
-
 #[repr(C)]
 pub(crate) struct ExecEnv {
     memory: *mut u8,
@@ -28,11 +25,7 @@ pub(crate) struct ExecEnv {
 }
 
 pub(crate) fn memory<'a>(exec_env: &'a ExecEnv) -> wiggle::GuestMemory<'a> {
-    let memory_size = if USE_LLVM_LAYOUT.load(std::sync::atomic::Ordering::SeqCst) {
-        exec_env.memory_size as usize * PAGE_SIZE
-    } else {
-        4 * 1024 * 1024
-    };
+    let memory_size = 4 * 1024 * 1024;
     let slice = unsafe { slice::from_raw_parts_mut(exec_env.memory, memory_size) };
     let cell_slice: &[UnsafeCell<u8>] = unsafe { &*(slice as *mut [u8] as *mut [UnsafeCell<u8>]) };
     let memory = wiggle::GuestMemory::Shared(cell_slice);
@@ -52,9 +45,6 @@ pub(crate) fn get_ctx_mut(exec_env: &ExecEnv) -> &'static Mutex<WasiCtx> {
             let arg = unsafe { *exec_env.argv.offset(i as isize) };
             let arg = unsafe { std::ffi::CStr::from_ptr(arg as *const c_char) };
             let arg = arg.to_str().unwrap();
-            if !saw_dashdash && arg == "--llvm-layout" {
-                USE_LLVM_LAYOUT.store(true, std::sync::atomic::Ordering::SeqCst);
-            }
             if arg == "--" {
                 saw_dashdash = true;
                 continue;

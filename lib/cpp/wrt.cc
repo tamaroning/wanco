@@ -29,7 +29,6 @@ OPTIONS:
   no options: Run the WebAssembly AOT module from the beginning
   --help: Display this message and exit
   --restore <FILE>: Restore an execution from a checkpoint JSON file
-  --llvm-layout: Use LLVM layout for memory (Use 4GB linear memory)
 )";
 
 // forward decl
@@ -45,7 +44,6 @@ void signal_chkpt_handler(int signum) {
 
 struct Config {
   std::string restore_file;
-  bool use_llvm_layout = false;
 };
 
 int8_t *allocate_memory(const Config &config, int32_t num_pages) {
@@ -132,8 +130,6 @@ Config parse_from_args(int argc, char **argv) {
       }
       config.restore_file = argv[i + 1];
       i++;
-    } else if (std::string(argv[i]) == "--llvm-layout") {
-      config.use_llvm_layout = true;
     } else if (std::string(argv[i]) == "--help") {
       std::cerr << USAGE;
       exit(0);
@@ -154,10 +150,6 @@ int main(int argc, char **argv) {
   if (config.restore_file.empty()) {
     // Allocate memory
     int memory_size = INIT_MEMORY_SIZE;
-    if (config.use_llvm_layout) {
-      // Override memory size to 4GB
-      memory_size = 64;
-    }
     int8_t *memory = allocate_memory(config, memory_size);
     // Initialize exec_env
     exec_env = ExecEnv{
@@ -169,13 +161,6 @@ int main(int argc, char **argv) {
     };
   } else {
     // Restore from checkpoint
-    if (config.use_llvm_layout) {
-      // TODO: support
-      std::cerr << "Error: --llvm-layout is not supported for restore"
-                << std::endl;
-      return 1;
-    }
-
     std::ifstream ifs(config.restore_file);
     if (!ifs.is_open()) {
       std::cerr << "Error: Failed to open checkpoint" << config.restore_file
