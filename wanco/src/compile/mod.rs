@@ -24,7 +24,6 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     let builder = ictx.create_builder();
     let mut ctx = Context::new(args, &ictx, &module, builder);
 
-    log::debug!("Start compilation");
     compile_module(wasm, &mut ctx)?;
 
     //let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
@@ -34,60 +33,53 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     // TODO: Linker should use .bc file instead of .ll file.
     // Linker take .ll file for now since backward compatibility of the bc file is not guaranteed.
     // It enables to use the different version of clang as a linker.
-    /*
     let llobj_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned()))
         .with_extension("bc");
-    */
     let asm_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.ll".to_owned()))
         .with_extension("ll");
-    //let tmp_llobj_path = path::Path::new("/tmp/wasm.bc");
     let random_suffix = rand::random::<u64>();
     let tmp_asm_path = format!("/tmp/wasm-{}.ll", random_suffix);
     let tmp_asm_path = path::Path::new(&tmp_asm_path);
+    let tmp_llobj_path = format!("/tmp/wasm-{}.bc", random_suffix);
+    let tmp_llobj_path = path::Path::new(&tmp_llobj_path);
     let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
     let exe_path = path::Path::new(&exe_path);
 
     if args.compile_only {
-        log::debug!("write to {}", asm_path.display());
+        log::info!("Writing LLVM object");
         ctx.module
             .print_to_file(asm_path.to_str().expect("error ll_path"))
             .map_err(|e| anyhow!(e.to_string()))
             .context("Failed to write to the ll file")?;
-        log::debug!("wrote to {}", asm_path.display());
+        log::info!("wrote to {}", asm_path.display());
 
-        /*
-        log::debug!("write to {}", llobj_path.display());
         if !ctx.module.write_bitcode_to_path(&llobj_path) {
             return Err(anyhow!("Failed to write the LLVM object file"));
         }
-        log::debug!("wrote to {}", llobj_path.display());
-        */
+        log::info!("wrote to {}", llobj_path.display());
 
         return Ok(());
     }
 
-    // Link
-    /*
-    log::debug!("write to {}", tmp_llobj_path.display());
+    // Write and Link object files
+    log::info!("Writing LLVM object");
     if !ctx.module.write_bitcode_to_path(&tmp_llobj_path) {
         return Err(anyhow!("Failed to write to the LLVM object file"));
     }
-    log::debug!("wrote to {}", tmp_llobj_path.display());
-    */
+    log::info!("wrote to {}", tmp_llobj_path.display());
 
-    log::debug!("write to {}", tmp_asm_path.display());
     ctx.module
         .print_to_file(tmp_asm_path.to_str().expect("error ll_path"))
         .map_err(|e| anyhow!(e.to_string()))
         .context("Failed to write to the ll file")?;
-    log::debug!("wrote to {}", tmp_asm_path.display());
+    log::info!("wrote to {}", tmp_asm_path.display());
 
-    let clangxx = args.clang_path.clone().unwrap_or("clang++".to_owned());
+    log::info!("Linking object files");
+    let clangxx = args.clang_path.clone().unwrap_or("clang++-17".to_owned());
     let library_path = args
         .library_path
         .clone()
         .unwrap_or("/usr/local/lib".to_owned());
-    log::debug!("linking object file");
     let mut cmd = std::process::Command::new(clangxx);
     let cmd = cmd
         .arg(tmp_asm_path)
@@ -96,8 +88,12 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")
-        .arg("-flto")
         .arg(format!("-{}", args.optimization));
+
+    if args.lto {
+        cmd.arg("-flto");
+    }
+
     if let Some(ref target) = args.target {
         cmd.arg(format!("--target={}", target));
     }
@@ -111,6 +107,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         let cc_stderr = String::from_utf8(o.stderr).unwrap();
         return Err(anyhow!("Failed to link object files: {}", cc_stderr));
     }
+    log::info!("Linked to {}", exe_path.display());
 
     Ok(())
 }

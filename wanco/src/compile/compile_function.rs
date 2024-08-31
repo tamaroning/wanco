@@ -38,7 +38,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     let ret = current_fn.get_type().get_return_type();
     let mut end_phis: Vec<PhiValue> = Vec::new();
     if let Some(v) = ret {
-        log::debug!("- return type {:?}", v);
+        log::trace!("- return type {:?}", v);
         let phi = ctx
             .builder
             .build_phi(v, "return_phi")

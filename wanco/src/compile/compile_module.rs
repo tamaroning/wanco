@@ -6,8 +6,8 @@ use inkwell::{
 };
 use wasmparser::{
     Chunk, Element, ElementItems, ElementKind, ElementSectionReader, ExportSectionReader,
-    FunctionSectionReader, ImportSectionReader, Operator, Parser, Payload, SectionLimited,
-    TableSectionReader, TypeRef,
+    FunctionSectionReader, ImportSectionReader, MemoryType, Operator, Parser, Payload,
+    SectionLimited, TableSectionReader, TypeRef,
 };
 
 use crate::{
@@ -23,6 +23,7 @@ use crate::{
 use super::synthesize::{finalize, initialize};
 
 pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
+    log::info!("Compiling module");
     // Synthesize the entry function
     initialize(ctx)?;
 
@@ -31,7 +32,6 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
     let mut elements_section: Option<SectionLimited<'_, Element<'_>>> = None;
 
     let mut parser = Parser::new(0);
-    log::debug!("Parse Start");
     loop {
         let payload = match parser.parse(data, true)? {
             Chunk::Parsed { consumed, payload } => {
@@ -115,8 +115,8 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
         }
     }
 
+    log::info!("Compiling functions");
     declare_functions(ctx)?;
-
     if let Some(elems) = elements_section {
         compile_element_section(ctx, elems)?;
     }
@@ -147,6 +147,10 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
 
     finalize(ctx)?;
 
+    if ctx.config.checkpoint || ctx.config.restore {
+        log::info!("Inserted {} migration points", ctx.num_migration_points);
+    }
+
     Ok(())
 }
 
@@ -171,10 +175,13 @@ fn compile_import_section(ctx: &mut Context<'_, '_>, imports: ImportSectionReade
                 }
                 ctx.functions.push((name, ty));
             }
+            TypeRef::Memory(MemoryType {
+                memory64: false, ..
+            }) => {}
             _ => bail!("Unimplemented import type: {:?}", import.ty),
         }
     }
-    log::debug!("- declare {} functions", ctx.num_imports);
+    log::info!("- declare {} functions", ctx.num_imports);
     Ok(())
 }
 
@@ -274,7 +281,7 @@ fn compile_element_section(
                         }
                         // TODO: support function table C/R
                         if ctx.config.checkpoint || ctx.config.restore {
-                            log::warn!("Checkpoint/Restore is not supported with function table. Note that the compiled program may not work correctly.");
+                            log::warn!("Checkpoint/Restore is not supported for function table. Note that the compiled program may not work correctly.");
                         }
                     }
                     ElementItems::Expressions { .. } => {

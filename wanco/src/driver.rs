@@ -47,6 +47,10 @@ pub struct Args {
     #[arg(short)]
     pub compile_only: bool,
 
+    /// Enable LTO.
+    #[arg(long, default_value = "false")]
+    pub lto: bool,
+
     /// Target (TODO: wip)
     #[arg(long)]
     pub target: Option<String>,
@@ -60,7 +64,7 @@ pub struct Args {
     pub restore: bool,
 
     /// Optimization level.
-    #[arg(short = 'O', value_enum, default_value = "2")]
+    #[arg(short = 'O', value_enum, default_value = "1")]
     pub optimization: OptimizationLevel,
 
     /// Custom path to clang or clang++. (default to clang++)

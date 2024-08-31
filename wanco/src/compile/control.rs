@@ -174,6 +174,10 @@ pub fn gen_loop<'a>(
             .expect("fail to gen_restore_point_before_call");
     }
 
+    if ctx.config.checkpoint || ctx.config.restore {
+        ctx.num_migration_points += 1;
+    }
+
     Ok(())
 }
 
@@ -562,11 +566,13 @@ pub fn gen_call<'a>(
     callee_function_index: u32,
 ) -> Result<()> {
     let fn_called = ctx.function_values[callee_function_index as usize];
-    let is_imported = callee_function_index < ctx.num_imports as u32;
+
+    if ctx.config.checkpoint || ctx.config.restore {
+        ctx.num_migration_points += 1;
+    }
 
     // Generate checkpoint.
-    // We only generate checkpoint for call to imported functions assuming it takes > O(1).
-    if is_imported && ctx.config.checkpoint {
+    if ctx.config.checkpoint {
         gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
     }
 

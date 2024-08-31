@@ -52,7 +52,7 @@ Before running the compiler, add clang to the PATH environment variable or speci
 Compile the hello-world example, run:
 
 ```
-$ wanco examples/hello.wat -o hello
+$ wanco examples/hello.wat -o hello -O3 --lto
 $ ./hello
 Hello World!
 ```

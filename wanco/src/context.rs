@@ -120,6 +120,8 @@ pub struct Context<'a, 'b> {
     // restore related builder state
     pub restore_dispatch_bb: Option<BasicBlock<'a>>,
     pub restore_dispatch_cases: Vec<(IntValue<'a>, BasicBlock<'a>)>,
+
+    pub num_migration_points: u32,
 }
 
 impl<'a> Context<'a, '_> {
@@ -196,6 +198,8 @@ impl<'a> Context<'a, '_> {
 
             restore_dispatch_bb: None,
             restore_dispatch_cases: Vec::new(),
+
+            num_migration_points: 0,
         }
     }
 
