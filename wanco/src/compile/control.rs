@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
     types::BasicTypeEnum,
-    values::{BasicValue, BasicValueEnum, PhiValue, PointerValue},
+    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, PhiValue, PointerValue},
 };
 use wasmparser::{BlockType, BrTable};
 
@@ -13,6 +13,7 @@ use super::{
         checkpoint::{gen_checkpoint, gen_checkpoint_unwind},
         restore::{gen_restore_point, gen_restore_point_before_call},
     },
+    cr_v2::gen_stackmap,
 };
 
 /// Holds the state of if-else.
@@ -596,6 +597,7 @@ pub fn gen_call<'a>(
         args
     };
     args.reverse();
+
     args.insert(0, exec_env_ptr.as_basic_value_enum());
 
     // call

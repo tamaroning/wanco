@@ -14,6 +14,7 @@ use crate::{
             ControlFrame, UnreachableReason,
         },
         cr::restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
+        cr_v2::{gen_migration_point_v2, gen_stackmap},
         helper::{self, gen_float_compare, gen_int_compare, gen_llvm_intrinsic},
     },
     context::{Context, Global, StackFrame},
@@ -53,17 +54,17 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         stack_size: ctx.current_frame_size(),
     });
 
-    // Alloca &exec_env
+    // Allocate space for &exec_env
     let exec_env_ptr = current_fn
         .get_first_param()
         .expect("should have &exec_env as a first param");
     let exec_env_ptr = exec_env_ptr.into_pointer_value();
 
-    // Register all wasm locals (WASM params, WASM locals)
+    // Register all wasm locals (WASM params and WASM locals)
     let mut locals = vec![];
 
-    // params (&exec_env first, then WASM params)
-    // Skip first param (i.e. &exec_env)
+    // Allocate space for params of wasm function
+    // Skip allocating space for the first param (i.e. &exec_env)
     assert!(current_fn.get_first_param().unwrap().is_pointer_value());
     for idx in 1..current_fn.count_params() {
         let v = current_fn
@@ -80,7 +81,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         locals.push((alloca, ty));
     }
 
-    // locals
+    // Allocate space for wasm locals
     let mut local_reader = f.get_locals_reader()?;
     let num_locals = local_reader.get_count();
     for _ in 0..num_locals {
@@ -104,6 +105,13 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
     }
 
+    // Generate migration point v2
+    // TODO: populate same things at other location
+    if ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
+        gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
+        gen_migration_point_v2(ctx, &exec_env_ptr).expect("fail to gen_migration_point_v2");
+    }
+
     // compile instructions
     let mut op_reader = f.get_operators_reader()?.get_binary_reader();
     let mut num_op = 0;
@@ -113,6 +121,12 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
         ctx.current_op = Some(num_op);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
+        // Keep stackmap for migration point v2
+        if (ctx.config.checkpoint_v2 || ctx.config.restore_v2)
+            && matches!(op, Operator::Call { .. } | Operator::CallIndirect { .. })
+        {
+            gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
+        }
 
         num_op += 1;
     }

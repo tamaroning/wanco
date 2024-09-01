@@ -42,6 +42,8 @@ StkMapRecord[NumRecords] {
 }
 */
 
+use crate::compile::cr_v2::stackmap::regs::AsStr;
+
 use super::regs::Reg;
 use anyhow::{anyhow, Result};
 use nom::{
@@ -51,6 +53,12 @@ use nom::{
     sequence::Tuple,
     IResult,
 };
+
+pub fn parse(input: &[u8]) -> Result<Stackmap> {
+    // https://stackoverflow.com/questions/55184864/nom-parser-borrow-checker-issue
+    let map = parse_stackmap(input).map_err(|e| anyhow!(e.to_string()))?.1;
+    Ok(map)
+}
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Stackmap {
@@ -109,12 +117,6 @@ pub struct Location {
 pub struct LiveOut {
     pub reg: Reg,
     pub size_in_bytes: u8,
-}
-
-pub fn parse(input: &[u8]) -> Result<Stackmap> {
-    // https://stackoverflow.com/questions/55184864/nom-parser-borrow-checker-issue
-    let map = parse_stackmap(input).map_err(|e| anyhow!(e.to_string()))?.1;
-    Ok(map)
 }
 
 /*
@@ -298,17 +300,24 @@ fn parse_live_out(input: &[u8]) -> IResult<&[u8], LiveOut> {
 
 pub fn prettyprint(map: &Stackmap) {
     println!("Version: {}", map.header.version);
+    println!("NumStackmapRecords: {}", map.stackmap_records.len());
+    println!("NumConstants: {}", map.constants.len());
+    println!("NumStackSizeRecords: {}", map.stack_size_records.len());
     for stackmap_record in map.stackmap_records.iter() {
         println!("Patchpoint ID: {}", stackmap_record.patchpoint_id);
         println!("- Instruction Offset: {}", stackmap_record.inst_offset);
         for location in stackmap_record.locations.iter() {
             match location.value {
                 LocationValue::Register { reg } => {
-                    println!("  - value: {} (size: {})", reg.as_str(), location.size);
+                    println!(
+                        "  - value: {} (size: {}, loc=reg)",
+                        reg.as_str(),
+                        location.size
+                    );
                 }
                 LocationValue::Direct { reg, offset } => {
                     println!(
-                        "  - value: {} + {} (size: {})",
+                        "  - value: {} + {} (size: {}, loc=direct)",
                         reg.as_str(),
                         offset,
                         location.size
@@ -316,17 +325,20 @@ pub fn prettyprint(map: &Stackmap) {
                 }
                 LocationValue::Indirect { reg, offset } => {
                     println!(
-                        "  - value: [{} {:+}] (size: {})",
+                        "  - value: [{} {:+}] (size: {}, loc=indirect)",
                         reg.as_str(),
                         offset,
                         location.size
                     );
                 }
                 LocationValue::Constant { value } => {
-                    println!("  - value: {} (size: {})", value, location.size);
+                    println!("  - value: {} (size: {}, loc=const)", value, location.size);
                 }
                 LocationValue::ConstIndex { index } => {
-                    println!("  - value: Constants[{}] (size: {})", index, location.size);
+                    println!(
+                        "  - value: Constants[{}] (size: {}, loc=const_idx)",
+                        index, location.size
+                    );
                 }
             }
         }

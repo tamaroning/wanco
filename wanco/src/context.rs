@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::atomic::AtomicU64};
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -122,6 +122,9 @@ pub struct Context<'a, 'b> {
     pub restore_dispatch_cases: Vec<(IntValue<'a>, BasicBlock<'a>)>,
 
     pub num_migration_points: u32,
+
+    // C/R v2
+    next_stackmap_id: AtomicU64,
 }
 
 impl<'a> Context<'a, '_> {
@@ -200,6 +203,7 @@ impl<'a> Context<'a, '_> {
             restore_dispatch_cases: Vec::new(),
 
             num_migration_points: 0,
+            next_stackmap_id: AtomicU64::new(0),
         }
     }
 
@@ -264,5 +268,12 @@ impl<'a> Context<'a, '_> {
         } else {
             pop
         }
+    }
+
+    pub fn get_next_stackmap_id(&self) -> u64 {
+        let id = self
+            .next_stackmap_id
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        id
     }
 }

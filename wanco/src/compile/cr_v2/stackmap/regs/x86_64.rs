@@ -1,3 +1,5 @@
+use super::AsStr;
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Reg {
     // General purpose registers.
@@ -124,8 +126,8 @@ impl From<u16> for Reg {
     }
 }
 
-impl Reg {
-    pub fn as_str(&self) -> &'static str {
+impl AsStr for Reg {
+    fn as_str(&self) -> &'static str {
         match self {
             Reg::Rax => "rax",
             Reg::Rdx => "rdx",

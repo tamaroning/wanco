@@ -87,7 +87,6 @@ pub fn init_inkwell<'a>(
     let f32_f32 = f32_type.fn_type(&[f32_type_meta], false);
     let f32f32_f32 = f32_type.fn_type(&[f32_type_meta, f32_type_meta], false);
     let f64f64_f64 = f64_type.fn_type(&[f64_type_meta, f64_type_meta], false);
-    let i64i32_void = void_type.fn_type(&[i64_type_meta, i32_type_meta], false);
 
     let ctlz_i32 = module.add_function("llvm.ctlz.i32", i32bool_i32, None);
     let ctlz_i64 = module.add_function("llvm.ctlz.i64", i64bool_i64, None);
@@ -114,8 +113,11 @@ pub fn init_inkwell<'a>(
     let copysign_f32 = module.add_function("llvm.copysign.f32", f32f32_f32, None);
     let copysign_f64 = module.add_function("llvm.copysign.f64", f64f64_f64, None);
 
-    let experimental_stackmap =
-        module.add_function("llvm.experimental.stackmap", i64i32_void, None);
+    let experimental_stackmap = module.add_function(
+        "llvm.experimental.stackmap",
+        void_type.fn_type(&[i64_type_meta, i32_type_meta], true),
+        None,
+    );
 
     (
         InkwellTypes {

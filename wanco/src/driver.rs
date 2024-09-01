@@ -55,13 +55,21 @@ pub struct Args {
     #[arg(long)]
     pub target: Option<String>,
 
-    /// Enable the checkpoint feature.
+    /// Enable the checkpoint feature. (v1)
     #[arg(long)]
     pub checkpoint: bool,
 
-    /// Enable the restore feature.
+    /// Enable the restore feature. (v1)
     #[arg(long)]
     pub restore: bool,
+
+    /// TODO: Enable the checkpoint feature. (v2)
+    #[arg(long)]
+    pub checkpoint_v2: bool,
+
+    /// TODO: Enable the restore feature. (v2)
+    #[arg(long)]
+    pub restore_v2: bool,
 
     /// Optimization level.
     #[arg(short = 'O', value_enum, default_value = "1")]
@@ -84,4 +92,12 @@ pub fn run_compiler(args: &Args) -> Result<()> {
     assert!(wasm.starts_with(b"\0asm"));
 
     compile::compile(&wasm, args)
+}
+
+pub fn check_config(args: &Args) -> bool {
+    if (args.checkpoint || args.restore) && (args.checkpoint_v2 || args.restore_v2) {
+        log::debug!("Cannot use both v1 and v2 checkpoint/restore features");
+        return false;
+    }
+    true
 }

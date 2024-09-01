@@ -1,3 +1,4 @@
+#![allow(unused)]
 mod compile;
 mod context;
 mod driver;
