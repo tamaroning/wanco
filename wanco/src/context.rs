@@ -125,6 +125,8 @@ pub struct Context<'a, 'b> {
 
     // C/R v2
     next_stackmap_id: AtomicU64,
+    // C/R v2 api
+    pub fn_start_checkpoint_v2: Option<FunctionValue<'a>>,
 }
 
 impl<'a> Context<'a, '_> {
@@ -204,6 +206,7 @@ impl<'a> Context<'a, '_> {
 
             num_migration_points: 0,
             next_stackmap_id: AtomicU64::new(0),
+            fn_start_checkpoint_v2: None,
         }
     }
 
@@ -254,6 +257,7 @@ impl<'a> Context<'a, '_> {
     }
 
     /// Pop the stack and load the value if it is a pointer.
+    /*
     pub fn pop_and_load(&mut self) -> BasicValueEnum<'a> {
         let frame = self.stack_frames.last_mut().expect("frame empty");
         let pop = frame.stack.pop().expect("stack empty");
@@ -269,6 +273,7 @@ impl<'a> Context<'a, '_> {
             pop
         }
     }
+    */
 
     pub fn get_next_stackmap_id(&self) -> u64 {
         let id = self

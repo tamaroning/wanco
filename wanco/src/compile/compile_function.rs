@@ -108,8 +108,8 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     // Generate migration point v2
     // TODO: populate same things at other location
     if ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
-        gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
         gen_migration_point_v2(ctx, &exec_env_ptr).expect("fail to gen_migration_point_v2");
+        gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
     }
 
     // compile instructions

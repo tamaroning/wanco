@@ -1,5 +1,6 @@
 #include "aot.h"
-#include "chkpt.h"
+#include "v1/chkpt.h"
+#include "v2/chkpt_v2.h"
 #include <cassert>
 #include <csignal>
 #include <cstdint>
@@ -15,6 +16,8 @@
 ExecEnv exec_env;
 // global instance of checkpoint
 Checkpoint chkpt;
+
+CheckpointV2 chkpt_v2;
 
 // linear memory: 4GiB
 static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0x100000000000;
@@ -32,21 +35,29 @@ OPTIONS:
 )";
 
 // forward decl
-void dump_exec_env(ExecEnv &exec_env);
-void dump_checkpoint(Checkpoint &chkpt);
+void
+dump_exec_env (ExecEnv &exec_env);
+void
+dump_checkpoint (Checkpoint &chkpt);
 
-extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages);
+extern "C" int32_t
+memory_grow (ExecEnv *exec_env, int32_t inc_pages);
 
-void signal_chkpt_handler(int signum) {
-  assert(signum == SIGCHKPT && "Unexpected signal");
+void
+signal_chkpt_handler (int signum)
+{
+  assert (signum == SIGCHKPT && "Unexpected signal");
   exec_env.migration_state = MigrationState::STATE_CHECKPOINT_START;
 }
 
-struct Config {
+struct Config
+{
   std::string restore_file;
 };
 
-int8_t *allocate_memory(const Config &config, int32_t num_pages) {
+int8_t *
+allocate_memory (const Config &config, int32_t num_pages)
+{
   uint64_t num_bytes = num_pages * PAGE_SIZE;
 
   // Memory layout
@@ -57,62 +68,72 @@ int8_t *allocate_memory(const Config &config, int32_t num_pages) {
 
   // Add guard pages
   std::cerr << "[info] Allocating guard pages" << std::endl;
-  if (mmap((void *)(LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
-           GUARD_PAGE_SIZE * 2 + MAX_LINEAR_MEMORY_SIZE, PROT_NONE,
-           MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == NULL) {
-    std::cerr << "Error: Failed to allocate guard pages" << std::endl;
-  }
+  if (mmap ((void *) (LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
+	    GUARD_PAGE_SIZE * 2 + MAX_LINEAR_MEMORY_SIZE, PROT_NONE,
+	    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0)
+      == NULL)
+    {
+      std::cerr << "Error: Failed to allocate guard pages" << std::endl;
+    }
 
   // Allocate linear memory
-  if (munmap((void *)LINEAR_MEMORY_BEGIN, num_bytes) < 0) {
-    std::cerr << "Error: Failed to unmap part of guard pages" << std::endl;
-    exit(1);
-  };
-  int8_t *res = (int8_t *)mmap((void *)LINEAR_MEMORY_BEGIN, num_bytes,
-                               PROT_READ | PROT_WRITE,
-                               MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-  if (res == NULL) {
-    std::cerr << "Error: Failed to allocate " << num_pages * PAGE_SIZE
-              << " bytes to linear memory" << std::endl;
-    exit(1);
-  }
+  if (munmap ((void *) LINEAR_MEMORY_BEGIN, num_bytes) < 0)
+    {
+      std::cerr << "Error: Failed to unmap part of guard pages" << std::endl;
+      exit (1);
+    };
+  int8_t *res = (int8_t *) mmap ((void *) LINEAR_MEMORY_BEGIN, num_bytes,
+				 PROT_READ | PROT_WRITE,
+				 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  if (res == NULL)
+    {
+      std::cerr << "Error: Failed to allocate " << num_pages * PAGE_SIZE
+		<< " bytes to linear memory" << std::endl;
+      exit (1);
+    }
   std::cerr << "[info] Allocating liear memory: " << num_pages
-            << " pages, starting at 0x" << std::hex << (uint64_t)res
-            << std::endl;
+	    << " pages, starting at 0x" << std::hex << (uint64_t) res
+	    << std::endl;
 // Zero out memory
 #ifdef __FreeBSD__
-  std::memset(res, 0, num_bytes);
+  std::memset (res, 0, num_bytes);
 #endif
 
   return res;
 }
 
-int32_t extend_memory(ExecEnv *exec_env, int32_t inc_pages) {
-  assert(inc_pages >= 0);
+int32_t
+extend_memory (ExecEnv *exec_env, int32_t inc_pages)
+{
+  assert (inc_pages >= 0);
   int32_t old_size = exec_env->memory_size;
   int32_t new_size = old_size + inc_pages;
 
-  if (inc_pages == 0) {
-    return old_size;
-  }
+  if (inc_pages == 0)
+    {
+      return old_size;
+    }
 
   // Unmap requested pages
-  if (munmap(exec_env->memory_base + old_size * PAGE_SIZE,
-             inc_pages * PAGE_SIZE) < 0) {
-    std::cerr << "Error: Failed to unmap guard pages: inc_pages=" << std::dec
-              << inc_pages << std::endl;
-    exit(1);
-  }
-  int8_t *res = (int8_t *)mremap(exec_env->memory_base, old_size * PAGE_SIZE,
-                                 new_size * PAGE_SIZE, MREMAP_MAYMOVE);
-  if (res == NULL) {
-    std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
-              << std::endl;
-    exit(1);
-  }
+  if (munmap (exec_env->memory_base + old_size * PAGE_SIZE,
+	      inc_pages * PAGE_SIZE)
+      < 0)
+    {
+      std::cerr << "Error: Failed to unmap guard pages: inc_pages=" << std::dec
+		<< inc_pages << std::endl;
+      exit (1);
+    }
+  int8_t *res = (int8_t *) mremap (exec_env->memory_base, old_size * PAGE_SIZE,
+				   new_size * PAGE_SIZE, MREMAP_MAYMOVE);
+  if (res == NULL)
+    {
+      std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
+		<< std::endl;
+      exit (1);
+    }
 // Zero out new memory
 #ifdef __FreeBSD__
-  std::memset(res + old_size * PAGE_SIZE, 0, inc_pages * PAGE_SIZE);
+  std::memset (res + old_size * PAGE_SIZE, 0, inc_pages * PAGE_SIZE);
 #endif
 
   exec_env->memory_base = res;
@@ -120,87 +141,105 @@ int32_t extend_memory(ExecEnv *exec_env, int32_t inc_pages) {
   return old_size;
 }
 
-Config parse_from_args(int argc, char **argv) {
+Config
+parse_from_args (int argc, char **argv)
+{
   Config config;
-  for (int i = 1; i < argc; i++) {
-    if (std::string(argv[i]) == "--restore") {
-      if (i + 1 >= argc) {
-        std::cerr << "Error: Missing argument for --restore" << std::endl;
-        exit(1);
-      }
-      config.restore_file = argv[i + 1];
-      i++;
-    } else if (std::string(argv[i]) == "--help") {
-      std::cerr << USAGE;
-      exit(0);
-    } else if (std::string(argv[i]) == "--") {
-      return config;
-    } else {
-      std::cerr << "WARNING: Ignored unknown argument: " << argv[i]
-                << std::endl;
+  for (int i = 1; i < argc; i++)
+    {
+      if (std::string (argv[i]) == "--restore")
+	{
+	  if (i + 1 >= argc)
+	    {
+	      std::cerr << "Error: Missing argument for --restore" << std::endl;
+	      exit (1);
+	    }
+	  config.restore_file = argv[i + 1];
+	  i++;
+	}
+      else if (std::string (argv[i]) == "--help")
+	{
+	  std::cerr << USAGE;
+	  exit (0);
+	}
+      else if (std::string (argv[i]) == "--")
+	{
+	  return config;
+	}
+      else
+	{
+	  std::cerr << "WARNING: Ignored unknown argument: " << argv[i]
+		    << std::endl;
+	}
     }
-  }
   return config;
 }
 
-int main(int argc, char **argv) {
+int
+main (int argc, char **argv)
+{
   // Parse CLI arguments
-  Config config = parse_from_args(argc, argv);
+  Config config = parse_from_args (argc, argv);
 
-  if (config.restore_file.empty()) {
-    // Allocate memory
-    int memory_size = INIT_MEMORY_SIZE;
-    int8_t *memory = allocate_memory(config, memory_size);
-    // Initialize exec_env
-    exec_env = ExecEnv{
-        .memory_base = memory,
-        .memory_size = memory_size,
-        .migration_state = MigrationState::STATE_NONE,
-        .argc = argc,
-        .argv = (uint8_t **)argv,
-    };
-  } else {
-    // Restore from checkpoint
-    std::ifstream ifs(config.restore_file);
-    if (!ifs.is_open()) {
-      std::cerr << "Error: Failed to open checkpoint" << config.restore_file
-                << std::endl;
-      return 1;
+  if (config.restore_file.empty ())
+    {
+      // Allocate memory
+      int memory_size = INIT_MEMORY_SIZE;
+      int8_t *memory = allocate_memory (config, memory_size);
+      // Initialize exec_env
+      exec_env = ExecEnv{
+	.memory_base = memory,
+	.memory_size = memory_size,
+	.migration_state = MigrationState::STATE_NONE,
+	.argc = argc,
+	.argv = (uint8_t **) argv,
+      };
+    }
+  else
+    {
+      // Restore from checkpoint
+      std::ifstream ifs (config.restore_file);
+      if (!ifs.is_open ())
+	{
+	  std::cerr << "Error: Failed to open checkpoint" << config.restore_file
+		    << std::endl;
+	  return 1;
+	}
+
+      std::cerr << "[info] Loading checkpoint from " << config.restore_file
+		<< std::endl;
+      chkpt = decode_checkpoint_json (ifs);
+
+      int32_t memory_size = chkpt.memory_size;
+      // Allocate memory and copy contents from checkpoint
+      int8_t *memory = allocate_memory (config, memory_size);
+      std::memcpy (memory, chkpt.memory.data (), chkpt.memory.size ());
+      // Initialize exec_env
+      exec_env = ExecEnv{
+	.memory_base = memory,
+	.memory_size = memory_size,
+	.migration_state = MigrationState::STATE_RESTORE,
+	.argc = argc,
+	.argv = (uint8_t **) argv,
+      };
+    }
+  // Register signal handler
+  signal (SIGCHKPT, signal_chkpt_handler);
+
+  aot_main (&exec_env);
+
+  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE)
+    {
+      chkpt.memory = std::vector<int8_t> (exec_env.memory_base,
+					  exec_env.memory_base
+					    + exec_env.memory_size * PAGE_SIZE);
+      chkpt.memory_size = exec_env.memory_size;
+      std::ofstream ofs ("checkpoint.json");
+      encode_checkpoint_json (ofs, chkpt);
+      std::cerr << "[info] Snapshot saved to checkpoint.json" << std::endl;
     }
 
-    std::cerr << "[info] Loading checkpoint from " << config.restore_file
-              << std::endl;
-    chkpt = decode_checkpoint_json(ifs);
-
-    int32_t memory_size = chkpt.memory_size;
-    // Allocate memory and copy contents from checkpoint
-    int8_t *memory = allocate_memory(config, memory_size);
-    std::memcpy(memory, chkpt.memory.data(), chkpt.memory.size());
-    // Initialize exec_env
-    exec_env = ExecEnv{
-        .memory_base = memory,
-        .memory_size = memory_size,
-        .migration_state = MigrationState::STATE_RESTORE,
-        .argc = argc,
-        .argv = (uint8_t **)argv,
-    };
-  }
-  // Register signal handler
-  signal(SIGCHKPT, signal_chkpt_handler);
-
-  aot_main(&exec_env);
-
-  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE) {
-    chkpt.memory = std::vector<int8_t>(exec_env.memory_base,
-                                       exec_env.memory_base +
-                                           exec_env.memory_size * PAGE_SIZE);
-    chkpt.memory_size = exec_env.memory_size;
-    std::ofstream ofs("checkpoint.json");
-    encode_checkpoint_json(ofs, chkpt);
-    std::cerr << "[info] Snapshot saved to checkpoint.json" << std::endl;
-  }
-
   // cleanup
-  munmap(exec_env.memory_base, exec_env.memory_size * PAGE_SIZE);
+  munmap (exec_env.memory_base, exec_env.memory_size * PAGE_SIZE);
   return 0;
 }
