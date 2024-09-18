@@ -1,6 +1,7 @@
 #include "aot.h"
 #include "v1/chkpt.h"
 #include "v2/chkpt_v2.h"
+#include "v2/stackmap.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -395,7 +396,19 @@ start_checkpoint_v2 (ExecEnv *exec_env)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_START
 	  && "Invalid migration state");
   // exec_env->migration_state = MigrationState::STATE_CHECKPOINT_START;
-  auto _ = get_stack_trace ();
+  // TODO: wip
+  auto frames = get_stack_trace ();
+  std::optional<std::vector<uint8_t>> stackmap_section_opt
+    = get_section_data (".llvm_stackmaps");
+  if (!stackmap_section_opt.has_value ())
+    {
+      std::cerr << "Error: unable to obtain stackmap section" << std::endl;
+      std::exit (1);
+    }
+  std::vector<uint8_t> stackmap_section = stackmap_section_opt.value ();
+  Stackmap::Stackmap stackmap = parse_stackmap (stackmap_section);
+  std::cerr << stackmap_to_string (stackmap);
+
   std::cerr << "[info] Killed" << std::endl;
   std::exit (0);
 }

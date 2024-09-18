@@ -130,6 +130,10 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         .arg(tmp_asm_path)
         .arg(format!("{}/libwanco_rt.a", library_path))
         .arg(format!("{}/libwanco_wasi.a", library_path))
+        .arg("-g")
+        .arg("-lunwind")
+        // TODO: switch between x86-64 and arm64
+        .arg("-lunwind-x86_64")
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")

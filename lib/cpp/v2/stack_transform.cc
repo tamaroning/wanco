@@ -27,11 +27,14 @@ get_stack_trace ()
       if (unw_get_proc_name (&cursor, function_name, sizeof (function_name),
 			     &offset)
 	  != 0)
-	std::cout << "Error: unable to obtain function name for address"
+	std::cerr << "Error: unable to obtain function name for address"
 		  << std::endl;
 
       std::string name = function_name;
-      if (name == "aot_main")
+      if (name == "start_checkpoint_v2")
+	continue;
+
+      if (name == "main")
 	break;
 
       printf ("0x%lx : (%s+0x%lx) [SP=0x%lx]\n", pc, function_name, offset, sp);

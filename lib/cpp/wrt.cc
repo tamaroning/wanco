@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <ucontext.h>
 #include <unistd.h>
+#include <execinfo.h>
 
 // global instancce of execution environment
 ExecEnv exec_env;
@@ -42,6 +43,23 @@ dump_checkpoint (Checkpoint &chkpt);
 
 extern "C" int32_t
 memory_grow (ExecEnv *exec_env, int32_t inc_pages);
+
+// signal handler for debugging
+void
+signal_segv_handler (int signum)
+{
+  void *array[10];
+  size_t size;
+  assert (signum == SIGSEGV && "Unexpected signal");
+
+  // get void*'s for all entries on the stack
+  size = backtrace (array, 10);
+
+  // print out all the frames to stderr
+  fprintf (stderr, "Error: segmentation fault\n");
+  backtrace_symbols_fd (array, size, STDERR_FILENO);
+  exit (1);
+}
 
 void
 signal_chkpt_handler (int signum)
@@ -178,6 +196,8 @@ parse_from_args (int argc, char **argv)
 int
 main (int argc, char **argv)
 {
+  signal (SIGSEGV, signal_segv_handler);
+
   // Parse CLI arguments
   Config config = parse_from_args (argc, argv);
 

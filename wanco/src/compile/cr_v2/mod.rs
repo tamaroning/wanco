@@ -3,7 +3,7 @@ pub mod stackmap;
 use anyhow::Result;
 use inkwell::{
     types::BasicTypeEnum,
-    values::{BasicMetadataValueEnum, BasicValue, BasicValueEnum, PointerValue},
+    values::{BasicMetadataValueEnum, BasicValue, PointerValue},
 };
 
 use crate::context::Context;
@@ -29,7 +29,15 @@ pub fn gen_migration_point_v2<'a>(
         .expect("fail to build_conditional_branch");
 
     ctx.builder.position_at_end(then_block);
-    // TODO:
+    // call start_checkpoint_v2
+    ctx.builder
+        .build_call(
+            ctx.fn_start_checkpoint_v2.unwrap(),
+            &[exec_env_ptr.as_basic_value_enum().into()],
+            "",
+        )
+        .expect("fail to build_call start_checkpoint_v2");
+
     ctx.builder
         .build_unconditional_branch(else_block)
         .expect("fail to build_unconditional_branch");
@@ -58,7 +66,7 @@ pub fn gen_stackmap<'a>(
     // exec_env
     stackmap_args.push(exec_env_ptr.as_basic_value_enum().into());
     // locals and params
-    for (ptr, ty) in locals.iter() {
+    for (ptr, _) in locals.iter() {
         stackmap_args.push(ptr.as_basic_value_enum().into());
     }
     // value stack

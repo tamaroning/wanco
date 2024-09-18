@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project(wanco)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 20)
 set(COMMON_RUST "${CMAKE_BINARY_DIR}/common-rust")
 set(COMMON_RUST_RELEASE "${COMMON_RUST}/release")
 include(ExternalProject)
@@ -11,11 +12,9 @@ if (DEFINED CXX)
     set(CMAKE_CXX_COMPILER "${CXX}")
 endif()
 
-# Find libunwind using FindLibunwind.cmake
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 find_package(Libunwind REQUIRED)
-# debug LIBUNWIND_LIBRARIES
-message(STATUS "LIBUNWIND_LIBRARIES: ${LIBUNWIND_LIBRARIES}")
+find_package(Libdwarf REQUIRED)
 
 # https://qiita.com/tnishinaga/items/c01dfd5f43e446653cd1#cmake_toolchain_file%E3%82%92%E6%9B%B8%E3%81%8F
 if ((DEFINED TARGET) AND ("${TARGET}" STREQUAL "aarch64"))
@@ -76,6 +75,8 @@ target_sources(wanco_rt PRIVATE
     cpp/v1/chkpt_encode.cc 
     cpp/lz4/lz4.c
     cpp/v2/stack_transform.cc
+    cpp/v2/stackmap.cc
+    cpp/v2/elf.cc
     )
 include_directories(wanco_rt PRIVATE cpp ${LIBUNWIND_INCLUDE_DIRS})
 target_link_libraries(wanco_rt PRIVATE lz4 

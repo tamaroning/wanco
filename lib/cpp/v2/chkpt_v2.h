@@ -3,6 +3,8 @@
 #include <vector>
 #include "v1/chkpt.h"
 #include "stack_transform.h"
+#include "stackmap.h"
+#include "elf.h"
 
 class CheckpointV2
 {

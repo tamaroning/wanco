@@ -345,6 +345,18 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             Some(Linkage::External),
         ));
     }
+
+    if ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
+        let fn_type_start_checkpoint_v2 = ctx
+            .inkwell_types
+            .void_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
+        ctx.fn_start_checkpoint_v2 = Some(ctx.module.add_function(
+            "start_checkpoint_v2",
+            fn_type_start_checkpoint_v2,
+            Some(Linkage::External),
+        ));
+    }
 }
 
 pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
