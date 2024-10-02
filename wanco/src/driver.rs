@@ -100,7 +100,7 @@ pub fn check_config(args: &Args) -> bool {
         return false;
     }
 
-    if (args.enable_cr && !args.enable_cr) {
+    if args.enable_cr && !args.enable_cr {
         log::error!("specify both --enable-cr and --enable-loop-cr");
         return false;
     }
