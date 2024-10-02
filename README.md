@@ -62,7 +62,7 @@ Hello World!
 Compile a WebAssembly file with C/R enabled and run it:
 
 ```
-$ ./wanco --checkpoint --restore demo/fib.wat
+$ ./wanco --enable-cr --enable-loop-cr demo/fib.wat
 $ a.out
 ```
 

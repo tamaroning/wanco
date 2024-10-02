@@ -4,7 +4,7 @@ See [../examples](../examples) instead for general usage.
 ## C/R demo
 
 ```
-wanco fib.wat --checkpoint --restore
+wanco fib.wat --enable-cr
 ./a.out
 ```
 
@@ -15,7 +15,7 @@ pkill a.out -10
 
 restore:
 ```
-./a.out --checkpoint.json
+./a.out --restore checkpoint.json
 ```
 
 ## llama2
