@@ -72,7 +72,8 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
 pub fn load_api(ctx: &mut Context<'_, '_>) {
     let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
     // Checkpoint related
-    if ctx.config.checkpoint {
+    if ctx.config.enable_cr {
+        // checkpoint api (v1)
         let fn_type_push_frame = ctx
             .inkwell_types
             .void_type
@@ -203,9 +204,8 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             fn_type_push_global_f64,
             Some(Linkage::External),
         ));
-    }
 
-    if ctx.config.restore {
+        // restore api (v1)
         let fn_type_pop_front_frame = ctx
             .inkwell_types
             .void_type
@@ -382,7 +382,8 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     ctx.builder
         .position_at_end(ctx.aot_main_block.expect("should move to aot_main_block"));
 
-    if ctx.config.restore {
+    // restore globals (v1)
+    if ctx.config.enable_cr {
         gen_restore_globals(ctx, &exec_env_ptr).expect("should gen restore globals");
     }
 
@@ -395,7 +396,8 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .build_call(start_fn, &[exec_env_ptr.as_basic_value_enum().into()], "")
         .expect("should build call");
 
-    if ctx.config.checkpoint {
+    // checkpoint globals (v1)
+    if ctx.config.enable_cr {
         gen_store_globals(ctx, &exec_env_ptr).expect("should gen store globals");
     }
 

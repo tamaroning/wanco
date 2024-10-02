@@ -147,11 +147,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
 
     finalize(ctx)?;
 
-    if ctx.config.checkpoint
-        || ctx.config.restore
-        || ctx.config.checkpoint_v2
-        || ctx.config.restore_v2
-    {
+    if ctx.config.enable_cr || ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
         log::info!("Inserted {} migration points", ctx.num_migration_points);
     }
 
@@ -284,7 +280,7 @@ fn compile_element_section(
                             global_table.set_initializer(&initializer);
                         }
                         // TODO: support function table C/R
-                        if ctx.config.checkpoint || ctx.config.restore {
+                        if ctx.config.enable_cr {
                             log::warn!("Checkpoint/Restore is not supported for function table. Note that the compiled program may not work correctly.");
                         }
                     }

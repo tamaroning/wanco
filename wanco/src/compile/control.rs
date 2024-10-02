@@ -163,18 +163,11 @@ pub fn gen_loop<'a>(
         .expect("should build unconditional branch");
     ctx.builder.position_at_end(body_block);
 
-    // Generate checkpoint
-    if ctx.config.checkpoint {
+    // Generate migration point for loop (v1)
+    if ctx.config.enable_loop_cr {
         gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
-    }
-
-    // Generate restore point
-    if ctx.config.restore {
         gen_restore_point(ctx, exec_env_ptr, locals, &body_block)
             .expect("fail to gen_restore_point_before_call");
-    }
-
-    if ctx.config.checkpoint || ctx.config.restore {
         ctx.num_migration_points += 1;
     }
 
@@ -567,19 +560,19 @@ pub fn gen_call<'a>(
 ) -> Result<()> {
     let fn_called = ctx.function_values[callee_function_index as usize];
 
-    if ctx.config.checkpoint || ctx.config.restore {
+    if ctx.config.enable_cr {
         ctx.num_migration_points += 1;
     }
 
     // Generate checkpoint.
-    if ctx.config.checkpoint {
+    if ctx.config.enable_cr {
         gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
     }
 
     // Generate restore point and get arguments for callee.
     // Note that we need to generate restore point before any call instruction.
     let before_restore_bb = ctx.builder.get_insert_block().unwrap();
-    let mut args = if ctx.config.restore {
+    let mut args = if ctx.config.enable_cr {
         gen_restore_point_before_call(
             ctx,
             exec_env_ptr,
@@ -610,7 +603,7 @@ pub fn gen_call<'a>(
         .expect("should build call");
 
     // Generate unwinding code for checkpoint
-    if ctx.config.checkpoint {
+    if ctx.config.enable_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
@@ -672,13 +665,13 @@ pub fn gen_call_indirect<'a>(
         .expect("should build load");
 
     // Generate checkpoint
-    if ctx.config.checkpoint {
+    if ctx.config.enable_cr {
         gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
     }
 
     // Generate restore point and get arguments for callee
     let before_restore_bb = ctx.builder.get_insert_block().unwrap();
-    let mut args = if ctx.config.restore {
+    let mut args = if ctx.config.enable_cr {
         gen_restore_point_before_call(ctx, exec_env_ptr, locals, before_restore_bb, callee_type)
             .expect("fail to gen_restore_point_before_call")
     } else {
@@ -710,7 +703,7 @@ pub fn gen_call_indirect<'a>(
     }
 
     // Generate unwinding code for checkpoint
-    if ctx.config.checkpoint {
+    if ctx.config.enable_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
