@@ -16,6 +16,7 @@ use crate::{
         compile_global::{compile_data_section, compile_global_section},
         compile_memory::compile_memory_section,
         compile_type::compile_type_section,
+        cr,
     },
     context::Context,
 };
@@ -121,7 +122,8 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
         compile_element_section(ctx, elems)?;
     }
 
-    ctx.current_function_idx = Some(ctx.num_imports);
+    // pass
+    let mut function_bodies = vec![];
     match code_section_data {
         Some(mut code_section_data) => {
             while let Chunk::Parsed { consumed, payload } =
@@ -131,8 +133,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
                 match payload {
                     Payload::CodeSectionStart { .. } => (),
                     Payload::CodeSectionEntry(f) => {
-                        compile_function(ctx, f)?;
-                        ctx.current_function_idx = Some(ctx.current_function_idx.unwrap() + 1);
+                        function_bodies.push(f);
                     }
                     _ => unreachable!("Unexpected payload in CodeSection"),
                 }
@@ -142,6 +143,18 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
             log::error!("CodeSection empty");
         }
     }
+
+    if ctx.config.enable_cr || ctx.config.enable_loop_cr {
+        cr::opt::run_analysis_pass(ctx, &function_bodies)?;
+    }
+
+
+    ctx.current_function_idx = Some(ctx.num_imports);
+    for body in function_bodies {
+        compile_function(ctx, body)?;
+        ctx.current_function_idx = Some(ctx.current_function_idx.unwrap() + 1);
+    }
+
     ctx.current_fn = None;
     ctx.current_function_idx = None;
 

@@ -121,12 +121,15 @@ pub struct Context<'a, 'b> {
     pub restore_dispatch_bb: Option<BasicBlock<'a>>,
     pub restore_dispatch_cases: Vec<(IntValue<'a>, BasicBlock<'a>)>,
 
-    pub num_migration_points: u32,
+    pub analysis_v1: Option<crate::compile::cr::opt::Analysis>,
 
     // C/R v2
     next_stackmap_id: AtomicU64,
     // C/R v2 api
     pub fn_start_checkpoint_v2: Option<FunctionValue<'a>>,
+
+    // common to both C/R v1 and v2
+    pub num_migration_points: u32,
 }
 
 impl<'a> Context<'a, '_> {
@@ -204,9 +207,12 @@ impl<'a> Context<'a, '_> {
             restore_dispatch_bb: None,
             restore_dispatch_cases: Vec::new(),
 
-            num_migration_points: 0,
+            analysis_v1: None,
+
             next_stackmap_id: AtomicU64::new(0),
             fn_start_checkpoint_v2: None,
+            
+            num_migration_points: 0,
         }
     }
 
