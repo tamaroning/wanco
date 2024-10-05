@@ -100,7 +100,13 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // entry dispatcher for restore (v1)
-    if ctx.config.enable_cr {
+    let should_gen_restore_dispatch_v1 = ctx.config.enable_cr
+        && ctx
+            .analysis_v1
+            .as_ref()
+            .unwrap()
+            .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap());
+    if should_gen_restore_dispatch_v1 {
         ctx.restore_dispatch_bb = None;
         ctx.restore_dispatch_cases = vec![];
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
@@ -133,7 +139,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // finalize dispatcher for restore (v1)
-    if ctx.config.enable_cr {
+    if should_gen_restore_dispatch_v1 {
         ctx.builder
             .position_at_end(ctx.restore_dispatch_bb.unwrap());
         gen_finalize_restore_dispatch(ctx, &exec_env_ptr)

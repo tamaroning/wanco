@@ -211,7 +211,7 @@ impl<'a> Context<'a, '_> {
 
             next_stackmap_id: AtomicU64::new(0),
             fn_start_checkpoint_v2: None,
-            
+
             num_migration_points: 0,
         }
     }
