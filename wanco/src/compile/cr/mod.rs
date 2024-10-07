@@ -1,12 +1,18 @@
 use anyhow::Result;
-use inkwell::values::{BasicValue, BasicValueEnum, PointerValue};
+use checkpoint::gen_checkpoint;
+use inkwell::{
+    types::BasicTypeEnum,
+    values::{BasicValue, BasicValueEnum, PointerValue},
+};
+use restore::gen_restore_point;
 
 use crate::context::Context;
 
 pub(crate) mod checkpoint;
+pub(crate) mod opt;
 pub(crate) mod restore;
 
-//pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
+pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
 pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;
@@ -76,5 +82,38 @@ pub(self) fn gen_set_migration_state<'a>(
     ctx.builder
         .build_store(migration_state_ptr, migration_state)
         .expect("fail to build store");
+    Ok(())
+}
+
+// almost equiavalent call both to gen_checkpoint and gen_restore, but emit more efficient code
+// by wrapping them in a single conditional branch
+pub(crate) fn gen_migration_point<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
+) -> Result<()> {
+    let cmp = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_NONE)
+        .expect("fail to gen_compare_migration_state");
+
+    let then_block = ctx.ictx.append_basic_block(ctx.current_fn.unwrap(), "");
+    let else_block = ctx.ictx.append_basic_block(ctx.current_fn.unwrap(), "");
+    ctx.builder
+        .build_conditional_branch(
+            cmp.as_basic_value_enum().into_int_value(),
+            then_block,
+            else_block,
+        )
+        .expect("fail to build_conditional_branch");
+
+    // emit acutal migration point
+    ctx.builder.position_at_end(else_block);
+    gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
+    let current_bb = ctx.builder.get_insert_block().unwrap();
+    gen_restore_point(ctx, exec_env_ptr, locals, &current_bb).expect("fail to gen_restore_point");
+    ctx.builder
+        .build_unconditional_branch(else_block)
+        .expect("fail to build_unconditional_branch");
+
+    ctx.builder.position_at_end(then_block);
     Ok(())
 }

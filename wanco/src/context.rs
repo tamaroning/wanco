@@ -56,6 +56,7 @@ pub struct Context<'a, 'b> {
 
     pub fn_memory_grow: Option<FunctionValue<'a>>,
     pub global_table: Option<GlobalValue<'a>>,
+    pub global_table_size: Option<usize>,
     pub global_fptr_array: Option<GlobalValue<'a>>,
 
     pub exec_env_type: Option<StructType<'a>>,
@@ -100,6 +101,7 @@ pub struct Context<'a, 'b> {
     pub fn_push_global_i64: Option<FunctionValue<'a>>,
     pub fn_push_global_f32: Option<FunctionValue<'a>>,
     pub fn_push_global_f64: Option<FunctionValue<'a>>,
+    pub fn_push_table_index: Option<FunctionValue<'a>>,
     // restore related
     pub fn_pop_front_frame: Option<FunctionValue<'a>>,
     pub fn_frame_is_empty: Option<FunctionValue<'a>>,
@@ -121,12 +123,15 @@ pub struct Context<'a, 'b> {
     pub restore_dispatch_bb: Option<BasicBlock<'a>>,
     pub restore_dispatch_cases: Vec<(IntValue<'a>, BasicBlock<'a>)>,
 
-    pub num_migration_points: u32,
+    pub analysis_v1: Option<crate::compile::cr::opt::Analysis>,
 
     // C/R v2
     next_stackmap_id: AtomicU64,
     // C/R v2 api
     pub fn_start_checkpoint_v2: Option<FunctionValue<'a>>,
+
+    // common to both C/R v1 and v2
+    pub num_migration_points: u32,
 }
 
 impl<'a> Context<'a, '_> {
@@ -153,6 +158,7 @@ impl<'a> Context<'a, '_> {
             exec_env_fields: HashMap::new(),
             global_fptr_array: None,
             global_table: None,
+            global_table_size: None,
 
             signatures: Vec::new(),
             functions: Vec::new(),
@@ -184,6 +190,7 @@ impl<'a> Context<'a, '_> {
             fn_push_global_i32: None,
             fn_push_global_f32: None,
             fn_push_global_f64: None,
+            fn_push_table_index: None,
 
             fn_get_pc_from_frame: None,
             fn_frame_is_empty: None,
@@ -204,9 +211,12 @@ impl<'a> Context<'a, '_> {
             restore_dispatch_bb: None,
             restore_dispatch_cases: Vec::new(),
 
-            num_migration_points: 0,
+            analysis_v1: None,
+
             next_stackmap_id: AtomicU64::new(0),
             fn_start_checkpoint_v2: None,
+
+            num_migration_points: 0,
         }
     }
 

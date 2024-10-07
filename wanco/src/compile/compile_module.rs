@@ -16,6 +16,7 @@ use crate::{
         compile_global::{compile_data_section, compile_global_section},
         compile_memory::compile_memory_section,
         compile_type::compile_type_section,
+        cr,
     },
     context::Context,
 };
@@ -121,7 +122,8 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
         compile_element_section(ctx, elems)?;
     }
 
-    ctx.current_function_idx = Some(ctx.num_imports);
+    // pass
+    let mut function_bodies = vec![];
     match code_section_data {
         Some(mut code_section_data) => {
             while let Chunk::Parsed { consumed, payload } =
@@ -131,8 +133,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
                 match payload {
                     Payload::CodeSectionStart { .. } => (),
                     Payload::CodeSectionEntry(f) => {
-                        compile_function(ctx, f)?;
-                        ctx.current_function_idx = Some(ctx.current_function_idx.unwrap() + 1);
+                        function_bodies.push(f);
                     }
                     _ => unreachable!("Unexpected payload in CodeSection"),
                 }
@@ -142,16 +143,23 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
             log::error!("CodeSection empty");
         }
     }
+
+    if ctx.config.enable_cr && ctx.config.optimize_cr {
+        cr::opt::run_analysis_pass(ctx, &function_bodies)?;
+    }
+
+    ctx.current_function_idx = Some(ctx.num_imports);
+    for body in function_bodies {
+        compile_function(ctx, body)?;
+        ctx.current_function_idx = Some(ctx.current_function_idx.unwrap() + 1);
+    }
+
     ctx.current_fn = None;
     ctx.current_function_idx = None;
 
     finalize(ctx)?;
 
-    if ctx.config.checkpoint
-        || ctx.config.restore
-        || ctx.config.checkpoint_v2
-        || ctx.config.restore_v2
-    {
+    if ctx.config.enable_cr || ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
         log::info!("Inserted {} migration points", ctx.num_migration_points);
     }
 
@@ -259,15 +267,15 @@ fn compile_element_section(
                         }
                         // Declare function table
                         {
-                            let count = elems.count();
-                            let fnidx_array =
-                                ctx.inkwell_types.i32_type.array_type(count + offset as u32);
+                            let table_size = elems.count() + offset as u32;
+                            let idx_array_type = ctx.inkwell_types.i32_type.array_type(table_size);
                             let global_table = ctx.module.add_global(
-                                fnidx_array,
+                                idx_array_type,
                                 Some(AddressSpace::default()),
                                 "global_table",
                             );
                             ctx.global_table = Some(global_table);
+                            ctx.global_table_size = Some(table_size as usize);
 
                             // Initialize function index array
                             let mut fn_indices: Vec<IntValue> = Vec::new();
@@ -284,7 +292,7 @@ fn compile_element_section(
                             global_table.set_initializer(&initializer);
                         }
                         // TODO: support function table C/R
-                        if ctx.config.checkpoint || ctx.config.restore {
+                        if ctx.config.enable_cr {
                             log::warn!("Checkpoint/Restore is not supported for function table. Note that the compiled program may not work correctly.");
                         }
                     }

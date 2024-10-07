@@ -1,6 +1,7 @@
 #include "chkpt.h"
 #include "lz4/lz4.h"
 #include "tobiaslocker/base64.h"
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <string_view>
@@ -49,6 +50,7 @@ encode_checkpoint_json (std::ofstream &ofs, Checkpoint &chkpt)
 {
   ofs << "{\n";
   ofs << "  \"version\": 1,\n";
+
   // frames
   ofs << "  \"frames\": [\n";
   for (size_t i = 0; i < chkpt.frames.size (); i++)
@@ -74,6 +76,7 @@ encode_checkpoint_json (std::ofstream &ofs, Checkpoint &chkpt)
       ofs << "\n";
     }
   ofs << "  ],\n";
+
   // stack
   ofs << "  \"stack\": [\n";
   for (size_t i = 0; i < chkpt.stack.size (); i++)
@@ -86,6 +89,7 @@ encode_checkpoint_json (std::ofstream &ofs, Checkpoint &chkpt)
       ofs << "\n";
     }
   ofs << "  ],\n";
+
   // globals
   ofs << "  \"globals\": [\n";
   for (size_t i = 0; i < chkpt.globals.size (); i++)
@@ -98,6 +102,18 @@ encode_checkpoint_json (std::ofstream &ofs, Checkpoint &chkpt)
       ofs << "\n";
     }
   ofs << "  ],\n";
+
+  // table
+  ofs << "  \"table\": [\n";
+  for (size_t i = 0; i < chkpt.table.size (); i++)
+    {
+      ofs << "    " << chkpt.table[i];
+      if (i != chkpt.table.size () - 1)
+	ofs << ",";
+      ofs << "\n";
+    }
+  ofs << "  ],\n";
+
   // memory
   ofs << "  \"memory-size\": " << chkpt.memory_size << ",\n";
 
