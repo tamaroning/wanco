@@ -3,10 +3,9 @@ use std::collections::{HashMap, HashSet};
 use wasmparser::{FunctionBody, Operator};
 
 use crate::context::Context;
-use anyhow::{anyhow, bail, Context as _, Result};
+use anyhow::Result;
 
 pub struct Analysis {
-    num_function_imports: u32,
     type_idx_to_fn_idx: HashMap<u32, Vec<u32>>,
     callgraph: HashMap<u32, Vec<u32>>,
     // reverse callgraph
@@ -20,12 +19,12 @@ pub struct Analysis {
 }
 
 impl Analysis {
-    pub fn call_requires_migration_point(&self, caller: u32, callee: u32) -> bool {
+    pub fn call_requires_migration_point(&self, _caller: u32, callee: u32) -> bool {
         self.functions_reachable_to_fn_taking_infinite_time
             .contains(&callee)
     }
 
-    pub fn call_indirect_requires_migration_point(&self, caller: u32, type_index: u32) -> bool {
+    pub fn call_indirect_requires_migration_point(&self, _caller: u32, type_index: u32) -> bool {
         let callees = self.type_idx_to_fn_idx.get(&type_index).unwrap();
         for callee in callees {
             if self
@@ -46,7 +45,6 @@ impl Analysis {
 
 pub fn run_analysis_pass(ctx: &mut Context, functions: &Vec<FunctionBody>) -> Result<()> {
     let mut analysis = Analysis {
-        num_function_imports: ctx.num_imports,
         callgraph: HashMap::new(),
         type_idx_to_fn_idx: HashMap::new(),
         rev_callgraph: HashMap::new(),
@@ -142,7 +140,7 @@ fn calulate_cycles(ctx: &Context, analysis: &mut Analysis) {
 }
 
 fn find_cycle_dfs(ctx: &Context, analysis: &mut Analysis, stack: &mut Vec<u32>, fn_index: u32) {
-    if let Some((i, _)) = stack.iter().enumerate().find(|(i, f)| **f == fn_index) {
+    if let Some((i, _)) = stack.iter().enumerate().find(|(_, f)| **f == fn_index) {
         let cycle = stack[i..].to_vec();
         analysis.cycles.push(cycle);
         return;
@@ -181,7 +179,7 @@ fn calculate_has_loop(
 ) -> Result<()> {
     let mut fn_index: u32 = ctx.num_imports;
     for func in functions {
-        let has_loop = has_loop(ctx, func)?;
+        let has_loop = has_loop(func)?;
         if has_loop {
             analysis.fn_has_loop.insert(fn_index);
         }
@@ -244,11 +242,7 @@ fn compute_fn_reachable_to_fn_taking_infinite_time_dfs(
     stack.pop();
 }
 
-fn is_external_function(ctx: &mut Context, fn_index: usize) -> bool {
-    return fn_index < ctx.num_imports as usize;
-}
-
-fn has_loop(ctx: &Context, f: &FunctionBody) -> Result<bool> {
+fn has_loop(f: &FunctionBody) -> Result<bool> {
     let mut reader = f.get_operators_reader()?.get_binary_reader();
     while !reader.eof() {
         let op = reader.read_operator()?;

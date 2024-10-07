@@ -12,7 +12,7 @@ use super::{
     cr::{
         checkpoint::{gen_checkpoint, gen_checkpoint_unwind},
         gen_migration_point,
-        restore::{gen_restore_point, gen_restore_point_before_call},
+        restore::gen_restore_point_before_call,
     },
 };
 

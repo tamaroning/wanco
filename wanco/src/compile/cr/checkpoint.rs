@@ -114,9 +114,7 @@ pub(crate) fn gen_store_table<'a>(
         let fnidx_ptr = unsafe {
             ctx.builder.build_gep(
                 ctx.inkwell_types.i32_type,
-                ctx.global_table
-                    .expect("should define global_table")
-                    .as_pointer_value(),
+                global_table.as_pointer_value(),
                 &[ctx.ictx.i32_type().const_int(i as u64, false)],
                 "fnidx_ptr",
             )
