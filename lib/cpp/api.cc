@@ -161,6 +161,15 @@ push_global_f64 (ExecEnv *exec_env, double f64)
   chkpt.globals.push_back (Value (f64));
 }
 
+// table
+extern "C" void
+push_table_index (ExecEnv *exec_env, int32_t index)
+{
+  assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
+	  && "Invalid migration state");
+  chkpt.table.push_back (index);
+}
+
 void
 dump_exec_env (ExecEnv &exec_env)
 {

@@ -267,15 +267,16 @@ fn compile_element_section(
                         }
                         // Declare function table
                         {
-                            let count = elems.count();
-                            let fnidx_array =
-                                ctx.inkwell_types.i32_type.array_type(count + offset as u32);
+                            let table_size = elems.count() + offset as u32;
+                            let idx_array_type =
+                                ctx.inkwell_types.i32_type.array_type(table_size);
                             let global_table = ctx.module.add_global(
-                                fnidx_array,
+                                idx_array_type,
                                 Some(AddressSpace::default()),
                                 "global_table",
                             );
                             ctx.global_table = Some(global_table);
+                            ctx.global_table_size = Some(table_size as usize);
 
                             // Initialize function index array
                             let mut fn_indices: Vec<IntValue> = Vec::new();

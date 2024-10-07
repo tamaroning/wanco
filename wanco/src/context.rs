@@ -56,6 +56,7 @@ pub struct Context<'a, 'b> {
 
     pub fn_memory_grow: Option<FunctionValue<'a>>,
     pub global_table: Option<GlobalValue<'a>>,
+    pub global_table_size: Option<usize>,
     pub global_fptr_array: Option<GlobalValue<'a>>,
 
     pub exec_env_type: Option<StructType<'a>>,
@@ -100,6 +101,7 @@ pub struct Context<'a, 'b> {
     pub fn_push_global_i64: Option<FunctionValue<'a>>,
     pub fn_push_global_f32: Option<FunctionValue<'a>>,
     pub fn_push_global_f64: Option<FunctionValue<'a>>,
+    pub fn_push_table_index: Option<FunctionValue<'a>>,
     // restore related
     pub fn_pop_front_frame: Option<FunctionValue<'a>>,
     pub fn_frame_is_empty: Option<FunctionValue<'a>>,
@@ -156,6 +158,7 @@ impl<'a> Context<'a, '_> {
             exec_env_fields: HashMap::new(),
             global_fptr_array: None,
             global_table: None,
+            global_table_size: None,
 
             signatures: Vec::new(),
             functions: Vec::new(),
@@ -187,6 +190,7 @@ impl<'a> Context<'a, '_> {
             fn_push_global_i32: None,
             fn_push_global_f32: None,
             fn_push_global_f64: None,
+            fn_push_table_index: None,
 
             fn_get_pc_from_frame: None,
             fn_frame_is_empty: None,

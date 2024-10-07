@@ -5,7 +5,10 @@ use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpac
 
 use crate::context::Context;
 
-use super::cr::{checkpoint::gen_store_globals, restore::gen_restore_globals};
+use super::cr::{
+    checkpoint::{gen_store_globals, gen_store_table},
+    restore::gen_restore_globals,
+};
 
 pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     // Define ExecEnv struct
@@ -204,6 +207,15 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             fn_type_push_global_f64,
             Some(Linkage::External),
         ));
+        let fn_type_push_table_index = ctx.inkwell_types.void_type.fn_type(
+            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
+            false,
+        );
+        ctx.fn_push_table_index = Some(ctx.module.add_function(
+            "push_table_index",
+            fn_type_push_table_index,
+            Some(Linkage::External),
+        ));
 
         // restore api (v1)
         let fn_type_pop_front_frame = ctx
@@ -399,6 +411,7 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     // checkpoint globals (v1)
     if ctx.config.enable_cr {
         gen_store_globals(ctx, &exec_env_ptr).expect("should gen store globals");
+        gen_store_table(ctx, &exec_env_ptr).expect("should gen store table");
     }
 
     ctx.builder.build_return(None).expect("should build return");

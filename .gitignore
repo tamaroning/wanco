@@ -28,3 +28,7 @@ compile_commands.json
 benchmark/*.native
 benchmark/*.aot
 benchmark/*.wasm
+
+# clion?
+**/.idea/
+**/cmake-build-debug/

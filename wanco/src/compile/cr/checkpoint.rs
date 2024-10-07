@@ -103,6 +103,40 @@ fn gen_push_global_value<'a>(
     Ok(())
 }
 
+pub(crate) fn gen_store_table<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let Some(global_table) = ctx.global_table else {
+        return Ok(());
+    };
+    for i in 0..ctx.global_table_size.unwrap() {
+        let fnidx_ptr = unsafe {
+            ctx.builder.build_gep(
+                ctx.inkwell_types.i32_type,
+                ctx.global_table
+                    .expect("should define global_table")
+                    .as_pointer_value(),
+                &[ctx.ictx.i32_type().const_int(i as u64, false)],
+                "fnidx_ptr",
+            )
+        }
+        .expect("should build gep");
+        let fnidx = ctx
+            .builder
+            .build_load(ctx.inkwell_types.i32_type, fnidx_ptr, "fnidx")
+            .expect("should build load");
+        ctx.builder
+            .build_call(
+                ctx.fn_push_table_index.unwrap(),
+                &[exec_env_ptr.as_basic_value_enum().into(), fnidx.into()],
+                "",
+            )
+            .expect("should build call");
+    }
+    Ok(())
+}
+
 pub(crate) fn gen_checkpoint<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
