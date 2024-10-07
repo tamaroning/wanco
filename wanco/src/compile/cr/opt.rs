@@ -69,6 +69,7 @@ pub fn run_analysis_pass(ctx: &mut Context, functions: &Vec<FunctionBody>) -> Re
     compute_fn_reachable_to_fn_taking_infinite_time(ctx, &mut analysis);
 
     // print! callgraph as graphviz
+    /*
     println!("digraph callgraph {{");
     println!("  entry -> {};", ctx.start_function_idx.unwrap());
     for (caller, callees) in analysis.callgraph.iter() {
@@ -93,6 +94,7 @@ pub fn run_analysis_pass(ctx: &mut Context, functions: &Vec<FunctionBody>) -> Re
         }
     }
     println!("}}");
+    */
 
     ctx.analysis_v1 = Some(analysis);
     Ok(())

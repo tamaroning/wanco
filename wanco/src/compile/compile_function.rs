@@ -101,11 +101,12 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
     // entry dispatcher for restore (v1)
     let should_gen_restore_dispatch_v1 = ctx.config.enable_cr
-        && ctx
-            .analysis_v1
-            .as_ref()
-            .unwrap()
-            .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap());
+        && (!ctx.config.optimize_cr
+            || ctx
+                .analysis_v1
+                .as_ref()
+                .unwrap()
+                .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap()));
     if should_gen_restore_dispatch_v1 {
         ctx.restore_dispatch_bb = None;
         ctx.restore_dispatch_cases = vec![];

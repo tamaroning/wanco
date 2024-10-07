@@ -59,9 +59,13 @@ pub struct Args {
     #[arg(long)]
     pub enable_cr: bool,
 
-    /// Enable C/R for loop. (v1)
+    /// Optimized migration points. (v1)
     #[arg(long)]
-    pub enable_loop_cr: bool,
+    pub optimize_cr: bool,
+
+    /// Disable the loop checkpoint/restore feature. (v1)
+    #[arg(long)]
+    pub disable_loop_cr: bool,
 
     /// TODO: Enable the checkpoint feature. (v2)
     #[arg(long)]
@@ -95,17 +99,15 @@ pub fn run_compiler(args: &Args) -> Result<()> {
 }
 
 pub fn check_config(args: &Args) -> bool {
-    if (args.enable_cr || args.enable_loop_cr) && (args.checkpoint_v2 || args.restore_v2) {
-        log::error!("Cannot use both v1 and v2 checkpoint/restore features");
+    if (args.optimize_cr || args.disable_loop_cr) && !args.enable_cr {
+        log::error!("Specify --enable-cr to enable checkpoint/restore feature (v1)");
         return false;
     }
 
-    /*
-    if args.enable_cr && !args.enable_cr {
-        log::error!("specify both --enable-cr and --enable-loop-cr");
+    if args.enable_cr && (args.checkpoint_v2 || args.restore_v2) {
+        log::error!("Cannot use both v1 and v2 checkpoint/restore features");
         return false;
     }
-    */
 
     true
 }

@@ -144,7 +144,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
         }
     }
 
-    if ctx.config.enable_cr || ctx.config.enable_loop_cr {
+    if ctx.config.enable_cr && ctx.config.optimize_cr {
         cr::opt::run_analysis_pass(ctx, &function_bodies)?;
     }
 
@@ -292,7 +292,7 @@ fn compile_element_section(
                             global_table.set_initializer(&initializer);
                         }
                         // TODO: support function table C/R
-                        if ctx.config.enable_cr || ctx.config.enable_loop_cr {
+                        if ctx.config.enable_cr {
                             log::warn!("Checkpoint/Restore is not supported for function table. Note that the compiled program may not work correctly.");
                         }
                     }

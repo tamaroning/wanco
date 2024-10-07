@@ -26,8 +26,8 @@ static constexpr uint64_t MAX_LINEAR_MEMORY_SIZE = 0x400000; // 4GiB
 // guard page: 2GiB
 static constexpr uint64_t GUARD_PAGE_SIZE = 0x200000;
 
-std::string_view USAGE = R"(This file is a WebAssembly AOT executable.
-USAGE: <this file> [options]
+std::string_view USAGE = R"(WebAssembly AOT executable
+USAGE: <this file> [options] -- [arguments]
 
 OPTIONS:
   no options: Run the WebAssembly AOT module from the beginning

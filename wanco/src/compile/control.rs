@@ -165,7 +165,7 @@ pub fn gen_loop<'a>(
     ctx.builder.position_at_end(body_block);
 
     // Generate migration point for loop (v1)
-    if ctx.config.enable_loop_cr {
+    if ctx.config.enable_cr && !ctx.config.disable_loop_cr {
         gen_migration_point(ctx, exec_env_ptr, locals).expect("fail to gen_migration_point");
         ctx.num_migration_points += 1;
     }
@@ -561,14 +561,15 @@ pub fn gen_call<'a>(
 
     // Generate checkpoint.
     let should_gen_checkpoint_v1 = ctx.config.enable_cr
-        && ctx
-            .analysis_v1
-            .as_ref()
-            .unwrap()
-            .call_requires_migration_point(
-                ctx.current_function_idx.unwrap(),
-                callee_function_index,
-            );
+        && (!ctx.config.optimize_cr
+            || ctx
+                .analysis_v1
+                .as_ref()
+                .unwrap()
+                .call_requires_migration_point(
+                    ctx.current_function_idx.unwrap(),
+                    callee_function_index,
+                ));
     if should_gen_checkpoint_v1 {
         gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
         ctx.num_migration_points += 1;
@@ -609,11 +610,12 @@ pub fn gen_call<'a>(
 
     // Generate unwinding code for checkpoint
     if ctx.config.enable_cr
-        && ctx
-            .analysis_v1
-            .as_ref()
-            .unwrap()
-            .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap())
+        && (!ctx.config.optimize_cr
+            || ctx
+                .analysis_v1
+                .as_ref()
+                .unwrap()
+                .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap()))
     {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
@@ -677,11 +679,15 @@ pub fn gen_call_indirect<'a>(
 
     // Generate checkpoint
     let should_gen_checkpoint_v1 = ctx.config.enable_cr
-        && ctx
-            .analysis_v1
-            .as_ref()
-            .unwrap()
-            .call_indirect_requires_migration_point(ctx.current_function_idx.unwrap(), type_index);
+        && (!ctx.config.optimize_cr
+            || ctx
+                .analysis_v1
+                .as_ref()
+                .unwrap()
+                .call_indirect_requires_migration_point(
+                    ctx.current_function_idx.unwrap(),
+                    type_index,
+                ));
     if should_gen_checkpoint_v1 {
         gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
     }
@@ -721,11 +727,12 @@ pub fn gen_call_indirect<'a>(
 
     // Generate unwinding code for checkpoint
     if ctx.config.enable_cr
-        && ctx
-            .analysis_v1
-            .as_ref()
-            .unwrap()
-            .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap())
+        && (!ctx.config.optimize_cr
+            || ctx
+                .analysis_v1
+                .as_ref()
+                .unwrap()
+                .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap()))
     {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");

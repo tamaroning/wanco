@@ -4,7 +4,7 @@ See [../examples](../examples) instead for general usage.
 ## C/R demo
 
 ```
-wanco fib.wat --enable-cr
+wanco fib.wat --enable-cr --optimize-cr
 ./a.out
 ```
 
