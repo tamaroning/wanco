@@ -15,6 +15,9 @@ Prerequisites:
 - LLVM 17
 - POSIX compliant OS (Linux, macOS, etc. NOTE: Windows is not tested)
 - clang or clang++ (version 17 or later)
+- libunwind-dev (Run `apt install libunwind-dev`)
+- libelf-dev (Run `apt install libelf-dev`)
+- libdwarf-dev (Run `apt install libdwarf-dev`)
 
 First you need to clone the project:
 ```
