@@ -144,6 +144,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         cmd.arg("-lunwind-x86_64");
     } else if triple == "aarch64-unknown-linux-gnu" {
         cmd.arg("-lunwind");
+        cmd.arg("-lunwind-aarch64");
     }
 
     if args.lto {
