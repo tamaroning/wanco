@@ -69,6 +69,8 @@ decode_checkpoint_json (std::ifstream &f)
       chkpt.globals.push_back (value);
     }
 
+  chkpt.table = j["table"].get<std::deque<int32_t>> ();
+
   chkpt.memory_size = j["memory-size"].get<int32_t> ();
 
   /*

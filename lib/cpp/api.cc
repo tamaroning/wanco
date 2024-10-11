@@ -394,6 +394,18 @@ pop_front_global_f64 (ExecEnv *exec_env)
   return v.f64;
 }
 
+// table
+extern "C" int32_t
+pop_front_index (ExecEnv *exec_env, int32_t index)
+{
+  assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
+	  && "Invalid migration state");
+  assert (!chkpt_v2.table.empty () && "Table is empty");
+  int32_t idx = chkpt.table.front ();
+  chkpt.table.pop_front ();
+  return idx;
+}
+
 /*
 ** checkpoint related functions (v2)
 */

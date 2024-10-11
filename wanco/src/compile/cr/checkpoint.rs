@@ -111,7 +111,7 @@ pub(crate) fn gen_store_table<'a>(
         return Ok(());
     };
     for i in 0..ctx.global_table_size.unwrap() {
-        let fnidx_ptr = unsafe {
+        let elem_ptr = unsafe {
             ctx.builder.build_gep(
                 ctx.inkwell_types.i32_type,
                 global_table.as_pointer_value(),
@@ -122,7 +122,7 @@ pub(crate) fn gen_store_table<'a>(
         .expect("should build gep");
         let fnidx = ctx
             .builder
-            .build_load(ctx.inkwell_types.i32_type, fnidx_ptr, "fnidx")
+            .build_load(ctx.inkwell_types.i32_type, elem_ptr, "fnidx")
             .expect("should build load");
         ctx.builder
             .build_call(

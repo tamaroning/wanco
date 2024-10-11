@@ -59,7 +59,7 @@ public:
   std::deque<Frame> frames;
   std::deque<Value> globals;
   std::vector<int8_t> memory;
-  std::vector<int32_t> table;
+  std::deque<int32_t> table;
   int memory_size = 0;
 };
 
