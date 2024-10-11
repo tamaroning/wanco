@@ -48,6 +48,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     ctx.builder.position_at_end(entry_bb);
+
     ctx.control_frames.push(ControlFrame::Block {
         next: ret_bb,
         end_phis,
@@ -59,6 +60,14 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         .get_first_param()
         .expect("should have &exec_env as a first param");
     let exec_env_ptr = exec_env_ptr.into_pointer_value();
+
+    ctx.builder
+    .build_call(
+        ctx.fn_push_frame.expect("should define push_frame"),
+        &[exec_env_ptr.as_basic_value_enum().into()],
+        "",
+    )
+    .expect("should build call");
 
     // Register all wasm locals (WASM params and WASM locals)
     let mut locals = vec![];
@@ -182,7 +191,7 @@ fn compile_op<'a>(
                     unreachable!("Unexpected depth 0");
                 }
                 1 => {
-                    gen_end(ctx).context("error gen End")?;
+                    gen_end(ctx, exec_env_ptr).context("error gen End")?;
                     ctx.unreachable_depth -= 1;
                     ctx.unreachable_reason = UnreachableReason::Reachable;
                     log::trace!("- end of unreachable");
@@ -230,7 +239,7 @@ fn compile_op<'a>(
                 ctx.current_fn.unwrap().get_name(),
                 ctx.current_fn.unwrap().get_type().get_return_type()
             );
-            gen_end(ctx).context("error gen End")?;
+            gen_end(ctx, exec_env_ptr).context("error gen End")?;
         }
         Operator::Call { function_index } => {
             gen_call(ctx, exec_env_ptr, locals, *function_index).context("error gen Call")?;
@@ -246,7 +255,7 @@ fn compile_op<'a>(
             gen_drop(ctx).context("error gen Drop")?;
         }
         Operator::Return => {
-            gen_return(ctx).context("error gen Return")?;
+            gen_return(ctx, exec_env_ptr).context("error gen Return")?;
         }
         Operator::Select => {
             gen_select(ctx).context("error gen Select")?;

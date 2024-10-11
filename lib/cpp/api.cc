@@ -49,9 +49,16 @@ extern "C" void sleep(ExecEnv *exec_env, int32_t ms) {
 extern "C" void
 push_frame (ExecEnv *exec_env)
 {
-  assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
-	  && "Invalid migration state");
+  // std::cerr << "[debug] call to push_frame" << std::endl;
   chkpt.frames.push_back (Frame ());
+}
+
+extern "C" void
+finish_frame (ExecEnv *exec_env)
+{
+  assert (!chkpt.frames.empty () && "No frame to finish");
+  // std::cerr << "[debug] call to finish_frame" << std::endl;
+  chkpt.frames.pop_back ();
 }
 
 extern "C" void
@@ -61,6 +68,10 @@ set_pc_to_frame (ExecEnv *exec_env, int32_t fn_index, int32_t pc)
 	  && "Invalid migration state");
   chkpt.frames.back ().fn_index = fn_index;
   chkpt.frames.back ().pc = pc;
+  // set_pc_to_frame is called before storing locals and value stack
+  // So clearing them here should be okay for now.
+  chkpt.frames.back ().locals.clear ();
+  chkpt.frames.back ().stack.clear ();
 }
 
 extern "C" void
@@ -101,9 +112,9 @@ push_i32 (ExecEnv *exec_env, int32_t i32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  assert(!chkpt.frames.empty() && "No frame to push");
+  assert (!chkpt.frames.empty () && "No frame to push");
   // std::cerr << "[debug] call to push_i32 -> " << i32 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (i32));
+  chkpt.frames.back ().stack.push_back (Value (i32));
 }
 
 extern "C" void
@@ -112,7 +123,7 @@ push_i64 (ExecEnv *exec_env, int64_t i64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_i64 -> " << i64 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (i64));
+  chkpt.frames.back ().stack.push_back (Value (i64));
 }
 
 extern "C" void
@@ -121,7 +132,7 @@ push_f32 (ExecEnv *exec_env, float f32)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_f32 -> " << f32 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (f32));
+  chkpt.frames.back ().stack.push_back (Value (f32));
 }
 
 extern "C" void
@@ -130,7 +141,7 @@ push_f64 (ExecEnv *exec_env, double f64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_f64 -> " << f64 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (f64));
+  chkpt.frames.back ().stack.push_back (Value (f64));
 }
 
 // globals

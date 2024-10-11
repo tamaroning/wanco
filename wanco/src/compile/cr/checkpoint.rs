@@ -156,6 +156,10 @@ pub(crate) fn gen_checkpoint<'a>(
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    // storing frame is now out of the conditional branch!
+    gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
+    gen_store_stack(ctx, exec_env_ptr).expect("fail to gen_store_stack");
+
     let current_fn = ctx.current_fn.expect("should define current_fn");
     let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
     let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
@@ -167,9 +171,7 @@ pub(crate) fn gen_checkpoint<'a>(
     ctx.builder.position_at_end(then_bb);
     gen_set_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
         .expect("fail to gen_set_migration_state");
-    gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
-    gen_store_stack(ctx, exec_env_ptr).expect("fail to gen_store_stack");
-    gen_return_default_value(ctx).expect("fail to gen_return_default_value");
+    gen_return_default_value(ctx, exec_env_ptr).expect("fail to gen_return_default_value");
     ctx.builder.position_at_end(else_bb);
     Ok(())
 }
@@ -179,6 +181,10 @@ pub fn gen_checkpoint_unwind<'a>(
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    // storing frame is now out of the conditional branch!
+    gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
+    gen_store_stack(ctx, exec_env_ptr).expect("fail to gen_store_stack");
+
     let current_fn = ctx.current_fn.expect("should define current_fn");
     let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
     let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
@@ -188,9 +194,7 @@ pub fn gen_checkpoint_unwind<'a>(
         .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
         .expect("should build conditional branch");
     ctx.builder.position_at_end(then_bb);
-    gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
-    gen_store_stack(ctx, exec_env_ptr).expect("fail to gen_store_stack");
-    gen_return_default_value(ctx).expect("fail to gen_return_default_value");
+    gen_return_default_value(ctx, exec_env_ptr).expect("fail to gen_return_default_value");
     ctx.builder.position_at_end(else_bb);
     Ok(())
 }
@@ -201,13 +205,6 @@ fn gen_store_frame<'a>(
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     // Store a frame
-    ctx.builder
-        .build_call(
-            ctx.fn_push_frame.expect("should define push_frame"),
-            &[exec_env_ptr.as_basic_value_enum().into()],
-            "",
-        )
-        .expect("should build call");
     let pc = ctx.current_op.unwrap() as u64;
     let fn_index = ctx.current_function_idx.unwrap() as u64;
     ctx.builder
@@ -242,7 +239,10 @@ fn gen_store_stack<'a>(ctx: &mut Context<'a, '_>, exec_env_ptr: &PointerValue<'a
     Ok(())
 }
 
-fn gen_return_default_value(ctx: &mut Context<'_, '_>) -> Result<()> {
+fn gen_return_default_value<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
     let ret_type = ctx.current_fn.unwrap().get_type().get_return_type();
     let Some(ty) = ret_type else {
         ctx.builder.build_return(None).expect("should build return");

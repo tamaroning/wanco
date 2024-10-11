@@ -426,7 +426,7 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
     Ok(())
 }
 
-pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
+pub fn gen_end<'a>(ctx: &mut Context<'a, '_>, exec_env_ptr: &PointerValue<'a>) -> Result<()> {
     let current_block = ctx
         .builder
         .get_insert_block()
@@ -439,6 +439,13 @@ pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
         match ctx.unreachable_reason {
             UnreachableReason::Unreachable | UnreachableReason::Return => {
                 ctx.builder.position_at_end(*frame.br_dest());
+                ctx.builder
+                    .build_call(
+                        ctx.fn_finish_frame.expect("should define finish_frame"),
+                        &[exec_env_ptr.as_basic_value_enum().into()],
+                        "",
+                    )
+                    .expect("should build call");
                 if current_fn.get_type().get_return_type().is_none() {
                     ctx.builder.build_return(None).expect("should build return");
                 } else {
@@ -458,6 +465,13 @@ pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
                     .expect("should build unconditional branch");
                 ctx.builder.position_at_end(*frame.br_dest());
                 if current_fn.get_type().get_return_type().is_none() {
+                    ctx.builder
+                        .build_call(
+                            ctx.fn_finish_frame.expect("should define finish_frame"),
+                            &[exec_env_ptr.as_basic_value_enum().into()],
+                            "",
+                        )
+                        .expect("should build call");
                     ctx.builder.build_return(None).expect("should build return");
                 } else {
                     let phis = match frame {
@@ -478,6 +492,13 @@ pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
 
                     // Return value
                     // TODO: support multiple phis
+                    ctx.builder
+                        .build_call(
+                            ctx.fn_finish_frame.expect("should define finish_frame"),
+                            &[exec_env_ptr.as_basic_value_enum().into()],
+                            "",
+                        )
+                        .expect("should build call");
                     let value = phis[0].as_basic_value();
                     ctx.builder
                         .build_return(Some(&value))
@@ -746,12 +767,19 @@ pub fn gen_drop(ctx: &mut Context<'_, '_>) -> Result<()> {
     Ok(())
 }
 
-pub fn gen_return(ctx: &mut Context<'_, '_>) -> Result<()> {
+pub fn gen_return<'a>(ctx: &mut Context<'a, '_>, exec_env_ptr: &PointerValue<'a>) -> Result<()> {
     // Phi
     ctx.unreachable_depth += 1;
     ctx.unreachable_reason = UnreachableReason::Return;
 
     let current_fn = ctx.current_fn.expect("fail to get current_fn");
+    ctx.builder
+        .build_call(
+            ctx.fn_finish_frame.expect("should define finish_frame"),
+            &[exec_env_ptr.as_basic_value_enum().into()],
+            "",
+        )
+        .expect("should build call");
     if current_fn.get_type().get_return_type().is_none() {
         ctx.builder.build_return(None).expect("should build return");
     } else {

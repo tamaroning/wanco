@@ -254,6 +254,8 @@ main (int argc, char **argv)
 					  exec_env.memory_base
 					    + exec_env.memory_size * PAGE_SIZE);
       chkpt.memory_size = exec_env.memory_size;
+      std::cerr << "[info] Total frames: " << std::dec << chkpt.frames.size ()
+		<< std::endl;
       std::ofstream ofs ("checkpoint.json");
       encode_checkpoint_json (ofs, chkpt);
       std::cerr << "[info] Snapshot saved to checkpoint.json" << std::endl;
