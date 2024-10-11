@@ -104,15 +104,14 @@ encode_checkpoint_json (std::ofstream &ofs, Checkpoint &chkpt)
   ofs << "  ],\n";
 
   // table
-  ofs << "  \"table\": [\n";
+  ofs << "  \"table\": [";
   for (size_t i = 0; i < chkpt.table.size (); i++)
     {
-      ofs << "    " << chkpt.table[i];
+      ofs << chkpt.table[i];
       if (i != chkpt.table.size () - 1)
-	ofs << ",";
-      ofs << "\n";
+	ofs << ", ";
     }
-  ofs << "  ],\n";
+  ofs << "],\n";
 
   // memory
   ofs << "  \"memory-size\": " << chkpt.memory_size << ",\n";

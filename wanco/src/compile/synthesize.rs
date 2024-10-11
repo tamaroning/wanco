@@ -246,114 +246,124 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             Some(Linkage::External),
         ));
         // locals
-        let fn_type_pop_front_local_i32 = ctx.inkwell_types.i32_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
-            false,
-        );
+        let fn_type_pop_front_local_i32 = ctx
+            .inkwell_types
+            .i32_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_local_i32 = Some(ctx.module.add_function(
             "pop_front_local_i32",
             fn_type_pop_front_local_i32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_local_i64 = ctx.inkwell_types.i64_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.i64_type.into()],
-            false,
-        );
+        let fn_type_pop_front_local_i64 = ctx
+            .inkwell_types
+            .i64_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_local_i64 = Some(ctx.module.add_function(
             "pop_front_local_i64",
             fn_type_pop_front_local_i64,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_local_f32 = ctx.inkwell_types.f32_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.f32_type.into()],
-            false,
-        );
+        let fn_type_pop_front_local_f32 = ctx
+            .inkwell_types
+            .f32_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_local_f32 = Some(ctx.module.add_function(
             "pop_front_local_f32",
             fn_type_pop_front_local_f32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_local_f64 = ctx.inkwell_types.f64_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.f64_type.into()],
-            false,
-        );
+        let fn_type_pop_front_local_f64 = ctx
+            .inkwell_types
+            .f64_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_local_f64 = Some(ctx.module.add_function(
             "pop_front_local_f64",
             fn_type_pop_front_local_f64,
             Some(Linkage::External),
         ));
         // stack
-        let fn_type_pop_i32 = ctx.inkwell_types.i32_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
-            false,
-        );
+        let fn_type_pop_i32 = ctx
+            .inkwell_types
+            .i32_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_i32 = Some(ctx.module.add_function(
             "pop_i32",
             fn_type_pop_i32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_i64 = ctx.inkwell_types.i64_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.i64_type.into()],
-            false,
-        );
+        let fn_type_pop_i64 = ctx
+            .inkwell_types
+            .i64_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_i64 = Some(ctx.module.add_function(
             "pop_i64",
             fn_type_pop_i64,
             Some(Linkage::External),
         ));
-        let fn_type_pop_f32 = ctx.inkwell_types.f32_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.f32_type.into()],
-            false,
-        );
+        let fn_type_pop_f32 = ctx
+            .inkwell_types
+            .f32_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_f32 = Some(ctx.module.add_function(
             "pop_f32",
             fn_type_pop_f32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_f64 = ctx.inkwell_types.f64_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.f64_type.into()],
-            false,
-        );
+        let fn_type_pop_f64 = ctx
+            .inkwell_types
+            .f64_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_f64 = Some(ctx.module.add_function(
             "pop_f64",
             fn_type_pop_f64,
             Some(Linkage::External),
         ));
         // globals
-        let fn_type_pop_front_global_i32 = ctx.inkwell_types.i32_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.i32_type.into()],
-            false,
-        );
+        let fn_type_pop_front_global_i32 = ctx
+            .inkwell_types
+            .i32_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_global_i32 = Some(ctx.module.add_function(
             "pop_front_global_i32",
             fn_type_pop_front_global_i32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_global_i64 = ctx.inkwell_types.i64_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.i64_type.into()],
-            false,
-        );
+        let fn_type_pop_front_global_i64 = ctx
+            .inkwell_types
+            .i64_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_global_i64 = Some(ctx.module.add_function(
             "pop_front_global_i64",
             fn_type_pop_front_global_i64,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_global_f32 = ctx.inkwell_types.f32_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.f32_type.into()],
-            false,
-        );
+        let fn_type_pop_front_global_f32 = ctx
+            .inkwell_types
+            .f32_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_global_f32 = Some(ctx.module.add_function(
             "pop_front_global_f32",
             fn_type_pop_front_global_f32,
             Some(Linkage::External),
         ));
-        let fn_type_pop_front_global_f64 = ctx.inkwell_types.f64_type.fn_type(
-            &[exec_env_ptr_type.into(), ctx.inkwell_types.f64_type.into()],
-            false,
-        );
+        let fn_type_pop_front_global_f64 = ctx
+            .inkwell_types
+            .f64_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
         ctx.fn_pop_front_global_f64 = Some(ctx.module.add_function(
             "pop_front_global_f64",
             fn_type_pop_front_global_f64,
+            Some(Linkage::External),
+        ));
+        // table
+        let fn_type_pop_front_table_index = ctx
+            .inkwell_types
+            .i32_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
+        ctx.fn_pop_front_table_index = Some(ctx.module.add_function(
+            "pop_front_table_index",
+            fn_type_pop_front_table_index,
             Some(Linkage::External),
         ));
     }

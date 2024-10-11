@@ -101,6 +101,7 @@ push_i32 (ExecEnv *exec_env, int32_t i32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  // std::cerr << "[debug] call to push_i32 -> " << i32 << std::endl;
   chkpt.stack.push_back (Value (i32));
 }
 
@@ -109,6 +110,7 @@ push_i64 (ExecEnv *exec_env, int64_t i64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  // std::cerr << "[debug] call to push_i64 -> " << i64 << std::endl;
   chkpt.stack.push_back (Value (i64));
 }
 
@@ -117,6 +119,7 @@ push_f32 (ExecEnv *exec_env, float f32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  // std::cerr << "[debug] call to push_f32 -> " << f32 << std::endl;
   chkpt.stack.push_back (Value (f32));
 }
 
@@ -125,6 +128,7 @@ push_f64 (ExecEnv *exec_env, double f64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  // std::cerr << "[debug] call to push_f64 -> " << f64 << std::endl;
   chkpt.stack.push_back (Value (f64));
 }
 
@@ -134,6 +138,7 @@ push_global_i32 (ExecEnv *exec_env, int32_t i32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  std::cerr << "[debug] call to push_global_i32 -> " << i32 << std::endl;
   chkpt.globals.push_back (Value (i32));
 }
 
@@ -142,6 +147,7 @@ push_global_i64 (ExecEnv *exec_env, int64_t i64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  std::cerr << "[debug] call to push_global_i64 -> " << i64 << std::endl;
   chkpt.globals.push_back (Value (i64));
 }
 
@@ -150,6 +156,7 @@ push_global_f32 (ExecEnv *exec_env, float f32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  std::cerr << "[debug] call to push_global_f32 -> " << f32 << std::endl;
   chkpt.globals.push_back (Value (f32));
 }
 
@@ -158,6 +165,7 @@ push_global_f64 (ExecEnv *exec_env, double f64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  std::cerr << "[debug] call to push_global_f64 -> " << f64 << std::endl;
   chkpt.globals.push_back (Value (f64));
 }
 
@@ -167,6 +175,7 @@ push_table_index (ExecEnv *exec_env, int32_t index)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  std::cerr << "[debug] call to push_table_index -> " << index << std::endl;
   chkpt.table.push_back (index);
 }
 
@@ -396,12 +405,13 @@ pop_front_global_f64 (ExecEnv *exec_env)
 
 // table
 extern "C" int32_t
-pop_front_index (ExecEnv *exec_env, int32_t index)
+pop_front_table_index (ExecEnv *exec_env)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   assert (!chkpt_v2.table.empty () && "Table is empty");
   int32_t idx = chkpt.table.front ();
+  std::cerr << "[debug] call to pop_front_table_index -> " << idx << std::endl;
   chkpt.table.pop_front ();
   return idx;
 }

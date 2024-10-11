@@ -487,7 +487,6 @@ fn gen_restore_global<'a>(
     Ok(cs)
 }
 
-
 pub(crate) fn gen_restore_table<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
@@ -495,6 +494,16 @@ pub(crate) fn gen_restore_table<'a>(
     let Some(global_table) = ctx.global_table else {
         return Ok(());
     };
+    let current_fn = ctx.current_fn.unwrap();
+    let then_bb = ctx.ictx.append_basic_block(current_fn, "restore.then");
+    let else_bb = ctx.ictx.append_basic_block(current_fn, "restore.else");
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_RESTORE)
+        .expect("fail to gen_compare_migration_state");
+    ctx.builder
+        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
+        .expect("should build conditional branch");
+    ctx.builder.position_at_end(then_bb);
+
     for i in (0..ctx.global_table_size.unwrap()).rev() {
         let elem_ptr = unsafe {
             ctx.builder.build_gep(
@@ -505,7 +514,8 @@ pub(crate) fn gen_restore_table<'a>(
             )
         }
         .expect("should build gep");
-        let value = ctx.builder
+        let value = ctx
+            .builder
             .build_call(
                 ctx.fn_pop_front_table_index.unwrap(),
                 &[exec_env_ptr.as_basic_value_enum().into()],
@@ -517,5 +527,10 @@ pub(crate) fn gen_restore_table<'a>(
             .build_store(elem_ptr, value)
             .expect("should build store");
     }
+
+    ctx.builder
+        .build_unconditional_branch(else_bb)
+        .expect("should build unconditonal branch");
+    ctx.builder.position_at_end(else_bb);
     Ok(())
 }

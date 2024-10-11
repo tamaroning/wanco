@@ -110,6 +110,16 @@ pub(crate) fn gen_store_table<'a>(
     let Some(global_table) = ctx.global_table else {
         return Ok(());
     };
+    let current_fn = ctx.current_fn.unwrap();
+    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
+    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
+        .expect("fail to gen_compare_migration_state");
+    ctx.builder
+        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
+        .expect("should build conditional branch");
+    ctx.builder.position_at_end(then_bb);
+
     for i in 0..ctx.global_table_size.unwrap() {
         let elem_ptr = unsafe {
             ctx.builder.build_gep(
@@ -132,6 +142,12 @@ pub(crate) fn gen_store_table<'a>(
             )
             .expect("should build call");
     }
+
+    ctx.builder
+        .build_unconditional_branch(else_bb)
+        .expect("should build unconditonal branch");
+    // Move back to else bb
+    ctx.builder.position_at_end(else_bb);
     Ok(())
 }
 
