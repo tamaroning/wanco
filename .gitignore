@@ -12,6 +12,7 @@
 !demo/**/*.wasm
 !examples/**/*.wat
 !examples/**/*.wasm
+!benchmark/**/*.wasm
 
 /*.bc
 /*.cc
@@ -23,11 +24,6 @@ compile_commands.json
 .cache
 
 **/target
-
-# benchmark
-benchmark/*.native
-benchmark/*.aot
-benchmark/*.wasm
 
 # clion?
 **/.idea/
