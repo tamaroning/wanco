@@ -51,6 +51,10 @@ pub struct Args {
     #[arg(long, default_value = "false")]
     pub lto: bool,
 
+    /// Enable full control-flow integrity
+    #[arg(long, default_value = "false")]
+    pub cf_protection: bool,
+
     /// Target (TODO: wip)
     #[arg(long)]
     pub target: Option<String>,

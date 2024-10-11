@@ -142,6 +142,9 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     if args.lto {
         cmd.arg("-flto");
     }
+    if args.cf_protection {
+        cmd.arg("-fcf-protection=full");
+    }
 
     if let Some(ref target) = args.target {
         cmd.arg(format!("--target={}", target));

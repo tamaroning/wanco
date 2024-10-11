@@ -38,6 +38,13 @@ impl<'a> StackFrame<'a> {
     }
 }
 
+pub struct Function {
+    pub name: String,
+    pub type_idx: u32,
+    // (module, name)
+    pub orig_name: Option<(String, String)>,
+}
+
 pub struct Context<'a, 'b> {
     pub config: &'a Args,
 
@@ -65,7 +72,7 @@ pub struct Context<'a, 'b> {
     // module info
     pub signatures: Vec<FunctionType<'a>>,
     /// List of (function, index)
-    pub functions: Vec<(String, u32)>,
+    pub functions: Vec<Function>,
     pub function_values: Vec<FunctionValue<'a>>,
     pub num_functions: u32,
     pub start_function_idx: Option<u32>,
