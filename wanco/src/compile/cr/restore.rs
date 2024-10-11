@@ -486,3 +486,36 @@ fn gen_restore_global<'a>(
     };
     Ok(cs)
 }
+
+
+pub(crate) fn gen_restore_table<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+) -> Result<()> {
+    let Some(global_table) = ctx.global_table else {
+        return Ok(());
+    };
+    for i in (0..ctx.global_table_size.unwrap()).rev() {
+        let elem_ptr = unsafe {
+            ctx.builder.build_gep(
+                ctx.inkwell_types.i32_type,
+                global_table.as_pointer_value(),
+                &[ctx.ictx.i32_type().const_int(i as u64, false)],
+                "fnidx_ptr",
+            )
+        }
+        .expect("should build gep");
+        let value = ctx.builder
+            .build_call(
+                ctx.fn_pop_front_table_index.unwrap(),
+                &[exec_env_ptr.as_basic_value_enum().into()],
+                "",
+            )
+            .expect("should build call");
+        let value = value.as_any_value_enum().into_int_value();
+        ctx.builder
+            .build_store(elem_ptr, value)
+            .expect("should build store");
+    }
+    Ok(())
+}

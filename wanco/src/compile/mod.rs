@@ -144,6 +144,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     }
     if args.cf_protection {
         cmd.arg("-fcf-protection=full");
+        //cmd.arg("-Wl,--enable-cet");
     }
 
     if let Some(ref target) = args.target {

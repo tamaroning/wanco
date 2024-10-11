@@ -125,6 +125,7 @@ pub struct Context<'a, 'b> {
     pub fn_pop_front_global_i64: Option<FunctionValue<'a>>,
     pub fn_pop_front_global_f32: Option<FunctionValue<'a>>,
     pub fn_pop_front_global_f64: Option<FunctionValue<'a>>,
+    pub fn_pop_front_table_index: Option<FunctionValue<'a>>,
 
     // restore related builder state
     pub restore_dispatch_bb: Option<BasicBlock<'a>>,
@@ -214,6 +215,7 @@ impl<'a> Context<'a, '_> {
             fn_pop_front_global_i64: None,
             fn_pop_front_global_f32: None,
             fn_pop_front_global_f64: None,
+            fn_pop_front_table_index: None,
 
             restore_dispatch_bb: None,
             restore_dispatch_cases: Vec::new(),

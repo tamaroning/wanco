@@ -7,7 +7,7 @@ use crate::context::Context;
 
 use super::cr::{
     checkpoint::{gen_store_globals, gen_store_table},
-    restore::gen_restore_globals,
+    restore::{gen_restore_globals, gen_restore_table},
 };
 
 pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
@@ -397,6 +397,7 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     // restore globals (v1)
     if ctx.config.enable_cr {
         gen_restore_globals(ctx, &exec_env_ptr).expect("should gen restore globals");
+        gen_restore_table(ctx, &exec_env_ptr).expect("should gen restore table");
     }
 
     // Call the start WASM function
