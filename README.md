@@ -105,19 +105,7 @@ Run
 $ cargo test
 ```
 
-## TODO
-
-- [x] WASI preview 0
-- [ ] WASI preview 1
-- [ ] WASI preview 2
-- [ ] WASI NN
-- [x] Checkpoint
-    - tables are not supported
-- [x] Restore
-    - tables are not supported
-- [ ] cross-compilation
-- [ ] dynamic-memory
-
 ## LICENSE
 
-MIT
+- benchmarks/: See LICENSE files in each directory
+- others: MIT (See [LICENSE](./LICENSE))
