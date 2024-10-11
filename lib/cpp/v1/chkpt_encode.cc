@@ -57,8 +57,11 @@ encode_checkpoint_json (std::ofstream &ofs, Checkpoint &chkpt)
     {
       const Frame &frame = chkpt.frames[i];
       ofs << "    {\n";
+      // function index
       ofs << "      \"fn_index\": " << frame.fn_index << ",\n";
+      // instruction offset
       ofs << "      \"pc\": " << frame.pc << ",\n";
+      // locals
       ofs << "      \"locals\": [\n";
       for (size_t j = 0; j < frame.locals.size (); j++)
 	{
@@ -69,22 +72,23 @@ encode_checkpoint_json (std::ofstream &ofs, Checkpoint &chkpt)
 	    ofs << ",";
 	  ofs << "\n";
 	}
+      ofs << "      ],\n";
+
+      // stack
+      ofs << "      \"stack\": [\n";
+      for (size_t i = 0; i < frame.stack.size (); i++)
+	{
+	  const Value &value = frame.stack[i];
+	  ofs << "        ";
+	  write_value_json (ofs, value);
+	  if (i != frame.stack.size () - 1)
+	    ofs << ",";
+	  ofs << "\n";
+	}
       ofs << "      ]\n";
+
       ofs << "    }";
       if (i != chkpt.frames.size () - 1)
-	ofs << ",";
-      ofs << "\n";
-    }
-  ofs << "  ],\n";
-
-  // stack
-  ofs << "  \"stack\": [\n";
-  for (size_t i = 0; i < chkpt.stack.size (); i++)
-    {
-      const Value &value = chkpt.stack[i];
-      ofs << "    ";
-      write_value_json (ofs, value);
-      if (i != chkpt.stack.size () - 1)
 	ofs << ",";
       ofs << "\n";
     }

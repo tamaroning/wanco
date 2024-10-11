@@ -101,8 +101,9 @@ push_i32 (ExecEnv *exec_env, int32_t i32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
+  assert(!chkpt.frames.empty() && "No frame to push");
   // std::cerr << "[debug] call to push_i32 -> " << i32 << std::endl;
-  chkpt.stack.push_back (Value (i32));
+  chkpt.frames.back().stack.push_back (Value (i32));
 }
 
 extern "C" void
@@ -111,7 +112,7 @@ push_i64 (ExecEnv *exec_env, int64_t i64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_i64 -> " << i64 << std::endl;
-  chkpt.stack.push_back (Value (i64));
+  chkpt.frames.back().stack.push_back (Value (i64));
 }
 
 extern "C" void
@@ -120,7 +121,7 @@ push_f32 (ExecEnv *exec_env, float f32)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_f32 -> " << f32 << std::endl;
-  chkpt.stack.push_back (Value (f32));
+  chkpt.frames.back().stack.push_back (Value (f32));
 }
 
 extern "C" void
@@ -129,7 +130,7 @@ push_f64 (ExecEnv *exec_env, double f64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_f64 -> " << f64 << std::endl;
-  chkpt.stack.push_back (Value (f64));
+  chkpt.frames.back().stack.push_back (Value (f64));
 }
 
 // globals
@@ -207,12 +208,12 @@ dump_checkpoint (Checkpoint &chkpt)
 	{
 	  std::cout << "      " << local.to_string () << std::endl;
 	}
-    }
-
-  std::cout << "Stack:" << (chkpt.stack.empty () ? "(empty)" : "") << std::endl;
-  for (auto &value : chkpt.stack)
-    {
-      std::cout << "  " << value.to_string () << std::endl;
+      std::cout << "Stack:" << (frame.stack.empty () ? "(empty)" : "")
+		<< std::endl;
+      for (auto &value : frame.stack)
+	{
+	  std::cout << "  " << value.to_string () << std::endl;
+	}
     }
 
   std::cout << "Globals" << (chkpt.globals.empty () ? "(empty)" : "")
@@ -314,10 +315,12 @@ pop_front_local_f64 (ExecEnv *exec_env)
 extern "C" int32_t
 pop_i32 (ExecEnv *exec_env)
 {
-  assert (!chkpt.stack.empty () && "Stack empty");
-  Value v = chkpt.stack.back ();
+  assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
+	  && "Stack empty");
+  Frame &frame = chkpt.frames.back ();
+  Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
-  chkpt.stack.pop_back ();
+  frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::I32 && "Invalid type");
   return v.i32;
 }
@@ -325,10 +328,12 @@ pop_i32 (ExecEnv *exec_env)
 extern "C" int64_t
 pop_i64 (ExecEnv *exec_env)
 {
-  assert (!chkpt.stack.empty () && "Stack empty");
-  Value v = chkpt.stack.back ();
+  assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
+	  && "Stack empty");
+  Frame &frame = chkpt.frames.back ();
+  Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
-  chkpt.stack.pop_back ();
+  frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::I64 && "Invalid type");
   return v.i64;
 }
@@ -336,10 +341,12 @@ pop_i64 (ExecEnv *exec_env)
 extern "C" float
 pop_f32 (ExecEnv *exec_env)
 {
-  assert (!chkpt.stack.empty () && "Stack empty");
-  Value v = chkpt.stack.back ();
+  assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
+	  && "Stack empty");
+  Frame &frame = chkpt.frames.back ();
+  Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
-  chkpt.stack.pop_back ();
+  frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::F32 && "Invalid type");
   return v.f32;
 }
@@ -347,10 +354,12 @@ pop_f32 (ExecEnv *exec_env)
 extern "C" double
 pop_f64 (ExecEnv *exec_env)
 {
-  assert (!chkpt.stack.empty () && "Stack empty");
-  Value v = chkpt.stack.back ();
+  assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
+	  && "Stack empty");
+  Frame &frame = chkpt.frames.back ();
+  Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
-  chkpt.stack.pop_back ();
+  frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::F64 && "Invalid type");
   return v.f64;
 }

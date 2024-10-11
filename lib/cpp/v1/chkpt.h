@@ -51,15 +51,15 @@ public:
   int32_t fn_index = -1;
   int32_t pc = -1;
   std::deque<Value> locals;
+  std::vector<Value> stack;
 };
 
 class Checkpoint {
 public:
-  std::vector<Value> stack;
   std::deque<Frame> frames;
   std::deque<Value> globals;
   std::vector<int8_t> memory;
-  std::deque<int32_t> table;
+  std::deque  <int32_t> table;
   int memory_size = 0;
 };
 

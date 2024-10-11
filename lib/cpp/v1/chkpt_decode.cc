@@ -44,21 +44,21 @@ decode_checkpoint_json (std::ifstream &f)
   Checkpoint chkpt;
   json j = json::parse (f);
 
-  for (auto &v : j["stack"])
-    {
-      Value value = decode_value_json (v);
-      chkpt.stack.push_back (value);
-    }
-
-  for (auto &f : j["frames"])
+  for (auto &fr : j["frames"])
     {
       Frame frame;
-      frame.fn_index = f["fn_index"].get<int32_t> ();
-      frame.pc = f["pc"].get<int32_t> ();
-      for (auto &v : f["locals"])
+      frame.fn_index = fr["fn_index"].get<int32_t> ();
+      frame.pc = fr["pc"].get<int32_t> ();
+      for (auto &v : fr["locals"])
 	{
 	  Value value = decode_value_json (v);
 	  frame.locals.push_back (value);
+	}
+
+      for (auto &v : fr["stack"])
+	{
+	  Value value = decode_value_json (v);
+	  frame.stack.push_back (value);
 	}
       chkpt.frames.push_front (frame);
     }
