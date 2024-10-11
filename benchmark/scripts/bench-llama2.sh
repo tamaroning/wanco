@@ -6,7 +6,7 @@ LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
 LLAMA2_WASM=${LLAMA2_DIR}/llama2-c.wasm
 
 num_runs=5
-should_build=0
+should_build=1
 
 
 if [ $should_build -eq 1 ]; then
