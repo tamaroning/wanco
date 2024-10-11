@@ -124,10 +124,10 @@ fn calculate_callgraph(
 
 fn calculate_type_idx_to_fn_idx(ctx: &Context, analysis: &mut Analysis) {
     assert!(ctx.functions.len() == ctx.function_values.len());
-    for (fn_idx, (_name, type_idx)) in ctx.functions.iter().enumerate() {
+    for (fn_idx, f) in ctx.functions.iter().enumerate() {
         let fn_indices = analysis
             .type_idx_to_fn_idx
-            .entry(*type_idx)
+            .entry(f.type_idx)
             .or_insert(vec![]);
         fn_indices.push(fn_idx as u32);
     }

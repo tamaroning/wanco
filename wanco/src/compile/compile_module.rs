@@ -18,7 +18,7 @@ use crate::{
         compile_type::compile_type_section,
         cr,
     },
-    context::Context,
+    context::{Context, Function},
 };
 
 use super::synthesize::{finalize, initialize};
@@ -185,7 +185,11 @@ fn compile_import_section(ctx: &mut Context<'_, '_>, imports: ImportSectionReade
                 if import.module == "wasi_snapshot_preview1" || import.module == "wasi_unstable" {
                     name = format!("{}_{}", import.module, name);
                 }
-                ctx.functions.push((name, ty));
+                ctx.functions.push(Function {
+                    name,
+                    type_idx: ty,
+                    orig_name: Some((import.module.to_string(), import.name.to_string())),
+                });
             }
             TypeRef::Memory(MemoryType {
                 memory64: false, ..
@@ -321,7 +325,11 @@ fn compile_function_section(
     for function in functions {
         let sig = function?;
         let fname = format!("func_{}", ctx.functions.len());
-        ctx.functions.push((fname, sig));
+        ctx.functions.push(Function {
+            name: fname,
+            type_idx: sig,
+            orig_name: None,
+        });
     }
     ctx.num_functions = ctx.functions.len() as u32;
     log::debug!("- declare {} functions", ctx.num_functions);
@@ -329,12 +337,12 @@ fn compile_function_section(
 }
 
 fn declare_functions(ctx: &mut Context<'_, '_>) -> Result<()> {
-    for (name, sig) in &ctx.functions {
+    for function in &ctx.functions {
         // check if fname is already defined
-        let f = ctx.module.get_function(name);
+        let f = ctx.module.get_function(&function.name);
         let fn_value = f.unwrap_or({
-            let sig = ctx.signatures[*sig as usize];
-            let f = ctx.module.add_function(name, sig, None);
+            let sig = ctx.signatures[function.type_idx as usize];
+            let f = ctx.module.add_function(&function.name, sig, None);
             f.get_first_param()
                 .expect("should have &exec_env as the first param")
                 .set_name("exec_env_ptr");
