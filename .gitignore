@@ -12,7 +12,9 @@
 !demo/**/*.wasm
 !examples/**/*.wat
 !examples/**/*.wasm
+
 !benchmark/**/*.wasm
+llama2*
 
 /*.bc
 /*.cc
