@@ -131,13 +131,21 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         .arg(format!("{}/libwanco_rt.a", library_path))
         .arg(format!("{}/libwanco_wasi.a", library_path))
         .arg("-g")
-        .arg("-lunwind")
-        // TODO: switch between x86-64 and arm64
-        .arg("-lunwind-x86_64")
         .arg("-o")
         .arg(exe_path)
         .arg("-no-pie")
         .arg(format!("-{}", args.optimization));
+
+    // link libunwind
+    let triple = get_target_machine(args).unwrap().get_triple();
+    let triple = triple.as_str().to_str().unwrap();
+    if triple == "x86_64-unknown-linux-gnu" {
+        cmd.arg("-lunwind");
+        cmd.arg("-lunwind-x86_64");
+    } else if triple == "aarch64-unknown-linux-gnu" {
+        cmd.arg("-lunwind");
+        cmd.arg("-lunwind-aarch64");
+    }
 
     if args.lto {
         cmd.arg("-flto");

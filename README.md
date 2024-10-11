@@ -12,9 +12,10 @@ See [examples](./examples) for quick start.
 Prerequisites:
 - CMake and C++ compiler
 - Cargo
-- LLVM 17
-- POSIX compliant OS (Linux, macOS, etc. NOTE: Windows is not tested)
+- LLVM 17 (recommend to use llvm.sh if you are using apt)
+- POSIX compliant OS (Linux, TODO: support macOS)
 - clang or clang++ (version 17 or later)
+- libunwind-dev (Run `apt install libunwind-dev`)
 
 First you need to clone the project:
 ```
