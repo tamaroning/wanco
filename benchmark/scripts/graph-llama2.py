@@ -16,9 +16,9 @@ import numpy as np
 #cr-opt-wamr: 33.223547 tok/s (87.430010% overhead)
 
 # データ
-labels = ['No C/R', 'C/R', 'C/R with opt', 'AOT_STACK', 'AOT_STACK with opt']
-x86_64_throughputs = [863.53/863.53, 781.29/863.53, 809.12/863.53, 72.53/863.53, 115.84/863.53]
-aa64_throughputs = [264.31/264.31, 215.51/264.31, 224.62/264.31, 19.67/264.31, 33.22/264.31]
+labels = ['No C/R', 'C/R', 'C/R with opt', 'AOT_STACK']
+x86_64_throughputs = [863.53/863.53, 781.29/863.53, 809.12/863.53, 72.53/863.53]
+aa64_throughputs = [264.31/264.31, 215.51/264.31, 224.62/264.31, 19.67/264.31]
 
 # グラフの設定
 x = np.arange(len(labels))  # ラベルの位置
