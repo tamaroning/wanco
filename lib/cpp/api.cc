@@ -1,7 +1,4 @@
 #include "aot.h"
-#include "v1/chkpt.h"
-#include "v2/chkpt_v2.h"
-#include "v2/stackmap.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -10,13 +7,17 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+namespace wanco {
+
 int32_t
 extend_memory (ExecEnv *exec_env, int32_t inc_pages);
+
+}
 
 extern "C" int32_t
 memory_grow (ExecEnv *exec_env, int32_t inc_pages)
 {
-  return extend_memory (exec_env, inc_pages);
+  return wanco::extend_memory (exec_env, inc_pages);
 }
 
 /* Print a string from memory */
@@ -51,7 +52,7 @@ push_frame (ExecEnv *exec_env)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  chkpt.frames.push_back (Frame ());
+  wanco::chkpt.frames.push_back (wanco::Frame ());
 }
 
 extern "C" void
@@ -59,8 +60,8 @@ set_pc_to_frame (ExecEnv *exec_env, int32_t fn_index, int32_t pc)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  chkpt.frames.back ().fn_index = fn_index;
-  chkpt.frames.back ().pc = pc;
+  wanco::chkpt.frames.back ().fn_index = fn_index;
+  wanco::chkpt.frames.back ().pc = pc;
 }
 
 extern "C" void
@@ -68,7 +69,7 @@ push_local_i32 (ExecEnv *exec_env, int32_t i32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  chkpt.frames.back ().locals.push_back (Value (i32));
+  wanco::chkpt.frames.back ().locals.push_back (wanco::Value (i32));
 }
 
 extern "C" void
@@ -76,7 +77,7 @@ push_local_i64 (ExecEnv *exec_env, int64_t i64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  chkpt.frames.back ().locals.push_back (Value (i64));
+  wanco::chkpt.frames.back ().locals.push_back (wanco::Value (i64));
 }
 
 extern "C" void
@@ -84,7 +85,7 @@ push_local_f32 (ExecEnv *exec_env, float f32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  chkpt.frames.back ().locals.push_back (Value (f32));
+  wanco::chkpt.frames.back ().locals.push_back (wanco::Value (f32));
 }
 
 extern "C" void
@@ -92,7 +93,7 @@ push_local_f64 (ExecEnv *exec_env, double f64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  chkpt.frames.back ().locals.push_back (Value (f64));
+  wanco::chkpt.frames.back ().locals.push_back (wanco::Value (f64));
 }
 
 // stack
@@ -101,9 +102,9 @@ push_i32 (ExecEnv *exec_env, int32_t i32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
-  assert(!chkpt.frames.empty() && "No frame to push");
+  assert (!chkpt.frames.empty () && "No frame to push");
   // std::cerr << "[debug] call to push_i32 -> " << i32 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (i32));
+  wanco::chkpt.frames.back ().stack.push_back (wanco::Value (i32));
 }
 
 extern "C" void
@@ -112,7 +113,7 @@ push_i64 (ExecEnv *exec_env, int64_t i64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_i64 -> " << i64 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (i64));
+  wanco::chkpt.frames.back ().stack.push_back (wanco::Value (i64));
 }
 
 extern "C" void
@@ -121,7 +122,7 @@ push_f32 (ExecEnv *exec_env, float f32)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_f32 -> " << f32 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (f32));
+  wanco::chkpt.frames.back ().stack.push_back (wanco::Value (f32));
 }
 
 extern "C" void
@@ -130,7 +131,7 @@ push_f64 (ExecEnv *exec_env, double f64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   // std::cerr << "[debug] call to push_f64 -> " << f64 << std::endl;
-  chkpt.frames.back().stack.push_back (Value (f64));
+  wanco::chkpt.frames.back ().stack.push_back (wanco::Value (f64));
 }
 
 // globals
@@ -140,7 +141,7 @@ push_global_i32 (ExecEnv *exec_env, int32_t i32)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   std::cerr << "[debug] call to push_global_i32 -> " << i32 << std::endl;
-  chkpt.globals.push_back (Value (i32));
+  wanco::chkpt.globals.push_back (wanco::Value (i32));
 }
 
 extern "C" void
@@ -149,7 +150,7 @@ push_global_i64 (ExecEnv *exec_env, int64_t i64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   std::cerr << "[debug] call to push_global_i64 -> " << i64 << std::endl;
-  chkpt.globals.push_back (Value (i64));
+  wanco::chkpt.globals.push_back (wanco::Value (i64));
 }
 
 extern "C" void
@@ -158,7 +159,7 @@ push_global_f32 (ExecEnv *exec_env, float f32)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   std::cerr << "[debug] call to push_global_f32 -> " << f32 << std::endl;
-  chkpt.globals.push_back (Value (f32));
+  wanco::chkpt.globals.push_back (wanco::Value (f32));
 }
 
 extern "C" void
@@ -167,7 +168,7 @@ push_global_f64 (ExecEnv *exec_env, double f64)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   std::cerr << "[debug] call to push_global_f64 -> " << f64 << std::endl;
-  chkpt.globals.push_back (Value (f64));
+  wanco::chkpt.globals.push_back (wanco::Value (f64));
 }
 
 // table
@@ -177,7 +178,7 @@ push_table_index (ExecEnv *exec_env, int32_t index)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   std::cerr << "[debug] call to push_table_index -> " << index << std::endl;
-  chkpt.table.push_back (index);
+  wanco::chkpt.table.push_back (index);
 }
 
 void
@@ -191,14 +192,14 @@ dump_exec_env (ExecEnv &exec_env)
 }
 
 void
-dump_checkpoint (Checkpoint &chkpt)
+dump_checkpoint (wanco::Checkpoint &chkpt)
 {
   std::cout << "Checkpoint" << std::endl;
   std::cout << "Frames: " << (chkpt.frames.empty () ? "(empty)" : "")
 	    << std::endl;
   for (size_t i = 0; i < chkpt.frames.size (); i++)
     {
-      const Frame &frame = chkpt.frames[i];
+      const wanco::Frame &frame = chkpt.frames[i];
       std::cout << "  Frame[" << i << "]" << std::endl;
       std::cout << "    Location: Op[" << frame.pc << "] at Func["
 		<< frame.fn_index << "]" << std::endl;
@@ -231,16 +232,16 @@ pop_front_frame (ExecEnv *exec_env)
   assert (exec_env->migration_state == MigrationState::STATE_RESTORE
 	  && "Invalid migration state");
   assert (!chkpt.frames.empty () && "No frame to restore");
-  Frame &frame = chkpt.frames.front ();
+  wanco::Frame &frame = wanco::chkpt.frames.front ();
   std::cerr << "[debug] call to pop_front_frame -> Fn[" << frame.fn_index << "]"
 	    << std::endl;
 
-  chkpt.frames.pop_front ();
+  wanco::chkpt.frames.pop_front ();
   // Restore is completed if there are no more frames to restore
-  if (chkpt.frames.empty ())
+  if (wanco::chkpt.frames.empty ())
     {
       std::cerr << "[debug] Restore completed" << std::endl;
-      exec_env->migration_state = MigrationState::STATE_NONE;
+      exec_env->migration_state = wanco::MigrationState::STATE_NONE;
       // chkpt = Checkpoint();
     }
 }
@@ -248,7 +249,7 @@ pop_front_frame (ExecEnv *exec_env)
 extern "C" bool
 frame_is_empty (ExecEnv *exec_env)
 {
-  return chkpt.frames.empty ();
+  return wanco::chkpt.frames.empty ();
 }
 
 extern "C" int32_t
@@ -257,7 +258,7 @@ get_pc_from_frame (ExecEnv *exec_env)
   assert (!chkpt.frames.empty () && "No frame to restore");
   assert (exec_env->migration_state == MigrationState::STATE_RESTORE
 	  && "Invalid migration state");
-  return chkpt.frames.front ().pc;
+  return wanco::chkpt.frames.front ().pc;
 }
 
 extern "C" int32_t
@@ -265,10 +266,10 @@ pop_front_local_i32 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && "No frame to restore");
   assert (!chkpt.frames.front ().locals.empty () && "No local to pop");
-  Value v = chkpt.frames.front ().locals.front ();
+  wanco::Value v = wanco::chkpt.frames.front ().locals.front ();
   std::cerr << "[debug] call to pop_front_local -> " << v.to_string ()
 	    << std::endl;
-  chkpt.frames.front ().locals.pop_front ();
+  wanco::chkpt.frames.front ().locals.pop_front ();
   assert (v.get_type () == Value::Type::I32 && "Invalid type");
   return v.i32;
 }
@@ -278,10 +279,10 @@ pop_front_local_i64 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && "No frame to restore");
   assert (!chkpt.frames.front ().locals.empty () && "No local to pop");
-  Value v = chkpt.frames.front ().locals.front ();
+  wanco::Value v = wanco::chkpt.frames.front ().locals.front ();
   std::cerr << "[debug] call to pop_front_local -> " << v.to_string ()
 	    << std::endl;
-  chkpt.frames.front ().locals.pop_front ();
+  wanco::chkpt.frames.front ().locals.pop_front ();
   assert (v.get_type () == Value::Type::I64 && "Invalid type");
   return v.i64;
 }
@@ -291,10 +292,10 @@ pop_front_local_f32 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && "No frame to restore");
   assert (!chkpt.frames.front ().locals.empty () && "No local to pop");
-  Value v = chkpt.frames.front ().locals.front ();
+  wanco::Value v = wanco::chkpt.frames.front ().locals.front ();
   std::cerr << "[debug] call to pop_front_local -> " << v.to_string ()
 	    << std::endl;
-  chkpt.frames.front ().locals.pop_front ();
+  wanco::chkpt.frames.front ().locals.pop_front ();
   assert (v.get_type () == Value::Type::F32 && "Invalid type");
   return v.f32;
 }
@@ -304,10 +305,10 @@ pop_front_local_f64 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && "No frame to restore");
   assert (!chkpt.frames.front ().locals.empty () && "No local to pop");
-  Value v = chkpt.frames.front ().locals.front ();
+  wanco::Value v = wanco::chkpt.frames.front ().locals.front ();
   std::cerr << "[debug] call to pop_front_local -> " << v.to_string ()
 	    << std::endl;
-  chkpt.frames.front ().locals.pop_front ();
+  wanco::chkpt.frames.front ().locals.pop_front ();
   assert (v.get_type () == Value::Type::F64 && "Invalid type");
   return v.f64;
 }
@@ -317,8 +318,8 @@ pop_i32 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
 	  && "Stack empty");
-  Frame &frame = chkpt.frames.back ();
-  Value v = frame.stack.back ();
+  wanco::Frame &frame = wanco::chkpt.frames.back ();
+  wanco::Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
   frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::I32 && "Invalid type");
@@ -330,8 +331,8 @@ pop_i64 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
 	  && "Stack empty");
-  Frame &frame = chkpt.frames.back ();
-  Value v = frame.stack.back ();
+  wanco::Frame &frame = wanco::chkpt.frames.back ();
+  wanco::Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
   frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::I64 && "Invalid type");
@@ -343,8 +344,8 @@ pop_f32 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
 	  && "Stack empty");
-  Frame &frame = chkpt.frames.back ();
-  Value v = frame.stack.back ();
+  wanco::Frame &frame = wanco::chkpt.frames.back ();
+  wanco::Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
   frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::F32 && "Invalid type");
@@ -356,22 +357,21 @@ pop_f64 (ExecEnv *exec_env)
 {
   assert (!chkpt.frames.empty () && !chkpt.frames.back ().stack.empty ()
 	  && "Stack empty");
-  Frame &frame = chkpt.frames.back ();
-  Value v = frame.stack.back ();
+  wanco::Frame &frame = wanco::chkpt.frames.back ();
+  wanco::Value v = frame.stack.back ();
   std::cerr << "[debug] call to pop -> " << v.to_string () << std::endl;
   frame.stack.pop_back ();
   assert (v.get_type () == Value::Type::F64 && "Invalid type");
   return v.f64;
 }
-
 extern "C" int32_t
 pop_front_global_i32 (ExecEnv *exec_env)
 {
   assert (!chkpt.globals.empty () && "No global to pop");
-  Value v = chkpt.globals.front ();
+  wanco::Value v = wanco::chkpt.globals.front ();
   std::cerr << "[debug] call to pop_front_global -> " << v.to_string ()
 	    << std::endl;
-  chkpt.globals.pop_front ();
+  wanco::chkpt.globals.pop_front ();
   assert (v.get_type () == Value::Type::I32 && "Invalid type");
   return v.i32;
 }
@@ -380,10 +380,10 @@ extern "C" int64_t
 pop_front_global_i64 (ExecEnv *exec_env)
 {
   assert (!chkpt.globals.empty () && "No global to pop");
-  Value v = chkpt.globals.front ();
+  wanco::Value v = wanco::chkpt.globals.front ();
   std::cerr << "[debug] call to pop_front_global -> " << v.to_string ()
 	    << std::endl;
-  chkpt.globals.pop_front ();
+  wanco::chkpt.globals.pop_front ();
   assert (v.get_type () == Value::Type::I64 && "Invalid type");
   return v.i64;
 }
@@ -392,10 +392,10 @@ extern "C" float
 pop_front_global_f32 (ExecEnv *exec_env)
 {
   assert (!chkpt.globals.empty () && "No global to pop");
-  Value v = chkpt.globals.front ();
+  wanco::Value v = wanco::chkpt.globals.front ();
   std::cerr << "[debug] call to pop_front_global -> " << v.to_string ()
 	    << std::endl;
-  chkpt.globals.pop_front ();
+  wanco::chkpt.globals.pop_front ();
   assert (v.get_type () == Value::Type::F32 && "Invalid type");
   return v.f32;
 }
@@ -404,10 +404,10 @@ extern "C" double
 pop_front_global_f64 (ExecEnv *exec_env)
 {
   assert (!chkpt.globals.empty () && "No global to pop");
-  Value v = chkpt.globals.front ();
+  wanco::Value v = wanco::chkpt.globals.front ();
   std::cerr << "[debug] call to pop_front_global -> " << v.to_string ()
 	    << std::endl;
-  chkpt.globals.pop_front ();
+  wanco::chkpt.globals.pop_front ();
   assert (v.get_type () == Value::Type::F64 && "Invalid type");
   return v.f64;
 }
@@ -419,9 +419,9 @@ pop_front_table_index (ExecEnv *exec_env)
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE
 	  && "Invalid migration state");
   assert (!chkpt_v2.table.empty () && "Table is empty");
-  int32_t idx = chkpt.table.front ();
+  int32_t idx = wanco::chkpt.table.front ();
   std::cerr << "[debug] call to pop_front_table_index -> " << idx << std::endl;
-  chkpt.table.pop_front ();
+  wanco::chkpt.table.pop_front ();
   return idx;
 }
 
@@ -458,7 +458,7 @@ push_global_i32_v2 (ExecEnv *exec_env, int32_t i32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_START
 	  && "Invalid migration state");
-  chkpt_v2.globals.push_back (Value (i32));
+  wanco::chkpt_v2.globals.push_back (wanco::Value (i32));
 }
 
 extern "C" void
@@ -466,7 +466,7 @@ push_global_i64_v2 (ExecEnv *exec_env, int64_t i64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_START
 	  && "Invalid migration state");
-  chkpt_v2.globals.push_back (Value (i64));
+  wanco::chkpt_v2.globals.push_back (wanco::Value (i64));
 }
 
 extern "C" void
@@ -474,7 +474,7 @@ push_global_f32_v2 (ExecEnv *exec_env, float f32)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_START
 	  && "Invalid migration state");
-  chkpt_v2.globals.push_back (Value (f32));
+  wanco::chkpt_v2.globals.push_back (wanco::Value (f32));
 }
 
 extern "C" void
@@ -482,5 +482,5 @@ push_global_f64_v2 (ExecEnv *exec_env, double f64)
 {
   assert (exec_env->migration_state == MigrationState::STATE_CHECKPOINT_START
 	  && "Invalid migration state");
-  chkpt_v2.globals.push_back (Value (f64));
+  wanco::chkpt_v2.globals.push_back (wanco::Value (f64));
 }

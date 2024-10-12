@@ -16,6 +16,7 @@ Prerequisites:
 - POSIX compliant OS (Linux, TODO: support macOS)
 - clang or clang++ (version 17 or later)
 - libunwind-dev (Run `apt install libunwind-dev`)
+- protocol buffer (Run `apt install libprotobuf-dev protobuf-compiler`)
 
 First you need to clone the project:
 ```

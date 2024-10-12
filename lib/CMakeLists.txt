@@ -71,12 +71,13 @@ target_compile_options(wanco_rt PRIVATE -Wall -g)
 target_sources(wanco_rt PRIVATE
     cpp/api.cc
     cpp/wrt.cc
-    cpp/v1/chkpt_decode.cc
-    cpp/v1/chkpt_encode.cc 
+    cpp/chkpt/chkpt_json.cc
+    cpp/chkpt/chkpt_protobuf.cc
     cpp/lz4/lz4.c
     cpp/v2/stack_transform.cc
     cpp/v2/stackmap.cc
     cpp/v2/elf.cc
+    cpp/protobuf/chkpt.pb.cc
     )
 include_directories(wanco_rt PRIVATE cpp ${LIBUNWIND_INCLUDE_DIRS})
 target_link_libraries(wanco_rt PRIVATE lz4 

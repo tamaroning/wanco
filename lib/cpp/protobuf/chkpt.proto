@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package chkpt;
+
+option cc_enable_arenas = true;
+
+message Type {
+	enum Enum {
+		UNSPECIFIED = 0;
+		I32 = 1;
+		I64 = 2;
+		F32 = 3;
+		F64 = 4;
+	}
+}
+
+message Value {
+	Type.Enum type = 1;
+  oneof test_oneof {
+    int32 i32 = 2;
+		int64 i64 = 3;
+		float f32 = 4;
+		double f64 = 5;
+  }
+}
+
+message Frame {
+	int32 fn_idx = 1;
+	int32 pc = 2;
+	repeated Value locals = 3;
+	repeated Value stack = 4;
+}
+
+message Checkpoint {
+	repeated Frame frames = 1;
+	repeated Value globals = 2;
+	repeated int32 table = 3;
+	int32 memory_size = 4;
+	bytes memory_lz4 = 5;
+}

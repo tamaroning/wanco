@@ -1,6 +1,4 @@
 #include "aot.h"
-#include "v1/chkpt.h"
-#include "v2/chkpt_v2.h"
 #include <cassert>
 #include <csignal>
 #include <cstdint>
@@ -15,6 +13,11 @@
 
 // global instancce of execution environment
 ExecEnv exec_env;
+
+namespace wanco {
+
+constexpr bool USE_PROTOBUF = true;
+
 // global instance of checkpoint
 Checkpoint chkpt;
 
@@ -197,7 +200,7 @@ parse_from_args (int argc, char **argv)
 }
 
 int
-main (int argc, char **argv)
+wanco_main (int argc, char **argv)
 {
   signal (SIGSEGV, signal_segv_handler);
 
@@ -231,7 +234,14 @@ main (int argc, char **argv)
 
       std::cerr << "[info] Loading checkpoint from " << config.restore_file
 		<< std::endl;
-      chkpt = decode_checkpoint_json (ifs);
+      if constexpr (USE_PROTOBUF)
+	{
+	  chkpt = decode_checkpoint_proto (ifs);
+	}
+      else
+	{
+	  chkpt = decode_checkpoint_json (ifs);
+	}
 
       int32_t memory_size = chkpt.memory_size;
       // Allocate memory and copy contents from checkpoint
@@ -257,12 +267,29 @@ main (int argc, char **argv)
 					  exec_env.memory_base
 					    + exec_env.memory_size * PAGE_SIZE);
       chkpt.memory_size = exec_env.memory_size;
-      std::ofstream ofs ("checkpoint.json");
-      encode_checkpoint_json (ofs, chkpt);
-      std::cerr << "[info] Snapshot saved to checkpoint.json" << std::endl;
+      if constexpr (USE_PROTOBUF)
+	{
+	  std::ofstream ofs ("checkpoint.pb");
+	  encode_checkpoint_proto (ofs, chkpt);
+	  std::cerr << "[info] Snapshot saved to checkpoint.pb" << std::endl;
+	}
+      else
+	{
+	  std::ofstream ofs ("checkpoint.json");
+	  encode_checkpoint_json (ofs, chkpt);
+	  std::cerr << "[info] Snapshot saved to checkpoint.json" << std::endl;
+	}
     }
 
   // cleanup
   munmap (exec_env.memory_base, exec_env.memory_size * PAGE_SIZE);
   return 0;
+}
+
+} // namespace wanco
+
+int
+main (int argc, char **argv)
+{
+  return wanco::wanco_main (argc, argv);
 }

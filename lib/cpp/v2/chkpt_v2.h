@@ -1,10 +1,12 @@
 #pragma once
 #include <deque>
 #include <vector>
-#include "v1/chkpt.h"
+#include "chkpt/chkpt.h"
 #include "stack_transform.h"
 #include "stackmap.h"
 #include "elf.h"
+
+namespace wanco {
 
 class CheckpointV2
 {
@@ -17,3 +19,5 @@ public:
 // void encode_checkpoint_v2_json(std::ofstream &ofs, CheckpointV2 &chkpt);
 
 // CheckpointV2 decode_checkpoint_v2_json(std::ifstream &f);
+
+} // namespace wanco

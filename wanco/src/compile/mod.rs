@@ -136,6 +136,9 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
         .arg("-no-pie")
         .arg(format!("-{}", args.optimization));
 
+    // link protobuf
+    cmd.arg("-lprotobuf");
+
     // link libunwind
     let triple = get_target_machine(args).unwrap().get_triple();
     let triple = triple.as_str().to_str().unwrap();
