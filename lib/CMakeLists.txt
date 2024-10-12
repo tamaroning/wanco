@@ -13,8 +13,8 @@ if (DEFINED CXX)
 endif()
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
-find_package(Libunwind REQUIRED)
-find_package(Libdwarf REQUIRED)
+#find_package(Libunwind REQUIRED)
+#find_package(Libdwarf REQUIRED)
 
 # https://qiita.com/tnishinaga/items/c01dfd5f43e446653cd1#cmake_toolchain_file%E3%82%92%E6%9B%B8%E3%81%8F
 if ((DEFINED TARGET) AND ("${TARGET}" STREQUAL "aarch64"))
@@ -74,12 +74,15 @@ target_sources(wanco_rt PRIVATE
     cpp/chkpt/chkpt_json.cc
     cpp/chkpt/chkpt_protobuf.cc
     cpp/lz4/lz4.c
-    cpp/v2/stack_transform.cc
-    cpp/v2/stackmap.cc
-    cpp/v2/elf.cc
+    #cpp/v2/stack_transform.cc
+    #cpp/v2/stackmap.cc
+    #cpp/v2/elf.cc
     cpp/protobuf/chkpt.pb.cc
     )
-include_directories(wanco_rt PRIVATE cpp ${LIBUNWIND_INCLUDE_DIRS})
+include_directories(wanco_rt PRIVATE
+    cpp
+    #${LIBUNWIND_INCLUDE_DIRS}
+    )
 target_link_libraries(wanco_rt PRIVATE lz4 
     # libunwind is dynamically linked
     # ${LIBUNWIND_LIBRARIES}
