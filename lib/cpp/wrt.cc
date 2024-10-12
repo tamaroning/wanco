@@ -186,8 +186,11 @@ parse_from_args (int argc, char **argv)
 	}
       else
 	{
-	  std::cerr << "WARNING: Ignored unknown argument: " << argv[i]
+	  std::cerr << "Error: Unknown argument: " << argv[i] << std::endl
+		    << "If you want to pass arguments to the WebAssembly "
+		       "module, pass them after '--'."
 		    << std::endl;
+	  exit (1);
 	}
     }
   return config;
