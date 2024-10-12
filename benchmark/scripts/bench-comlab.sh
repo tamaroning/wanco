@@ -7,11 +7,11 @@ LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
 num_runs=1
 should_build=0
 
+CHECKPOINT_FILE="checkpoint.pb"
+
 if [ $should_build -eq 1 ]; then
-    orig_branch=$(git symbolic-ref --short HEAD)
     mkdir build
 
-    git checkout master
     (cd build && sudo make install)
     cargo build --release
 
@@ -40,8 +40,6 @@ if [ $should_build -eq 1 ]; then
         --optimize-cr \
         ${LABBENCH_DIR}/../llama2-c/llama2-c.wasm \
         -o "llama2-c-wasm"
-
-    git checkout $orig_branch
 fi
 
 function measure_wasm_checkpoint_size {
@@ -52,12 +50,12 @@ function measure_wasm_checkpoint_size {
     total_file_size=0
     for i in $(seq 1 $num_runs); do
         echo "Run $i"
-        rm checkpoint.json
+        rm $CHECKPOINT_FILE
         "./$exe" -- $arg1 \
             & sleep $sleep_time \
             & pkill -10 -f "$exe"
         sleep 0.5
-        file_size=$(stat -c%s checkpoint.json)
+        file_size=$(stat -c%s $CHECKPOINT_FILE)
         echo "File size: $file_size"
         total_file_size=$(echo "$total_file_size + $file_size" | bc)
     done
@@ -72,18 +70,18 @@ function measure_llama_wasm_checkpoint_size {
         & sleep 0.22 \
         & pkill -10 -f "llama2-c-wasm"
     sleep 0.5
-    echo "File size: $(stat -c%s checkpoint.json)"
+    echo "File size: $(stat -c%s $CHECKPOINT_FILE)"
     cd ../../
 }
 
-#measure_wasm_checkpoint_size "nbody-wasm" 0.25 10000000
-#measure_wasm_checkpoint_size "binary-trees-wasm" 0.6 18
-#measure_llama_wasm_checkpoint_size
+measure_wasm_checkpoint_size "nbody-wasm" 0.25 10000000
+measure_wasm_checkpoint_size "binary-trees-wasm" 0.6 18
+measure_llama_wasm_checkpoint_size
 
 # wasm
-# - nbody: 7967
-# - binary-trees: 195245
-# - llama2: 1348258
+# - nbody: 3530
+# - binary-trees: 2483,68653,94691,102441(0.26)
+# - llama2: 80561,670507,277235,736050,342783(0.29),6889(0.051918) => 352338
 sleep 0.5
 
 rm -rf checkpoint
@@ -94,19 +92,19 @@ sleep 0.5
 
 rm -rf checkpoint
 mkdir checkpoint
-./binary-trees-x86-64 18 & sleep 0.6 & criu dump --shell-job -t $(pgrep binary-trees-x86-64) -D checkpoint
+./binary-trees-x86-64 18 & sleep 0.6 & criu dump --shell-job -t $(pgrep binary-trees) -D checkpoint
 du -sb checkpoint
 sleep 0.5
 
 cd benchmark/llama2-c
 rm -rf checkpoint
 mkdir checkpoint
-./llama2-c-x86-64 "model.bin" "-n" 0 "-i" 'Once upon a time' & sleep 0.03 & criu dump --shell-job -t $(pgrep llama2-c-x86-64) -D checkpoint
+./llama2-c-x86-64 "model.bin" "-n" 0 "-i" 'Once upon a time' & sleep 0.05 & criu dump --shell-job -t $(pgrep llama2-c-x86-64) -D checkpoint
 du -sb checkpoint
 cd ../../
 sleep 0.5
 
 # criu
-# - nbody: 131364
-# - binary-trees: 4096
-# - llama2: 275192
+# - nbody: 131364,131366
+# - binary-trees: 6889461,8069111
+# - llama2: 275192,275222,234287,234264

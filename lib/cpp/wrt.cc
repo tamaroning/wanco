@@ -16,7 +16,7 @@ ExecEnv exec_env;
 
 namespace wanco {
 
-constexpr bool USE_PROTOBUF = false;
+constexpr bool USE_PROTOBUF = true;
 
 // global instance of checkpoint
 Checkpoint chkpt;
@@ -268,6 +268,8 @@ wanco_main (int argc, char **argv)
 					  exec_env.memory_base
 					    + exec_env.memory_size * PAGE_SIZE);
       chkpt.memory_size = exec_env.memory_size;
+
+      // write snapshot
       if constexpr (USE_PROTOBUF)
 	{
 	  std::ofstream ofs ("checkpoint.pb");
