@@ -181,6 +181,7 @@ push_table_index (ExecEnv *exec_env, int32_t index)
   wanco::chkpt.table.push_back (index);
 }
 
+namespace wanco {
 void
 dump_exec_env (ExecEnv &exec_env)
 {
@@ -225,6 +226,19 @@ dump_checkpoint (wanco::Checkpoint &chkpt)
     }
 }
 
+void
+check_restore_finished (ExecEnv *exec_env)
+{
+  // Restore is completed if there are no more frames to restore
+  if (wanco::chkpt.frames.empty ())
+    {
+      std::cerr << "[debug] Restore completed" << std::endl;
+      exec_env->migration_state = wanco::MigrationState::STATE_NONE;
+    }
+}
+
+} // namespace wanco
+
 // Restore
 extern "C" void
 pop_front_frame (ExecEnv *exec_env)
@@ -236,14 +250,17 @@ pop_front_frame (ExecEnv *exec_env)
   std::cerr << "[debug] call to pop_front_frame -> Fn[" << frame.fn_index << "]"
 	    << std::endl;
 
+  if (!frame.locals.empty ())
+    std::cerr << "Error: Locals not empty" << std::endl;
+
+  if (!frame.stack.empty ())
+    std::cerr << "Error: Stack not empty" << std::endl;
+
+  if (!frame.stack.empty () || !frame.locals.empty ())
+    exit (1);
+
   wanco::chkpt.frames.pop_front ();
-  // Restore is completed if there are no more frames to restore
-  if (wanco::chkpt.frames.empty ())
-    {
-      std::cerr << "[debug] Restore completed" << std::endl;
-      exec_env->migration_state = wanco::MigrationState::STATE_NONE;
-      // chkpt = Checkpoint();
-    }
+  wanco::check_restore_finished (exec_env);
 }
 
 extern "C" bool
