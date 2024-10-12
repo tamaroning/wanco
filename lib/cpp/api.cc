@@ -463,6 +463,7 @@ pop_front_table_index (ExecEnv *exec_env)
 ** checkpoint related functions (v2)
 */
 
+/*
 extern "C" void
 start_checkpoint_v2 (ExecEnv *exec_env)
 {
@@ -523,3 +524,4 @@ push_global_f64_v2 (ExecEnv *exec_env, double f64)
 	  && "Invalid migration state");
   wanco::chkpt_v2.globals.push_back (wanco::Value (f64));
 }
+*/
