@@ -77,11 +77,6 @@ function measure_llama_wasm_checkpoint_size {
 measure_wasm_checkpoint_size "nbody-wasm" 0.25 10000000
 measure_wasm_checkpoint_size "binary-trees-wasm" 0.6 18
 measure_llama_wasm_checkpoint_size
-
-# wasm
-# - nbody: 3530
-# - binary-trees: 2483,68653,94691,102441(0.26)
-# - llama2: 80561,670507,277235,736050,342783(0.29),6889(0.051918) => 352338
 sleep 0.5
 
 rm -rf checkpoint
@@ -103,8 +98,3 @@ mkdir checkpoint
 du -sb checkpoint
 cd ../../
 sleep 0.5
-
-# criu
-# - nbody: 131364,131366
-# - binary-trees: 6889461,8069111
-# - llama2: 275192,275222,234287,234264
