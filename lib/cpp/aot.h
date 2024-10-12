@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "chkpt/chkpt.h"
 #include "v2/chkpt_v2.h"
+#include "wanco.h"
 
 namespace wanco {
 

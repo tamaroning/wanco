@@ -10,9 +10,9 @@
 #include <vector>
 #include <optional>
 #include <fstream>
-#include <cassert>
 #include <sstream>
 #include "x86_64.h"
+#include "wanco.h"
 
 static uint16_t
 parse_u16 (const uint8_t *&ptr)
@@ -97,7 +97,7 @@ parse_stk_map_record (const uint8_t *&ptr)
   uint32_t padding1 = 0;
   if ((uint64_t) ptr % 8 != 0)
     {
-      assert ((uint64_t) ptr % 8 == 4 && "Invalid data alignment");
+      ASSERT ((uint64_t) ptr % 8 == 4 && "Invalid data alignment");
       padding1 = parse_u32 (ptr);
     }
   uint16_t padding2 = parse_u16 (ptr);
@@ -109,7 +109,7 @@ parse_stk_map_record (const uint8_t *&ptr)
   uint32_t padding3 = 0;
   if ((uint64_t) ptr % 8 != 0)
     {
-      assert ((uint64_t) ptr % 8 == 4 && "Invalid data alignment");
+      ASSERT ((uint64_t) ptr % 8 == 4 && "Invalid data alignment");
       padding3 = parse_u32 (ptr);
     }
 
@@ -129,8 +129,8 @@ Stackmap::Stackmap
 parse_stackmap (std::span<const uint8_t> data)
 {
   const uint8_t *ptr = data.data ();
-  assert (ptr != nullptr && "Invalid data");
-  assert ((uint64_t) ptr % 8 == 0 && "Invalid data alignment");
+  ASSERT (ptr != nullptr && "Invalid data");
+  ASSERT ((uint64_t) ptr % 8 == 0 && "Invalid data alignment");
   Stackmap::Header header = parse_header (ptr);
 
   uint32_t num_functions = parse_u32 (ptr);
@@ -241,7 +241,7 @@ stackmap_to_string (const Stackmap::Stackmap &stackmap)
 	      }
 	      break;
 	      case Stackmap::LocationKind::CONSTANT_INDEX: {
-		assert (location.offset < stackmap.constants.size ()
+		ASSERT (location.offset < stackmap.constants.size ()
 			&& "Invalid constant index");
 		ss << "Constants[" << location.offset << "] = "
 		   << stackmap.constants[location.offset].large_constant

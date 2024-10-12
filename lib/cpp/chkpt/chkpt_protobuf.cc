@@ -32,7 +32,7 @@ decode_value_proto (const chkpt::Value &v)
       }
       break;
     default:
-      assert (false && "Invalid type");
+      ASSERT (false && "Invalid type");
       return wanco::Value (0);
     }
 }
@@ -96,7 +96,7 @@ decode_checkpoint_proto (std::ifstream &f)
   size_t size
     = LZ4_decompress_safe (compressed.data (), (char *) ret.memory.data (),
 			   compressed.size (), ret.memory.size ());
-  assert (size == chkpt.memory.size ());
+  ASSERT (size == ret.memory.size ());
 
   ret.memory = std::vector<int8_t> (buf.memory_lz4 ().begin (),
 				    buf.memory_lz4 ().end ());
@@ -127,7 +127,7 @@ encode_value_proto (const wanco::Value &v)
       ret.set_f64 (v.f64);
       break;
     default:
-      assert (false && "Invalid type");
+      ASSERT (false && "Invalid type");
     }
   return ret;
 }

@@ -9,7 +9,6 @@
 #include "lz4/lz4.h"
 #include "nlohmann/json.h"
 #include "tobiaslocker/base64.h"
-#include <cassert>
 
 namespace wanco {
 
@@ -185,7 +184,7 @@ decode_value_json (json &j)
     }
   else
     {
-      assert (false && "unreachable");
+      ASSERT (false && "unreachable");
       //__builtin_unreachable();
     }
   return v;
@@ -239,7 +238,7 @@ decode_checkpoint_json (std::ifstream &f)
   size_t size
     = LZ4_decompress_safe (compressed.data (), (char *) chkpt.memory.data (),
 			   compressed.size (), chkpt.memory.size ());
-  assert (size == chkpt.memory.size ());
+  ASSERT (size == chkpt.memory.size ());
 
   return chkpt;
 }

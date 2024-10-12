@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "wanco.h"
 
 namespace wanco {
 
@@ -74,6 +75,10 @@ public:
   std::deque<int32_t> table;
   int memory_size = 0;
 
+  // リストア時にはframesではなく、こちらに値スタックを詰む。
+  // 値スタックをpopする前に、framesのpop操作が行われるため。
+  std::deque<Value> restore_stack;
+
   void clear ()
   {
     frames.clear ();
@@ -81,6 +86,19 @@ public:
     memory.clear ();
     table.clear ();
     memory_size = 0;
+    restore_stack.clear ();
+  }
+
+  void prepare_restore ()
+  {
+    restore_stack.clear ();
+    for (auto &frame : frames)
+      {
+	for (auto &value : frame.stack)
+	  {
+	    restore_stack.push_back (value);
+	  }
+      }
   }
 };
 

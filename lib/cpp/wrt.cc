@@ -1,5 +1,5 @@
 #include "aot.h"
-#include <cassert>
+#include "wanco.h"
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
@@ -16,7 +16,7 @@ ExecEnv exec_env;
 
 namespace wanco {
 
-constexpr bool USE_PROTOBUF = true;
+constexpr bool USE_PROTOBUF = false;
 
 // global instance of checkpoint
 Checkpoint chkpt;
@@ -53,7 +53,7 @@ signal_segv_handler (int signum)
 {
   void *array[10];
   size_t size;
-  assert (signum == SIGSEGV && "Unexpected signal");
+  ASSERT (signum == SIGSEGV && "Unexpected signal");
 
   // get void*'s for all entries on the stack
   size = backtrace (array, 10);
@@ -67,7 +67,7 @@ signal_segv_handler (int signum)
 void
 signal_chkpt_handler (int signum)
 {
-  assert (signum == SIGCHKPT && "Unexpected signal");
+  ASSERT (signum == SIGCHKPT && "Unexpected signal");
   exec_env.migration_state = MigrationState::STATE_CHECKPOINT_START;
 }
 
@@ -126,7 +126,7 @@ allocate_memory (const Config &config, int32_t num_pages)
 int32_t
 extend_memory (ExecEnv *exec_env, int32_t inc_pages)
 {
-  assert (inc_pages >= 0);
+  ASSERT (inc_pages >= 0);
   int32_t old_size = exec_env->memory_size;
   int32_t new_size = old_size + inc_pages;
 
@@ -242,6 +242,7 @@ wanco_main (int argc, char **argv)
 	{
 	  chkpt = decode_checkpoint_json (ifs);
 	}
+      chkpt.prepare_restore ();
 
       int32_t memory_size = chkpt.memory_size;
       // Allocate memory and copy contents from checkpoint
