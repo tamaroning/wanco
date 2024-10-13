@@ -1,26 +1,27 @@
-This directory is for research demos.
+This directory is for C/R demos.
 See [../examples](../examples) instead for general usage.
 
 ## C/R demo
 
-```
-wanco fib.wat --enable-cr --optimize-cr
-./a.out
+First, compile the fibonacci program (fib.wat) with C/R enabled and run it:
+
+```sh
+$ wanco fib.wat --enable-cr --optimize-cr
+$ ./a.out
 ```
 
-From another terminal:
-```
-pkill a.out -10
+Then send a signal SIGUSR1(=10) from another terminal:
+
+```sh
+$ pkill a.out -10
 ```
 
-restore:
-```
-./a.out --restore checkpoint.json
-```
+checkpoint.json or checkpoint.pb is created.
+(.pb means binary format generated with protobuf.)
 
-## llama2
 
-```
-wanco llama2-c.wasm
-./a.out -- model.bin -t 0.9
+Now you can restore the execution from the checkpoint file:
+
+```sh
+./a.out --restore <checkpoint file>
 ```
