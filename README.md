@@ -1,8 +1,8 @@
-# wanco
+# wanco 🐶
 
 ![plot](./animal_dance_dog.png)
 
-wanco is a WebAssembly AOT compiler which supports cross-platform (ISA/OS) Checkpoint/Restore functionalities.
+wanco is a WebAssembly AOT compiler which supports cross-platform (ISA/OS) Checkpoint/Restore functionalities. wanco is forked from [Wasker](https://github.com/mewz-project/wasker).
 
 
 See [examples](./examples) for quick start.
@@ -19,7 +19,8 @@ Prerequisites:
 - protocol buffer (Run `apt install libprotobuf-dev protobuf-compiler`)
 
 First you need to clone the project:
-```
+
+```sh
 $ git clone git@github.com:tamaroning/wanco.git
 $ cd wanco
 ```
@@ -27,7 +28,7 @@ $ cd wanco
 To build and install the libraries (libwanco_rt.a and libwanco_wasi.a), run the following commands.
 Wanco libraries (libwanco_rt.a and libwanco_wasi.a) will be installed in /usr/local/lib/.
 
-```
+```sh
 $ mkdir build
 $ cd build
 $ cmake -DCMAKE_BUILD_TYPE=Release ../lib
@@ -36,7 +37,8 @@ $ cd ..
 ```
 
 Build the wanco compiler:
-```
+
+```sh
 $ cargo build --release
 $ cp target/release/wanco .
 ```
@@ -44,17 +46,18 @@ $ cp target/release/wanco .
 ## Run
 
 To show the help, run:
-```
+
+```sh
 $ wanco --help
 ```
 
 Before running the compiler, add clang to the PATH environment variable or specify the path to clang or clang++ by using the `--clang-path` option.
 
 
-Compile the hello-world example, run:
+To compile the hello-world example, run:
 
-```
-$ wanco examples/hello.wat -o hello -O3 --lto
+```sh
+$ wanco examples/hello.wat -o hello
 $ ./hello
 Hello World!
 ```
@@ -63,7 +66,7 @@ Hello World!
 
 Compile a WebAssembly file with C/R enabled and run it:
 
-```
+```sh
 $ ./wanco --enable-cr --optimize-cr demo/fib.wat
 $ a.out
 ```
@@ -72,24 +75,24 @@ While tje process is running, you can trigger checkpoint by sending `SIGUSR1` si
 
 (The running process is automatically terminated and the snapshot file is created.)
 
-```
+```sh
 $ pkill -10 a.out
 ```
 
 To restore the execution, run:
 
-```
+```sh
 $ ./a.out --restore checkpoint.json
 ```
 
-Note: The C/R feature is still experimental and may not work correctly.
+Note: Snapshot files are named `checkpoint.json` or `checkpoint.pb` (binary format generated with protobuf).
 
 ### Compile and assemble only
 
-If you do not want to link the object files, specify the `-c` option.
+If you do not want a generated object file to be linked with runtime libraries, specify the `-c` option when running the compiler:
 LLVM assembly file (`.ll`) will be generated.
 
-```
+```sh
 $ wanco examples/hello.wat -c -o hello.ll
 ```
 
@@ -103,7 +106,7 @@ $ clang -flto -no-pie hello.ll /usr/local/lib/libwanco_rt.a /usr/local/lib/libwa
 
 Run
 
-```
+```sh
 $ cargo test
 ```
 
