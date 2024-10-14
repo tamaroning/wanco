@@ -2,7 +2,7 @@
 
 ![plot](./animal_dance_dog.png)
 
-wanco is a WebAssembly AOT compiler which supports cross-platform (ISA/OS) Checkpoint/Restore functionalities. wanco is forked from [Wasker](https://github.com/mewz-project/wasker).
+wanco is a WebAssembly AOT compiler which supports cross-platform (CPU and OS) Checkpoint/Restore functionalities. wanco is forked from [Wasker](https://github.com/mewz-project/wasker).
 
 
 See [examples](./examples) for quick start.
@@ -15,8 +15,9 @@ Prerequisites:
 - LLVM 17 (recommend to use llvm.sh if you are using apt)
 - POSIX compliant OS (Linux, TODO: support macOS)
 - clang or clang++ (version 17 or later)
-- libunwind-dev (Run `apt install libunwind-dev`)
-- protocol buffer (Run `apt install libprotobuf-dev protobuf-compiler`)
+- protocol buffer (Run `apt install libprotobuf-dev`)
+    - For development, run `apt install libprotobuf-dev protobuf-compiler`
+<!-- - libunwind-dev (Run `apt install libunwind-dev`) -->
 
 First you need to clone the project:
 
@@ -25,33 +26,29 @@ $ git clone git@github.com:tamaroning/wanco.git
 $ cd wanco
 ```
 
-To build and install the libraries (libwanco-rt.a and libwanco-wasi.a), run the following commands.
-Wanco libraries (libwanco-rt.a and libwanco-wasi.a) will be installed in /usr/local/lib/.
+This project includes C++ projects and Rust projects.
+To build the entire project, run the following commands.
 
 ```sh
 $ mkdir build
-$ cd build
-$ cmake -DCMAKE_BUILD_TYPE=Release ../lib
-$ make && sudo make install
-$ cd ..
+$ cmake .. -DCMAKE_BUILD_TYPE=Release
 ```
 
-Build the wanco compiler:
+To install runtime libraries, run the following commands:
 
 ```sh
-$ cargo build --release
-$ cp target/release/wanco .
+$ sudo make install
 ```
+
+On Linux, the runtime libraries are installed in `/usr/local/lib/` by default.
 
 ## Run
 
-To show the help, run:
+After building the project, you will find the `wanco` binary in the top of `build` directory.
 
-```sh
-$ wanco --help
-```
+Before compiling wasm modules, make sure to add clang to the PATH environment variable or to specify the path to clang or clang++ by using the `--clang-path` option. (clang/clang++ version 17 or later is required.)
 
-Before running the compiler, add clang to the PATH environment variable or specify the path to clang or clang++ by using the `--clang-path` option.
+If `--clang-path` is not set, `clang` is used by default.
 
 
 To compile the hello-world example, run:
@@ -62,16 +59,22 @@ $ ./hello
 Hello World!
 ```
 
-### Using C/R functionalities
+To show the help, run:
+
+```sh
+$ wanco --help
+```
+
+### Enable Checkpoint/Restore functionalities
 
 Compile a WebAssembly file with C/R enabled and run it:
 
 ```sh
-$ ./wanco --enable-cr --optimize-cr demo/fib.wat
+$ wanco --enable-cr --optimize-cr demo/fib.wat
 $ a.out
 ```
 
-While tje process is running, you can trigger checkpoint by sending `SIGUSR1` signal from another teminal:
+While the process is running, you can trigger checkpoint by sending `SIGUSR1` signal from another teminal:
 
 (The running process is automatically terminated and the snapshot file is created.)
 
@@ -99,12 +102,12 @@ $ wanco examples/hello.wat -c -o hello.ll
 After that, you can link it with the runtime library together by using clang
 
 ```
-$ clang -flto -no-pie hello.ll /usr/local/lib/libwanco-rt.a /usr/local/lib/libwanco-wasi.a -o hello
+$ clang -flto -no-pie hello.ll /usr/local/lib/libwanco_rt.a /usr/local/lib/libwanco_wasi.a -o hello
 ```
 
 ## Test
 
-Run
+To test the compiler, run:
 
 ```sh
 $ cargo test
@@ -112,5 +115,5 @@ $ cargo test
 
 ## LICENSE
 
-- benchmarks/: See LICENSE files in each directory
+- benchmark/: See LICENSE files in each directory
 - others: MIT (See [LICENSE](./LICENSE))
