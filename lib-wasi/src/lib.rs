@@ -7,10 +7,9 @@ use wasi_common::WasiCtx;
 use core::slice;
 use std::cell::UnsafeCell;
 use std::os::raw::c_char;
-use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, OnceLock};
 
-pub(crate) const PAGE_SIZE: usize = 65536;
+//pub(crate) const PAGE_SIZE: usize = 65536;
 
 static CTX: OnceLock<Mutex<WasiCtx>> = OnceLock::new();
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();

@@ -16,8 +16,6 @@ ExecEnv exec_env;
 
 namespace wanco {
 
-constexpr bool USE_PROTOBUF = true;
-
 // global instance of checkpoint
 Checkpoint chkpt;
 
@@ -78,29 +76,28 @@ int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   // called)
 
   // Add guard pages
-  std::cerr << "[info] Allocating guard pages" << std::endl;
+  Debug() << "Allocating guard pages" << std::endl;
   if (mmap((void *)(LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
            GUARD_PAGE_SIZE * 2 + MAX_LINEAR_MEMORY_SIZE, PROT_NONE,
            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == NULL) {
-    std::cerr << "Error: Failed to allocate guard pages" << std::endl;
+    Fatal() << "Failed to allocate guard pages" << std::endl;
   }
 
   // Allocate linear memory
   if (munmap((void *)LINEAR_MEMORY_BEGIN, num_bytes) < 0) {
-    std::cerr << "Error: Failed to unmap part of guard pages" << std::endl;
+    Fatal() << "Failed to unmap part of guard pages" << std::endl;
     exit(1);
   };
   int8_t *res = (int8_t *)mmap((void *)LINEAR_MEMORY_BEGIN, num_bytes,
                                PROT_READ | PROT_WRITE,
                                MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
   if (res == NULL) {
-    std::cerr << "Error: Failed to allocate " << num_pages * PAGE_SIZE
-              << " bytes to linear memory" << std::endl;
+    Fatal() << "Failed to allocate " << num_pages * PAGE_SIZE
+            << " bytes to linear memory" << std::endl;
     exit(1);
   }
-  std::cerr << "[info] Allocating liear memory: " << num_pages
-            << " pages, starting at 0x" << std::hex << (uint64_t)res
-            << std::endl;
+  Debug() << "Allocating liear memory: " << num_pages
+          << " pages, starting at 0x" << std::hex << (uint64_t)res << std::endl;
 // Zero out memory
 #ifdef __FreeBSD__
   std::memset(res, 0, num_bytes);
@@ -121,15 +118,14 @@ int32_t extend_memory(ExecEnv *exec_env, int32_t inc_pages) {
   // Unmap requested pages
   if (munmap(exec_env->memory_base + old_size * PAGE_SIZE,
              inc_pages * PAGE_SIZE) < 0) {
-    std::cerr << "Error: Failed to unmap guard pages: inc_pages=" << std::dec
-              << inc_pages << std::endl;
+    Fatal() << "Failed to unmap guard pages: inc_pages=" << std::dec
+            << inc_pages << std::endl;
     exit(1);
   }
   int8_t *res = (int8_t *)mremap(exec_env->memory_base, old_size * PAGE_SIZE,
                                  new_size * PAGE_SIZE, MREMAP_MAYMOVE);
   if (res == NULL) {
-    std::cerr << "Error: Failed to grow memory (" << inc_pages << ")"
-              << std::endl;
+    Fatal() << "Failed to grow memory (" << inc_pages << ")" << std::endl;
     exit(1);
   }
 // Zero out new memory
@@ -147,7 +143,7 @@ Config parse_from_args(int argc, char **argv) {
   for (int i = 1; i < argc; i++) {
     if (std::string(argv[i]) == "--restore") {
       if (i + 1 >= argc) {
-        std::cerr << "Error: Missing argument for --restore" << std::endl;
+        Fatal() << "Error: Missing argument for --restore" << std::endl;
         exit(1);
       }
       config.restore_file = argv[i + 1];
@@ -158,10 +154,10 @@ Config parse_from_args(int argc, char **argv) {
     } else if (std::string(argv[i]) == "--") {
       return config;
     } else {
-      std::cerr << "Error: Unknown argument: " << argv[i] << std::endl
-                << "If you want to pass arguments to the WebAssembly "
-                   "module, pass them after '--'."
-                << std::endl;
+      Fatal() << "Unknown argument: " << argv[i] << "." << std::endl
+              << "If you want to pass arguments to the WebAssembly "
+                 "module, pass them after '--'."
+              << std::endl;
       exit(1);
     }
   }
@@ -190,18 +186,24 @@ int wanco_main(int argc, char **argv) {
     // Restore from checkpoint
     std::ifstream ifs(config.restore_file);
     if (!ifs.is_open()) {
-      std::cerr << "Error: Failed to open checkpoint" << config.restore_file
-                << std::endl;
+      Fatal() << "Failed to open checkpoint file: " << config.restore_file
+              << std::endl;
       return 1;
     }
 
-    std::cerr << "[info] Loading checkpoint from " << config.restore_file
-              << std::endl;
-    if constexpr (USE_PROTOBUF)
+    if constexpr (USE_PROTOBUF) {
+      if (!config.restore_file.ends_with(".pb")) {
+        Warn() << "The file does not have a .pb extension. "
+                  "Attempting to parse as JSON."
+               << std::endl;
+      }
       chkpt = decode_checkpoint_proto(ifs);
-    else
+    } else if (!config.restore_file.ends_with(".json")) {
+      Warn() << "The file does not have a .json extension. "
+                "Attempting to parse as protobuf."
+             << std::endl;
       chkpt = decode_checkpoint_json(ifs);
-
+    }
     chkpt.prepare_restore();
 
     int32_t memory_size = chkpt.memory_size;
@@ -232,11 +234,11 @@ int wanco_main(int argc, char **argv) {
     if constexpr (USE_PROTOBUF) {
       std::ofstream ofs("checkpoint.pb");
       encode_checkpoint_proto(ofs, chkpt);
-      std::cerr << "[info] Snapshot saved to checkpoint.pb" << std::endl;
+      Info() << "Snapshot has been saved to checkpoint.pb" << std::endl;
     } else {
       std::ofstream ofs("checkpoint.json");
       encode_checkpoint_json(ofs, chkpt);
-      std::cerr << "[info] Snapshot saved to checkpoint.json" << std::endl;
+      Info() << "Snapshot has been saved to checkpoint.json" << std::endl;
     }
   }
 

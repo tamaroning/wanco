@@ -52,8 +52,7 @@ wanco::Checkpoint decode_checkpoint_proto(std::ifstream &f) {
   Checkpoint ret;
   chkpt::Checkpoint buf;
   if (!buf.ParseFromIstream(&f)) {
-    std::cerr << "[error] Failed to parse checkpoint file (protobuf)"
-              << std::endl;
+    Fatal() << "Failed to parse checkpoint file (protobuf)" << std::endl;
     exit(1);
   }
 
@@ -73,7 +72,7 @@ wanco::Checkpoint decode_checkpoint_proto(std::ifstream &f) {
 
   ret.memory_size = buf.memory_size();
 
-  std::cerr << "[info] Decompressing memory" << std::endl;
+  Info() << "Decompressing memory" << std::endl;
   std::string compressed = buf.memory_lz4();
   ret.memory.resize(ret.memory_size * PAGE_SIZE);
   size_t size =
@@ -148,7 +147,7 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
 
   buf.set_memory_size(chkpt.memory_size);
 
-  std::cerr << "[info] Compressing memory" << std::endl;
+  Info() << "Compressing memory" << std::endl;
   int guarantee = LZ4_compressBound(chkpt.memory.size());
   std::vector<char> compressed;
   compressed.resize(guarantee);
@@ -156,17 +155,17 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
                                 chkpt.memory.size(), compressed.capacity());
   compressed.resize(sz);
 
-  std::cout << "[info] compression ratio: " << (double)sz / chkpt.memory.size()
-            << std::endl;
+  Info() << "Compression ratio: " << (double)sz / chkpt.memory.size()
+         << std::endl;
 
   buf.set_memory_lz4(std::string(compressed.begin(), compressed.end()));
 
   if (!buf.SerializeToOstream(&ofs)) {
-    std::cerr << "[error] Failed to serialize checkpoint file (protobuf)"
-              << std::endl;
+    Fatal() << "Failed to write checkpoint file" << std::endl;
     exit(1);
   }
   // to json
+  /*
   google::protobuf::util::JsonPrintOptions options;
   options.add_whitespace = true;
   options.always_print_primitive_fields = true;
@@ -174,6 +173,7 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
   google::protobuf::util::MessageToJsonString(buf, &json, options);
   std::ofstream json_ofs("checkpoint.pb.json");
   json_ofs << json;
+  */
 }
 
 } // namespace wanco
