@@ -7,7 +7,7 @@
 **/*.wasm
 **/*.cwasm
 *build
-!wanco/tests/**/*
+!compiler/tests/**/*
 !demo/**/*.wat
 !demo/**/*.wasm
 !examples/**/*.wat
@@ -18,10 +18,10 @@ llama2*
 binary-trees*
 nbody*
 
-/*.bc
-/*.cc
-/*.json
-/*.c
+*.bc
+*.cc
+*.json
+*.c
 
 checkpoint.json
 checkpoint.pb
@@ -31,7 +31,7 @@ checkpoint.pb.json
 compile_commands.json
 .cache
 
-**/target
+**/target/
 
 # clion?
 **/.idea/
