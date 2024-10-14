@@ -1,10 +1,9 @@
 #pragma once
-#include <string>
 #include <cstdint>
+#include <string>
 #include <vector>
 
-class FrameV2
-{
+class FrameV2 {
 public:
   // function name
   std::string name;
@@ -14,5 +13,4 @@ public:
   uint64_t sp;
 };
 
-std::vector<FrameV2>
-get_stack_trace ();
+std::vector<FrameV2> get_stack_trace();

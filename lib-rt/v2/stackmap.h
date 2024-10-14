@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
-#include <vector>
 #include <span>
 #include <string>
+#include <vector>
 
 namespace Stackmap {
 
@@ -48,27 +48,23 @@ StkMapRecord[NumRecords] {
 }
 */
 
-struct __attribute__ ((packed)) Header
-{
+struct __attribute__((packed)) Header {
   uint8_t version;
   uint8_t reserved1;
   uint16_t reserved2;
 };
 
-struct __attribute__ ((packed)) StkSizeRecord
-{
+struct __attribute__((packed)) StkSizeRecord {
   uint64_t function_address;
   uint64_t stack_size;
   uint64_t record_count;
 };
 
-struct __attribute__ ((packed)) Constant
-{
+struct __attribute__((packed)) Constant {
   uint64_t large_constant;
 };
 
-enum class LocationKind : uint8_t
-{
+enum class LocationKind : uint8_t {
   // Reg
   REGISTER = 0x1,
   // Reg + Offset
@@ -81,8 +77,7 @@ enum class LocationKind : uint8_t
   CONSTANT_INDEX = 0x5
 };
 
-struct __attribute__ ((packed)) Location
-{
+struct __attribute__((packed)) Location {
   LocationKind kind;
   uint8_t reserved;
   uint16_t size;
@@ -91,15 +86,13 @@ struct __attribute__ ((packed)) Location
   int32_t offset;
 };
 
-struct __attribute__ ((packed)) LiveOut
-{
+struct __attribute__((packed)) LiveOut {
   uint16_t dwarf_regnum;
   uint8_t reserved;
   uint8_t size;
 };
 
-struct StkMapRecord
-{
+struct StkMapRecord {
   uint64_t patchpoint_id;
   uint32_t instruction_offset;
   uint16_t record_flags;
@@ -114,8 +107,7 @@ struct StkMapRecord
   uint32_t padding3;
 };
 
-struct Stackmap
-{
+struct Stackmap {
   Header header;
   uint32_t num_functions;
   uint32_t num_constants;
@@ -127,8 +119,6 @@ struct Stackmap
 
 } // namespace Stackmap
 
-Stackmap::Stackmap
-parse_stackmap (std::span<const uint8_t> data);
+Stackmap::Stackmap parse_stackmap(std::span<const uint8_t> data);
 
-std::string
-stackmap_to_string (const Stackmap::Stackmap &stackmap);
+std::string stackmap_to_string(const Stackmap::Stackmap &stackmap);

@@ -1,15 +1,14 @@
 #pragma once
-#include <deque>
-#include <vector>
 #include "chkpt/chkpt.h"
+#include "elf.h"
 #include "stack_transform.h"
 #include "stackmap.h"
-#include "elf.h"
+#include <deque>
+#include <vector>
 
 namespace wanco {
 
-class CheckpointV2
-{
+class CheckpointV2 {
 public:
   std::deque<Value> globals;
   std::vector<int8_t> memory;
