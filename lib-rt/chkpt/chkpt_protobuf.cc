@@ -164,16 +164,16 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
     Fatal() << "Failed to write checkpoint file" << std::endl;
     exit(1);
   }
-  // to json
-  /*
-  google::protobuf::util::JsonPrintOptions options;
-  options.add_whitespace = true;
-  options.always_print_primitive_fields = true;
-  std::string json;
-  google::protobuf::util::MessageToJsonString(buf, &json, options);
-  std::ofstream json_ofs("checkpoint.pb.json");
-  json_ofs << json;
-  */
+  // write out pb.json for debugging
+  if constexpr (DEBUG) {
+    google::protobuf::util::JsonPrintOptions options;
+    options.add_whitespace = true;
+    options.always_print_primitive_fields = true;
+    std::string json;
+    google::protobuf::util::MessageToJsonString(buf, &json, options);
+    std::ofstream json_ofs("checkpoint.pb.json");
+    json_ofs << json;
+  }
 }
 
 } // namespace wanco

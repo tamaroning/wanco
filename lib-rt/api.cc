@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sys/mman.h>
+#include <thread>
 #include <unistd.h>
 
 namespace wanco {
@@ -26,11 +27,9 @@ extern "C" void print_i32(ExecEnv *exec_env, int32_t i32) {
   std::cout << std::dec << i32 << std::endl;
 }
 
-/*
-extern "C" void sleep(ExecEnv *exec_env, int32_t ms) {
+extern "C" void sleep_msec(ExecEnv *exec_env, int32_t ms) {
   std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
-*/
 
 /*
 ** checkpoint related functions

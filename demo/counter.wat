@@ -2,7 +2,7 @@
   (type (;0;) (func (param i32)))
 
   (import "env" "print_i32" (func $print_i32 (type 0)))
-  (import "env" "sleep" (func $sleep (type 0)))
+  (import "env" "sleep_msec" (func $sleep (type 0)))
 
   ;; Define a single page memory of 4KB.
   (memory $0 1)

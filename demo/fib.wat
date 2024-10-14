@@ -36,7 +36,7 @@
       (loop $loop
         (call $print_i32 (call $fib_rec (local.get $i)))
         (local.set $i (i32.add (local.get $i) (i32.const 1)))
-        (if (i32.gt_s (local.get $i) (i32.const 42))
+        (if (i32.gt_s (local.get $i) (i32.const 50))
           (then (br $break))
         )
         (br $loop)
