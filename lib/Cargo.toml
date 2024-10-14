@@ -1,4 +1,0 @@
-[workspace]
-members = ["rust/wasi"]
-default-members = ["rust/wasi"]
-resolver = "2"
