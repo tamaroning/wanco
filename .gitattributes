@@ -1,2 +1,3 @@
-wanco/tests/* linguist-vendored
-benchmark/* linguist-vendored
+wanco/tests/**/*.wat linguist-vendored
+benchmark/**/*.c linguist-vendored
+benchmark/**/*.h linguist-vendored
