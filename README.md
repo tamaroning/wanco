@@ -1,6 +1,6 @@
 # wanco 🐶
 
-![plot](./animal_dance_dog.png)
+![plot](docs/assets/animal_dance_dog.png)
 
 wanco is a WebAssembly AOT compiler which supports cross-platform (CPU and OS) Checkpoint/Restore functionalities. wanco is forked from [Wasker](https://github.com/mewz-project/wasker).
 
