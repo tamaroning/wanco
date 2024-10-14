@@ -15,6 +15,7 @@ build/
 
 !benchmark/**/*.wasm
 llama2*
+!llama2-c-x86-64
 binary-trees*
 nbody*
 
