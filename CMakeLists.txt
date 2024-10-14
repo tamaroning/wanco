@@ -22,5 +22,24 @@ corrosion_import_crate(MANIFEST_PATH Cargo.toml)
 # C++ projects
 add_subdirectory(lib-rt)
 
+if (APPLE)
+    # LIBRARY_PATHとINCLUDE_PATHが認識されないので、手動で追加する
+    
+    # lib-rtで必要
+    link_directories(
+        /usr/local/opt/protobuf/lib
+        )
+    # $(brew --prefix (protobuf,abseil))/libのほうが良い
+    target_include_directories(wanco_rt PRIVATE
+        /usr/local/opt/protobuf/include
+        # https://github.com/protocolbuffers/protobuf/issues/16755
+        /usr/local/opt/abseil/include
+        )
+    # wancoビルド時にccに-lzstdが渡されるが、not foundと言われるので、ライブラリパスを追加する
+    corrosion_add_target_local_rustflags(wanco
+        "-Clink-args=-L/usr/local/opt/zstd/lib -lzstd"
+        )
+endif()
+
 install(TARGETS wanco_rt DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 install(FILES ${CMAKE_BINARY_DIR}/libwanco_wasi.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
