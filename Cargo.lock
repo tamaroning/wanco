@@ -1496,7 +1496,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "wanco-wasi"
+name = "wanco-workspace"
+version = "0.1.0"
+
+[[package]]
+name = "wanco_wasi"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1508,10 +1512,6 @@ dependencies = [
  "wiggle",
  "wit-bindgen",
 ]
-
-[[package]]
-name = "wanco-workspace"
-version = "0.1.0"
 
 [[package]]
 name = "wasi"

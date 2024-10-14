@@ -22,5 +22,5 @@ corrosion_import_crate(MANIFEST_PATH Cargo.toml)
 # C++ projects
 add_subdirectory(lib-rt)
 
-install(TARGETS wanco-rt DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-install(FILES libwanco-wasi.a" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(TARGETS wanco_rt DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(FILES ${CMAKE_BINARY_DIR}/libwanco_wasi.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)

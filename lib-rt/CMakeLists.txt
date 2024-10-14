@@ -4,9 +4,9 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 #find_package(Libunwind REQUIRED)
 #find_package(Libdwarf REQUIRED)
 
-add_library(wanco-rt)
-target_compile_options(wanco-rt PRIVATE -Wall -g)
-target_sources(wanco-rt PRIVATE
+add_library(wanco_rt)
+target_compile_options(wanco_rt PRIVATE -Wall -g)
+target_sources(wanco_rt PRIVATE
     api.cc
     wrt.cc
     chkpt/chkpt_json.cc
@@ -17,11 +17,11 @@ target_sources(wanco-rt PRIVATE
     #v2/elf.cc
     protobuf/chkpt.pb.cc
     )
-include_directories(wanco-rt PRIVATE
-    ${CMAKE_SOURCE_DIR}
+include_directories(wanco_rt PRIVATE
+    .
     #${LIBUNWIND_INCLUDE_DIRS}
     )
-target_link_libraries(wanco-rt PRIVATE
+target_link_libraries(wanco_rt PRIVATE
     lz4 
     # libunwind is dynamically linked
-    )
+)
