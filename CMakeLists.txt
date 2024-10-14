@@ -24,3 +24,4 @@ add_subdirectory(lib-rt)
 
 install(TARGETS wanco_rt DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 install(FILES ${CMAKE_BINARY_DIR}/libwanco_wasi.a DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(FILES ${CMAKE_BINARY_DIR}/wanco DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

@@ -163,7 +163,7 @@ pub fn compile(wasm: &[u8], args: &Args) -> Result<()> {
     if let Some(ref target) = args.target {
         cmd.arg(format!("--target={}", target));
     }
-    log::debug!("{:?}", cmd);
+    log::info!("{:?}", cmd);
 
     let o = cmd
         .output()

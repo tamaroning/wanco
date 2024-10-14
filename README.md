@@ -34,13 +34,13 @@ $ mkdir build
 $ cmake .. -DCMAKE_BUILD_TYPE=Release
 ```
 
-To install runtime libraries, run the following commands:
+To install the compilers and runtime libraries, run the following commands:
 
 ```sh
 $ sudo make install
 ```
 
-On Linux, the runtime libraries are installed in `/usr/local/lib/` by default.
+For debugging, run the compiler with `RUST_LOG="debug" wanco ...`.
 
 ## Run
 
@@ -48,8 +48,7 @@ After building the project, you will find the `wanco` binary in the top of `buil
 
 Before compiling wasm modules, make sure to add clang to the PATH environment variable or to specify the path to clang or clang++ by using the `--clang-path` option. (clang/clang++ version 17 or later is required.)
 
-If `--clang-path` is not set, `clang` is used by default.
-
+If `--clang-path` is not set, `clang-17` is used by default.
 
 To compile the hello-world example, run:
 
