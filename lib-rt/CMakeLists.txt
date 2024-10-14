@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.10)
+
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+#find_package(Libunwind REQUIRED)
+#find_package(Libdwarf REQUIRED)
+
+add_library(wanco-rt)
+target_compile_options(wanco-rt PRIVATE -Wall -g)
+target_sources(wanco-rt PRIVATE
+    api.cc
+    wrt.cc
+    chkpt/chkpt_json.cc
+    chkpt/chkpt_protobuf.cc
+    lz4/lz4.c
+    #v2/stack_transform.cc
+    #v2/stackmap.cc
+    #v2/elf.cc
+    protobuf/chkpt.pb.cc
+    )
+include_directories(wanco-rt PRIVATE
+    .
+    #${LIBUNWIND_INCLUDE_DIRS}
+    )
+target_link_libraries(wanco-rt PRIVATE lz4 
+    # libunwind is dynamically linked
+    # ${LIBUNWIND_LIBRARIES}
+    )

@@ -25,8 +25,8 @@ $ git clone git@github.com:tamaroning/wanco.git
 $ cd wanco
 ```
 
-To build and install the libraries (libwanco_rt.a and libwanco_wasi.a), run the following commands.
-Wanco libraries (libwanco_rt.a and libwanco_wasi.a) will be installed in /usr/local/lib/.
+To build and install the libraries (libwanco-rt.a and libwanco-wasi.a), run the following commands.
+Wanco libraries (libwanco-rt.a and libwanco-wasi.a) will be installed in /usr/local/lib/.
 
 ```sh
 $ mkdir build
@@ -99,7 +99,7 @@ $ wanco examples/hello.wat -c -o hello.ll
 After that, you can link it with the runtime library together by using clang
 
 ```
-$ clang -flto -no-pie hello.ll /usr/local/lib/libwanco_rt.a /usr/local/lib/libwanco_wasi.a -o hello
+$ clang -flto -no-pie hello.ll /usr/local/lib/libwanco-rt.a /usr/local/lib/libwanco-wasi.a -o hello
 ```
 
 ## Test
