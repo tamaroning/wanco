@@ -147,6 +147,9 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
 
   buf.set_memory_size(chkpt.memory_size);
 
+  uint64_t time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
   Info() << "Compressing memory" << std::endl;
   int guarantee = LZ4_compressBound(chkpt.memory.size());
   std::vector<char> compressed;
@@ -157,6 +160,11 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
 
   Info() << "Compression ratio: " << (double)sz / chkpt.memory.size()
          << std::endl;
+  uint64_t end_time_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
+  Info() << "Compression time: " << end_time_ms - time_ms << " ms" << std::endl;
 
   buf.set_memory_lz4(std::string(compressed.begin(), compressed.end()));
 
@@ -173,6 +181,7 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
     google::protobuf::util::MessageToJsonString(buf, &json, options);
     std::ofstream json_ofs("checkpoint.pb.json");
     json_ofs << json;
+    Info() << "Wrote JSON vesion to checkpoint.pb.json" << std::endl;
   }
 }
 
