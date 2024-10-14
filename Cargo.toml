@@ -4,9 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["compiler", "lib-wasi"]
+members = ["wanco", "lib-wasi"]
 default-members = ["wanco"]
 
 [[bin]]
 name = "wanco"
 path = "src/main.rs"
+
+#[[lib]]
+#name = "lib-wasi"
+#path = "src/lib.rs"

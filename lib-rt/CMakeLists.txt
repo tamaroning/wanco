@@ -18,10 +18,10 @@ target_sources(wanco-rt PRIVATE
     protobuf/chkpt.pb.cc
     )
 include_directories(wanco-rt PRIVATE
-    .
+    ${CMAKE_SOURCE_DIR}
     #${LIBUNWIND_INCLUDE_DIRS}
     )
-target_link_libraries(wanco-rt PRIVATE lz4 
+target_link_libraries(wanco-rt PRIVATE
+    lz4 
     # libunwind is dynamically linked
-    # ${LIBUNWIND_LIBRARIES}
     )

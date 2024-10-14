@@ -17,12 +17,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Corrosion)
 
 # Rust projects
-#corrosion_import_crate(MANIFEST_PATH ${CMAKE_CURRENT_SOURCE_DIR}/compiler/Cargo.toml)
-corrosion_import_crate(MANIFEST_PATH compiler/Cargo.toml)
+corrosion_import_crate(MANIFEST_PATH Cargo.toml)
 
 # C++ projects
 add_subdirectory(lib-rt)
 
-
-#install(TARGETS wanco-rt DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-#install(FILES "${COMMON_RUST_RELEASE}/libwanco-wasi.a" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(TARGETS wanco-rt DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+install(FILES libwanco-wasi.a" DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
