@@ -23,6 +23,7 @@ nbody*
 *.cc
 *.json
 *.c
+!benchmark/sqlite_example/main.c
 
 checkpoint.json
 checkpoint.pb
