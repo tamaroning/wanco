@@ -116,7 +116,7 @@ pub(crate) fn gen_restore_point_before_call<'a>(
 pub(crate) fn gen_restore_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
     current_bb: &BasicBlock<'a>,
 ) -> Result<BasicBlock<'a>> {
     let current_fn = ctx.current_fn.unwrap();
@@ -157,7 +157,7 @@ pub(crate) fn gen_restore_point<'a>(
 fn gen_restore_wasm_stack<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
     before_restore_bb: &BasicBlock<'a>,
     restore_start_bb: &BasicBlock<'a>,
     restore_end_bb: &BasicBlock<'a>,

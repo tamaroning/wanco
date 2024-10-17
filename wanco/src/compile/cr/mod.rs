@@ -90,7 +90,7 @@ pub(self) fn gen_set_migration_state<'a>(
 pub(crate) fn gen_migration_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    locals: &mut [(PointerValue<'a>, BasicTypeEnum<'a>)],
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     let cmp = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_NONE)
         .expect("fail to gen_compare_migration_state");

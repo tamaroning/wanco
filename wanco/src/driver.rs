@@ -73,6 +73,10 @@ pub struct Args {
     #[arg(long)]
     pub disable_loop_cr: bool,
 
+    /// Insert migration points per WASM instruction. (v1)
+    #[arg(long, default_value = "256")]
+    pub migration_point_per_inst: u32,
+
     /// TODO: Enable the checkpoint feature. (v2)
     #[arg(long)]
     pub checkpoint_v2: bool,

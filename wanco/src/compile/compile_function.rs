@@ -13,7 +13,10 @@ use crate::{
             gen_else, gen_end, gen_if, gen_loop, gen_return, gen_select, gen_unreachable,
             ControlFrame, UnreachableReason,
         },
-        cr::restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
+        cr::{
+            gen_migration_point,
+            restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
+        },
         cr_v2::{gen_migration_point_v2, gen_stackmap},
         helper::{self, gen_float_compare, gen_int_compare, gen_llvm_intrinsic},
     },
@@ -22,6 +25,79 @@ use crate::{
 use anyhow::{anyhow, bail, Context as _, Result};
 
 use super::helper::{gen_memory_base, gen_memory_size};
+
+mod op_counter {
+    use wasmparser::Operator;
+
+    pub(super) struct OpCounter {
+        // if this reaches the threshold (args.migration_point_per_inst),
+        // migration point is inserted
+        inst_count: u32,
+        // track end instructions
+        scopes: Vec<EndKind>,
+    }
+
+    enum EndKind {
+        Block,
+        Loop,
+        If,
+    }
+
+    impl OpCounter {
+        pub(super) fn new() -> Self {
+            Self {
+                inst_count: 0,
+                scopes: Vec::new(),
+            }
+        }
+
+        pub(super) fn reset_inst_count(&mut self) {
+            self.inst_count = 0;
+        }
+
+        pub(super) fn get_inst_count(&self) -> u32 {
+            self.inst_count
+        }
+
+        pub(super) fn eat_inst(&mut self, op: &Operator) {
+            match op {
+                Operator::Block { .. } => {
+                    self.scopes.push(EndKind::Block);
+                }
+                Operator::Loop { .. } => {
+                    // Since migration points are inserted to every loop,
+                    // reset the instruction count
+                    self.inst_count = 0;
+                    self.scopes.push(EndKind::Loop);
+                }
+                Operator::If { .. } => {
+                    self.scopes.push(EndKind::If);
+                }
+                Operator::End => {
+                    if matches!(self.scopes.pop(), Some(EndKind::Loop)) {
+                        self.inst_count = 0;
+                    }
+                }
+                Operator::Call { .. } | Operator::CallIndirect { .. } => {
+                    self.inst_count = 0;
+                }
+                // Ignore other control flow instructions
+                Operator::Else { .. }
+                | Operator::Br { .. }
+                | Operator::BrIf { .. }
+                | Operator::BrTable { .. }
+                | Operator::Return
+                | Operator::Unreachable
+                | Operator::Nop => {
+                    self.inst_count += 0;
+                }
+                _ => {
+                    self.inst_count += 1;
+                }
+            }
+        }
+    }
+}
 
 pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Result<()> {
     log::debug!(
@@ -120,6 +196,8 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
     }
 
+    let mut op_counter = op_counter::OpCounter::new();
+
     // compile instructions
     let mut op_reader = f.get_operators_reader()?.get_binary_reader();
     let mut num_op = 0;
@@ -129,6 +207,21 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
         ctx.current_op = Some(num_op);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
+
+        // Insert migration point if the current block big enough
+        op_counter.eat_inst(&op);
+        if ctx.config.enable_cr
+            && op_counter.get_inst_count() >= ctx.config.migration_point_per_inst
+        {
+            log::info!(
+                "Insert migration point at {} in Fn[{}]",
+                num_op,
+                ctx.current_function_idx.unwrap()
+            );
+            gen_migration_point(ctx, &exec_env_ptr, &locals).expect("fail to gen_migration_point");
+            op_counter.reset_inst_count();
+        }
+
         // Keep stackmap for migration point v2
         if (ctx.config.checkpoint_v2 || ctx.config.restore_v2)
             && matches!(op, Operator::Call { .. } | Operator::CallIndirect { .. })
