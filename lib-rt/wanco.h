@@ -13,6 +13,24 @@
 namespace wanco {
 constexpr bool USE_PROTOBUF = true;
 constexpr bool DEBUG = true;
+
+#ifndef __linux__
+#define MREMAP_MAYMOVE -1
+#endif
+
+// mremap is only available on Linux
+inline void *wanco_mremap(void* old_address, size_t old_size,
+                    size_t new_size, int flags) {
+
+#ifdef __linux__
+  return mremap(old_address, old_size, new_size, flags);
+#else
+  // TODO: implement mremap for other platforms
+  std::cout << "mremap is not available on this platform" << std::endl;
+  return NULL;
+#endif
+                    }
+
 } // namespace wanco
 
 class Debug {
