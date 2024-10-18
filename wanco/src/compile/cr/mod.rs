@@ -87,33 +87,35 @@ pub(self) fn gen_set_migration_state<'a>(
 
 // almost equiavalent call both to gen_checkpoint and gen_restore, but emit more efficient code
 // by wrapping them in a single conditional branch
+// TODO: 最後のブロックと、ローカル変数、スタックを返す
 pub(crate) fn gen_migration_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    let current_bb = ctx.builder.get_insert_block().unwrap();
     let cmp = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_NONE)
         .expect("fail to gen_compare_migration_state");
 
-    let then_block = ctx.ictx.append_basic_block(ctx.current_fn.unwrap(), "");
-    let else_block = ctx.ictx.append_basic_block(ctx.current_fn.unwrap(), "");
+    let no_block = ctx
+        .ictx
+        .append_basic_block(ctx.current_fn.unwrap(), "migration.no");
+    let yes_block = ctx
+        .ictx
+        .append_basic_block(ctx.current_fn.unwrap(), "migration.yes");
     ctx.builder
         .build_conditional_branch(
             cmp.as_basic_value_enum().into_int_value(),
-            then_block,
-            else_block,
+            no_block,
+            yes_block,
         )
         .expect("fail to build_conditional_branch");
 
     // emit acutal migration point
-    ctx.builder.position_at_end(else_block);
+    ctx.builder.position_at_end(yes_block);
     gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
-    let current_bb = ctx.builder.get_insert_block().unwrap();
-    gen_restore_point(ctx, exec_env_ptr, locals, &current_bb).expect("fail to gen_restore_point");
-    ctx.builder
-        .build_unconditional_branch(else_block)
-        .expect("fail to build_unconditional_branch");
+    gen_restore_point(ctx, exec_env_ptr, locals, &no_block, &current_bb);
 
-    ctx.builder.position_at_end(then_block);
+    ctx.builder.position_at_end(no_block);
     Ok(())
 }
