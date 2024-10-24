@@ -249,7 +249,7 @@ impl<'a> Context<'a, '_> {
         (v1, v2)
     }
 
-    /// Peek n values from the stack
+    /// Peek n values from the stack bottom
     pub fn peekn(&self, n: usize) -> Result<&[BasicValueEnum<'a>]> {
         let frame = self.stack_frames.last().expect("frame empty");
         if frame.stack.len() < n {
@@ -261,6 +261,14 @@ impl<'a> Context<'a, '_> {
         }
         let index = frame.stack.len() - n;
         Ok(&frame.stack[index..])
+    }
+
+    /// Peek nth value from the stack top (top is 0th value)
+    pub fn peek_from_top(&self, n: usize) -> Result<&BasicValueEnum<'a>> {
+        let frame = self.stack_frames.last().expect("frame empty");
+        let mut it = frame.stack.iter().rev().skip(n);
+        it.next()
+            .ok_or_else(|| anyhow::anyhow!("stack length too short"))
     }
 
     /// Get size of the current stack frame

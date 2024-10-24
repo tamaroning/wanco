@@ -573,8 +573,8 @@ pub fn gen_call<'a>(
     }
 
     let mut args: Vec<BasicValueEnum> = Vec::new();
-    for _ in fn_called.get_params().iter().skip(1) {
-        args.push(ctx.pop().expect("stack empty"));
+    for i in 0..(fn_called.get_params().len() - 1) {
+        args.push(*ctx.peek_from_top(i).expect("stack is too short"));
     }
     args.reverse();
     args.insert(0, exec_env_ptr.as_basic_value_enum());
@@ -600,6 +600,11 @@ pub fn gen_call<'a>(
     {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
+    }
+
+    // pop stack
+    for _ in 0..fn_called.get_params().len() - 1 {
+        ctx.pop().expect("stack empty");
     }
 
     if call_site.try_as_basic_value().is_left() {
@@ -640,7 +645,8 @@ pub fn gen_call_indirect<'a>(
     }
 
     // Load function index
-    let idx = ctx.pop().expect("stack empty").into_int_value();
+    // TODO: Do not pop here
+    let idx = ctx.peek_from_top(0).expect("stack empty").into_int_value();
     let fnidx_ptr = unsafe {
         ctx.builder.build_gep(
             ctx.inkwell_types.i32_type,
@@ -675,8 +681,9 @@ pub fn gen_call_indirect<'a>(
 
     // Generate restore point and get arguments for callee
     let mut args: Vec<BasicValueEnum> = Vec::new();
-    for _ in 1..callee_type.get_param_types().len() {
-        args.push(ctx.pop().expect("stack empty"));
+    for i in 0..(callee_type.get_param_types().len() - 1) {
+        // skip function index (stack top)
+        args.push(*ctx.peek_from_top(i + 1).expect("stack is too short"));
     }
     args.reverse();
     args.insert(0, exec_env_ptr.as_basic_value_enum());
@@ -710,6 +717,14 @@ pub fn gen_call_indirect<'a>(
     {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
+    }
+
+    // pop stack
+    // function index
+    ctx.pop().unwrap();
+    // args
+    for _ in 0..callee_type.get_param_types().len() - 1 {
+        ctx.pop().unwrap();
     }
 
     Ok(())

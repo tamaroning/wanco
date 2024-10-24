@@ -205,6 +205,10 @@ int wanco_main(int argc, char **argv) {
       chkpt = decode_checkpoint_json(ifs);
     }
     chkpt.prepare_restore();
+    Debug() << "Checkpoint has been loaded" << std::endl;
+    Debug() << "call stack: " << chkpt.frames.size() << " frames" << std::endl;
+    Debug() << "value stack: " << chkpt.restore_stack.size() << " values"
+            << std::endl;
 
     int32_t memory_size = chkpt.memory_size;
     // Allocate memory and copy contents from checkpoint

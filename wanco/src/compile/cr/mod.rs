@@ -103,13 +103,15 @@ pub(crate) fn gen_migration_point<'a>(
 ) -> Result<()> {
     let current_bb = ctx.builder.get_insert_block().unwrap();
 
-    let chkpt_bb = ctx
-        .ictx
-        .append_basic_block(ctx.current_fn.unwrap(), "migration.chkpt");
+    let chkpt_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("migration_op_{}.chkpt", ctx.current_op.unwrap()),
+    );
 
-    let migration_end_bb = ctx
-        .ictx
-        .append_basic_block(ctx.current_fn.unwrap(), "migration.end");
+    let migration_end_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("migration_op_{}.end", ctx.current_op.unwrap()),
+    );
 
     ctx.builder.position_at_end(current_bb);
     let current_migration_state =
