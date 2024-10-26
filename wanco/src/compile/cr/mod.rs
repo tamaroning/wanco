@@ -101,25 +101,21 @@ pub(crate) fn gen_migration_point<'a>(
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
-    let current_bb = ctx.builder.get_insert_block().unwrap();
-
     let chkpt_bb = ctx.ictx.append_basic_block(
         ctx.current_fn.unwrap(),
-        &format!("migration_op_{}.chkpt", ctx.current_op.unwrap()),
+        &format!("chkpt_op_{}.start", ctx.current_op.unwrap()),
     );
-
-    let migration_end_bb = ctx.ictx.append_basic_block(
+    let chkpt_else_bb = ctx.ictx.append_basic_block(
         ctx.current_fn.unwrap(),
-        &format!("migration_op_{}.end", ctx.current_op.unwrap()),
+        &format!("chkpt_op_{}.else", ctx.current_op.unwrap()),
     );
 
-    ctx.builder.position_at_end(current_bb);
     let current_migration_state =
         gen_migration_state(ctx, exec_env_ptr).expect("fail to gen_migration_state");
     ctx.builder
         .build_switch(
             current_migration_state.into_int_value(),
-            migration_end_bb,
+            chkpt_else_bb,
             &[(
                 ctx.inkwell_types
                     .i32_type
@@ -134,8 +130,46 @@ pub(crate) fn gen_migration_point<'a>(
     gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
 
     // restore (create new bb)
-    gen_restore_point(ctx, exec_env_ptr, locals, &migration_end_bb, &current_bb);
+    let phi_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("restore_op_{}.end", ctx.current_op.unwrap()),
+    );
+    ctx.builder.position_at_end(chkpt_else_bb);
+    ctx.builder.build_unconditional_branch(phi_bb).unwrap();
+    gen_restore_point(
+        ctx,
+        exec_env_ptr,
+        locals,
+        0,
+        &phi_bb,
+        &ctx.builder.get_insert_block().unwrap(),
+    );
 
-    ctx.builder.position_at_end(migration_end_bb);
+    ctx.builder.position_at_end(phi_bb);
+    Ok(())
+}
+
+pub(crate) fn gen_restore_non_leaf<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    skip_stack_top: usize,
+) -> Result<()> {
+    let original_bb = ctx.builder.get_insert_block().unwrap();
+    let phi_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("non_leaf_op_{}_restore.end", ctx.current_op.unwrap()),
+    );
+    ctx.builder.build_unconditional_branch(phi_bb).unwrap();
+
+    gen_restore_point(
+        ctx,
+        exec_env_ptr,
+        locals,
+        skip_stack_top,
+        &phi_bb,
+        &original_bb,
+    );
+    ctx.builder.position_at_end(phi_bb);
     Ok(())
 }

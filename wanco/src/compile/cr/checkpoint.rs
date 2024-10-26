@@ -170,8 +170,14 @@ pub fn gen_checkpoint_unwind<'a>(
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     let current_fn = ctx.current_fn.expect("should define current_fn");
-    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
-    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
+    let then_bb = ctx.ictx.append_basic_block(
+        current_fn,
+        &format!("non_leaf_op_{}_unwind.then", ctx.current_op.unwrap()),
+    );
+    let else_bb = ctx.ictx.append_basic_block(
+        current_fn,
+        &format!("non_leaf_op_{}_unwind.else", ctx.current_op.unwrap()),
+    );
     let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
         .expect("fail to gen_compare_migration_state");
     ctx.builder

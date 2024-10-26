@@ -196,7 +196,15 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
     }
 
-    let mut op_counter = op_counter::OpCounter::new();
+    // Generate checkpoint (v1)
+    if ctx.config.enable_cr {
+        ctx.current_op = Some(0);
+        gen_migration_point(ctx, &exec_env_ptr, &locals)
+            .expect("fail to gen_check_state_and_snapshot");
+        ctx.num_migration_points += 1;
+    }
+
+    //let mut op_counter = op_counter::OpCounter::new();
 
     // compile instructions
     let mut op_reader = f.get_operators_reader()?.get_binary_reader();
@@ -206,6 +214,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         log::trace!("- op[{}]: {:?}", num_op, &op);
 
         // Insert migration point if the current block big enough
+        /*
         op_counter.eat_inst(&op);
         if ctx.config.enable_cr
             && op_counter.get_inst_count() >= ctx.config.migration_point_per_inst
@@ -217,9 +226,11 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 num_op,
                 ctx.current_function_idx.unwrap()
             );
-            gen_migration_point(ctx, &exec_env_ptr, &locals).expect("fail to gen_migration_point");
+            gen_migration_point(ctx, &exec_env_ptr, &locals, 0)
+                .expect("fail to gen_migration_point");
             op_counter.reset_inst_count();
         }
+        */
 
         ctx.current_op = Some(num_op);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;

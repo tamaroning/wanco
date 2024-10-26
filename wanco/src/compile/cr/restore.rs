@@ -70,16 +70,15 @@ pub(crate) fn gen_restore_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    skip_stack_top: usize,
     phi_bb: &BasicBlock<'a>,
     original_bb: &BasicBlock<'a>,
 ) {
     let current_fn = ctx.current_fn.unwrap();
     let op_index = ctx.current_op.unwrap();
-    // restore_start_bb: フレームの復元APIを呼び出すブロック
-    //
     let restore_start_bb = ctx
         .ictx
-        .append_basic_block(current_fn, &format!("restore_op_{}", op_index));
+        .append_basic_block(current_fn, &format!("restore_op_{}.start", op_index));
 
     ctx.restore_dispatch_cases.push((
         ctx.inkwell_types.i32_type.const_int(op_index as u64, false),
@@ -91,6 +90,7 @@ pub(crate) fn gen_restore_point<'a>(
         ctx,
         exec_env_ptr,
         locals,
+        skip_stack_top,
         &restore_start_bb,
         &phi_bb,
         &original_bb,
@@ -104,6 +104,7 @@ fn gen_restore_wasm_stack<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    skip_stack_top: usize,
     restore_start_bb: &BasicBlock<'a>,
     phi_bb: &BasicBlock<'a>,
     original_bb: &BasicBlock<'a>,
@@ -131,10 +132,19 @@ fn gen_restore_wasm_stack<'a>(
 
     let mut restored_stack = Vec::new();
     for i in 0..stack.len() {
-        let value = stack[i];
-        let cs = gen_restore_stack_value(ctx, exec_env_ptr, value.get_type())
-            .expect("should build push_T");
-        restored_stack.push(cs);
+        let value_type = stack[i].get_type();
+        if stack.len() - i <= skip_stack_top {
+            // argumentなどのスキップするスタックトップの値は0で埋める
+            // (unwind時には、pushされないので)
+            restored_stack.push(value_type.const_zero());
+        } else {
+            let cs = gen_restore_stack_value(ctx, exec_env_ptr, value_type)
+                .expect("should build push_T")
+                .try_as_basic_value()
+                .left()
+                .unwrap();
+            restored_stack.push(cs);
+        }
     }
 
     // call pop_front_frame
@@ -153,7 +163,7 @@ fn gen_restore_wasm_stack<'a>(
     // Add phi nodes for restored stack values
     ctx.builder.position_at_end(*phi_bb);
     for i in 0..restored_stack.len() {
-        let restored_value = &restored_stack[i].try_as_basic_value().left().unwrap();
+        let restored_value = &restored_stack[i];
         let stack_value = stack[i];
 
         let ty = stack_value.get_type();
