@@ -151,26 +151,16 @@ pub(crate) fn gen_store_table<'a>(
     Ok(())
 }
 
-pub(crate) fn gen_checkpoint<'a>(
+pub(crate) fn gen_checkpoint_start<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
-    let current_fn = ctx.current_fn.expect("should define current_fn");
-    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
-    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
-    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_START)
-        .expect("fail to gen_compare_migration_state");
-    ctx.builder
-        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
-        .expect("should build conditional branch");
-    ctx.builder.position_at_end(then_bb);
     gen_set_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
         .expect("fail to gen_set_migration_state");
     gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
     gen_store_stack(ctx, exec_env_ptr).expect("fail to gen_store_stack");
     gen_return_default_value(ctx).expect("fail to gen_return_default_value");
-    ctx.builder.position_at_end(else_bb);
     Ok(())
 }
 
@@ -180,8 +170,14 @@ pub fn gen_checkpoint_unwind<'a>(
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     let current_fn = ctx.current_fn.expect("should define current_fn");
-    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
-    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
+    let then_bb = ctx.ictx.append_basic_block(
+        current_fn,
+        &format!("non_leaf_op_{}_unwind.then", ctx.current_op.unwrap()),
+    );
+    let else_bb = ctx.ictx.append_basic_block(
+        current_fn,
+        &format!("non_leaf_op_{}_unwind.else", ctx.current_op.unwrap()),
+    );
     let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
         .expect("fail to gen_compare_migration_state");
     ctx.builder

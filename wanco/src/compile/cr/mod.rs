@@ -1,5 +1,5 @@
 use anyhow::Result;
-use checkpoint::gen_checkpoint;
+use checkpoint::gen_checkpoint_start;
 use inkwell::{
     types::BasicTypeEnum,
     values::{BasicValue, BasicValueEnum, PointerValue},
@@ -17,10 +17,9 @@ pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
 pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;
 
-pub(super) fn gen_compare_migration_state<'a>(
+fn gen_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
-    migration_state: i32,
 ) -> Result<BasicValueEnum<'a>> {
     let migration_state_ptr = ctx
         .builder
@@ -31,17 +30,26 @@ pub(super) fn gen_compare_migration_state<'a>(
             "migration_state_ptr",
         )
         .expect("fail to build_struct_gep");
-    let current_migration_state = ctx
+    let migration_state = ctx
         .builder
         .build_load(
             ctx.inkwell_types.i32_type,
             migration_state_ptr,
-            "current_migration_state",
+            "migration_state",
         )
         .expect("fail to build load");
-    // Since the load instruction is moved to outside of the loop, we need to set it as volatile
-    let load_inst = current_migration_state.as_instruction_value().unwrap();
-    load_inst.set_volatile(true).expect("fail to set_volatile");
+    let load = migration_state.as_instruction_value().unwrap();
+    load.set_volatile(true).expect("fail to set_volatile");
+    Ok(migration_state)
+}
+
+pub(super) fn gen_compare_migration_state<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    migration_state: i32,
+) -> Result<BasicValueEnum<'a>> {
+    let current_migration_state =
+        gen_migration_state(ctx, exec_env_ptr).expect("fail to gen_migration_state");
 
     let migration_state = ctx
         .inkwell_types
@@ -87,33 +95,81 @@ pub(self) fn gen_set_migration_state<'a>(
 
 // almost equiavalent call both to gen_checkpoint and gen_restore, but emit more efficient code
 // by wrapping them in a single conditional branch
+// TODO: 最後のブロックと、ローカル変数、スタックを返す
 pub(crate) fn gen_migration_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
-    let cmp = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_NONE)
-        .expect("fail to gen_compare_migration_state");
+    let chkpt_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("chkpt_op_{}.start", ctx.current_op.unwrap()),
+    );
+    let chkpt_else_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("chkpt_op_{}.else", ctx.current_op.unwrap()),
+    );
 
-    let then_block = ctx.ictx.append_basic_block(ctx.current_fn.unwrap(), "");
-    let else_block = ctx.ictx.append_basic_block(ctx.current_fn.unwrap(), "");
+    let current_migration_state =
+        gen_migration_state(ctx, exec_env_ptr).expect("fail to gen_migration_state");
     ctx.builder
-        .build_conditional_branch(
-            cmp.as_basic_value_enum().into_int_value(),
-            then_block,
-            else_block,
+        .build_switch(
+            current_migration_state.into_int_value(),
+            chkpt_else_bb,
+            &[(
+                ctx.inkwell_types
+                    .i32_type
+                    .const_int(MIGRATION_STATE_CHECKPOINT_START as u64, false),
+                chkpt_bb,
+            )],
         )
-        .expect("fail to build_conditional_branch");
+        .expect("fail to build_switch");
 
-    // emit acutal migration point
-    ctx.builder.position_at_end(else_block);
-    gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
-    let current_bb = ctx.builder.get_insert_block().unwrap();
-    gen_restore_point(ctx, exec_env_ptr, locals, &current_bb).expect("fail to gen_restore_point");
-    ctx.builder
-        .build_unconditional_branch(else_block)
-        .expect("fail to build_unconditional_branch");
+    // checkpoint
+    ctx.builder.position_at_end(chkpt_bb);
+    gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
 
-    ctx.builder.position_at_end(then_block);
+    // restore (create new bb)
+    let phi_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("restore_op_{}.end", ctx.current_op.unwrap()),
+    );
+    ctx.builder.position_at_end(chkpt_else_bb);
+    ctx.builder.build_unconditional_branch(phi_bb).unwrap();
+    gen_restore_point(
+        ctx,
+        exec_env_ptr,
+        locals,
+        0,
+        &phi_bb,
+        &ctx.builder.get_insert_block().unwrap(),
+    );
+
+    ctx.builder.position_at_end(phi_bb);
+    Ok(())
+}
+
+pub(crate) fn gen_restore_non_leaf<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+    skip_stack_top: usize,
+) -> Result<()> {
+    let original_bb = ctx.builder.get_insert_block().unwrap();
+    let phi_bb = ctx.ictx.append_basic_block(
+        ctx.current_fn.unwrap(),
+        &format!("non_leaf_op_{}_restore.end", ctx.current_op.unwrap()),
+    );
+    ctx.builder.build_unconditional_branch(phi_bb).unwrap();
+
+    gen_restore_point(
+        ctx,
+        exec_env_ptr,
+        locals,
+        skip_stack_top,
+        &phi_bb,
+        &original_bb,
+    );
+    ctx.builder.position_at_end(phi_bb);
     Ok(())
 }

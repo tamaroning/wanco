@@ -9,11 +9,7 @@ use wasmparser::{BlockType, BrTable};
 
 use super::{
     compile_type::wasmty_to_llvmty,
-    cr::{
-        checkpoint::{gen_checkpoint, gen_checkpoint_unwind},
-        gen_migration_point,
-        restore::gen_restore_point_before_call,
-    },
+    cr::{checkpoint::gen_checkpoint_unwind, gen_migration_point, gen_restore_non_leaf},
 };
 
 /// Holds the state of if-else.
@@ -123,11 +119,11 @@ pub fn gen_loop<'a>(
     // Create blocks
     let body_block = ctx.ictx.append_basic_block(
         ctx.function_values[ctx.current_function_idx.unwrap() as usize],
-        "loop_body",
+        "loop.body",
     );
     let next_block = ctx.ictx.append_basic_block(
         ctx.function_values[ctx.current_function_idx.unwrap() as usize],
-        "loop_next",
+        "loop.next",
     );
 
     // Phi
@@ -140,7 +136,7 @@ pub fn gen_loop<'a>(
             ctx.builder.position_at_end(next_block);
             let phi = ctx
                 .builder
-                .build_phi(wasmty_to_llvmty(ctx, valty).unwrap(), "end_phi")
+                .build_phi(wasmty_to_llvmty(ctx, valty).unwrap(), "loop.end_phi")
                 .expect("should build phi");
             phis.push(phi);
         }
@@ -182,15 +178,15 @@ pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     // Create blocks
     let then_block = ctx.ictx.append_basic_block(
         ctx.function_values[ctx.current_function_idx.unwrap() as usize],
-        "then",
+        "if.then",
     );
     let else_block = ctx.ictx.append_basic_block(
         ctx.function_values[ctx.current_function_idx.unwrap() as usize],
-        "else",
+        "if.else",
     );
     let end_block = ctx.ictx.append_basic_block(
         ctx.function_values[ctx.current_function_idx.unwrap() as usize],
-        "end",
+        "if.end",
     );
 
     // Phi
@@ -202,7 +198,7 @@ pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
             ctx.builder.position_at_end(end_block);
             let phi = ctx
                 .builder
-                .build_phi(wasmty_to_llvmty(ctx, valty).unwrap(), "end_phi")
+                .build_phi(wasmty_to_llvmty(ctx, valty).unwrap(), "if.end_phi")
                 .expect("should build phi");
             end_phis.push(phi);
         }
@@ -559,43 +555,15 @@ pub fn gen_call<'a>(
 ) -> Result<()> {
     let fn_called = ctx.function_values[callee_function_index as usize];
 
-    // Generate checkpoint.
-    let should_gen_checkpoint_v1 = ctx.config.enable_cr
-        && (!ctx.config.optimize_cr
-            || ctx
-                .analysis_v1
-                .as_ref()
-                .unwrap()
-                .call_requires_migration_point(
-                    ctx.current_function_idx.unwrap(),
-                    callee_function_index,
-                ));
-    if should_gen_checkpoint_v1 {
-        gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
-        ctx.num_migration_points += 1;
+    if ctx.config.enable_cr {
+        gen_restore_non_leaf(ctx, exec_env_ptr, locals, fn_called.get_params().len() - 1).unwrap();
     }
 
-    // Generate restore point and get arguments for callee.
-    // Note that we need to generate restore point before any call instruction.
-    let before_restore_bb = ctx.builder.get_insert_block().unwrap();
-    let mut args = if should_gen_checkpoint_v1 {
-        gen_restore_point_before_call(
-            ctx,
-            exec_env_ptr,
-            locals,
-            before_restore_bb,
-            fn_called.get_type(),
-        )
-        .expect("fail to gen_restore_point_before_call")
-    } else {
-        let mut args: Vec<BasicValueEnum> = Vec::new();
-        for _ in fn_called.get_params().iter().skip(1) {
-            args.push(ctx.pop().expect("stack empty"));
-        }
-        args
-    };
+    let mut args: Vec<BasicValueEnum> = Vec::new();
+    for _ in 0..(fn_called.get_params().len() - 1) {
+        args.push(ctx.pop().expect("stack empty"));
+    }
     args.reverse();
-
     args.insert(0, exec_env_ptr.as_basic_value_enum());
 
     // call
@@ -643,6 +611,16 @@ pub fn gen_call_indirect<'a>(
     assert_eq!(table_index, 0);
     let callee_type = ctx.signatures[type_index as usize];
 
+    if ctx.config.enable_cr {
+        gen_restore_non_leaf(
+            ctx,
+            exec_env_ptr,
+            locals,
+            callee_type.get_param_types().len(),
+        )
+        .unwrap();
+    }
+
     // Load function index
     let idx = ctx.pop().expect("stack empty").into_int_value();
     let fnidx_ptr = unsafe {
@@ -677,33 +655,12 @@ pub fn gen_call_indirect<'a>(
         .build_load(ctx.inkwell_types.i8_ptr_type, fptr_ptr, "fptr")
         .expect("should build load");
 
-    // Generate checkpoint
-    let should_gen_checkpoint_v1 = ctx.config.enable_cr
-        && (!ctx.config.optimize_cr
-            || ctx
-                .analysis_v1
-                .as_ref()
-                .unwrap()
-                .call_indirect_requires_migration_point(
-                    ctx.current_function_idx.unwrap(),
-                    type_index,
-                ));
-    if should_gen_checkpoint_v1 {
-        gen_checkpoint(ctx, exec_env_ptr, locals).expect("fail to gen_check_state_and_snapshot");
-    }
-
     // Generate restore point and get arguments for callee
-    let before_restore_bb = ctx.builder.get_insert_block().unwrap();
-    let mut args = if should_gen_checkpoint_v1 {
-        gen_restore_point_before_call(ctx, exec_env_ptr, locals, before_restore_bb, callee_type)
-            .expect("fail to gen_restore_point_before_call")
-    } else {
-        let mut args: Vec<BasicValueEnum> = Vec::new();
-        for _ in 1..callee_type.get_param_types().len() {
-            args.push(ctx.pop().expect("stack empty"));
-        }
-        args
-    };
+    let mut args: Vec<BasicValueEnum> = Vec::new();
+    for _ in 0..(callee_type.get_param_types().len() - 1) {
+        // skip function index (stack top)
+        args.push(ctx.pop().expect("stack empty"));
+    }
     args.reverse();
     args.insert(0, exec_env_ptr.as_basic_value_enum());
 
