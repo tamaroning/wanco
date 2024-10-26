@@ -556,7 +556,6 @@ pub fn gen_call<'a>(
     let fn_called = ctx.function_values[callee_function_index as usize];
 
     if ctx.config.enable_cr {
-        // TODO: skip args?
         gen_restore_non_leaf(ctx, exec_env_ptr, locals, fn_called.get_params().len() - 1).unwrap();
     }
 
@@ -613,7 +612,6 @@ pub fn gen_call_indirect<'a>(
     let callee_type = ctx.signatures[type_index as usize];
 
     if ctx.config.enable_cr {
-        // TODO: skip args?
         gen_restore_non_leaf(
             ctx,
             exec_env_ptr,
@@ -624,8 +622,7 @@ pub fn gen_call_indirect<'a>(
     }
 
     // Load function index
-    // TODO: Do not pop here
-    let idx = ctx.peek_from_top(0).expect("stack empty").into_int_value();
+    let idx = ctx.pop().expect("stack empty").into_int_value();
     let fnidx_ptr = unsafe {
         ctx.builder.build_gep(
             ctx.inkwell_types.i32_type,
