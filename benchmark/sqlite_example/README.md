@@ -1,3 +1,5 @@
+Modified by tamaron to insert 10000 random rows to the table.
+
 # SQLite example from vmware-labs/webassembly-language-runtimes
 
 https://github.com/vmware-labs/webassembly-language-runtimes/tree/6e7674cf52edb8299bf34d4f7cb0a385c6ff728d/libs/examples/sqlite_example
