@@ -11,7 +11,7 @@ LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
 SQLITE_DIR=${SCRIPT_DIR}/../sqlite_example
 BENCH_DIR=${SCRIPT_DIR}/..
 
-measure_criu_checkpoint_size() {
+measure_criu_checkpoint_time() {
     local exe_name=$(basename "$1")
     echo "--- $exe_name ---"
     echo "command: $@"
@@ -29,7 +29,7 @@ measure_criu_checkpoint_size() {
     local half_elapsed_time=$(get_half_elapsed_time "$@")
     echo "half elapsed time: $half_elapsed_time"
 
-    file_sizes=()
+    times=()
     for i in $(seq 1 $NUM_RUNS); do
         rm -rf -f $CHECKPOINT_DIR
         if [ $? -ne 0 ]; then
@@ -41,16 +41,19 @@ measure_criu_checkpoint_size() {
 
         # sqliteではdbのlockを取るので、--file-locksで無理やりダンプする
         "$@" > /dev/null 2>&1 & \
-            (sleep $half_elapsed_time && \
-                criu dump --shell-job -t $(pgrep $exe_name) --file-locks -D $CHECKPOINT_DIR)
+            local time=$(
+                sleep $half_elapsed_time
+                local time=$(get_elapsed_time criu dump --shell-job -t $(pgrep $exe_name) --file-locks -D $CHECKPOINT_DIR)
+                echo $time
+            )
+        
         sleep 0.3
         
-        local file_size=$(du -sb "$CHECKPOINT_DIR" | cut -f1)
-        echo "$i: File size: $file_size"
-        file_sizes+=($file_size)
+        echo "$i: chkpt time: $time"
+        times+=($time)
     done
 
-    print_avg_and_mean ${file_sizes[@]}
+    print_avg_and_mean ${times[@]}
 }
 
 if [ $SKIP_BUILD -eq 0 ]; then
@@ -61,13 +64,13 @@ if [ $SKIP_BUILD -eq 0 ]; then
 fi
 
 cd $LLAMA2_DIR
-measure_criu_checkpoint_size "./llama2-c-x86-64" "model.bin" "-n" 0 "-i" 'Once upon a time'
+measure_criu_checkpoint_time "./llama2-c-x86-64" "model.bin" "-n" 0 "-i" 'Once upon a time'
 cd $BENCH_DIR
-measure_criu_checkpoint_size "./nbody-native" 10000000
-measure_criu_checkpoint_size "./binary-trees-native" 18
+measure_criu_checkpoint_time "./nbody-native" 10000000
+measure_criu_checkpoint_time "./binary-trees-native" 18
 
 # dbファイルや関連するファイルを削除
 #rm -f test.db test.db.journal
 #rm -f -rf test.db.lock
-#measure_criu_checkpoint_size $SQLITE_DIR/target/local/sqlite_example test.db
+#measure_criu_checkpoint_time $SQLITE_DIR/target/local/sqlite_example test.db
 
