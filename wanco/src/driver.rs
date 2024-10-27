@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context as _, Result};
 use clap::Parser;
-use inkwell::targets;
+use inkwell::targets::{self, FileType};
 use std::path;
 
 use crate::{
@@ -52,6 +52,10 @@ pub struct Args {
     /// Enable LTO.
     #[arg(long, default_value = "false")]
     pub lto: bool,
+
+    /// Do not use LLVM bitcode for the aot module and use elf object instead.
+    #[arg(long, default_value = "false")]
+    pub no_bc: bool,
 
     /// Enable full control-flow integrity
     #[arg(long, default_value = "false")]
@@ -191,6 +195,8 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     let tmp_asm_path = path::Path::new(&tmp_asm_path);
     let tmp_llobj_path = format!("/tmp/wasm-{}.bc", random_suffix);
     let tmp_llobj_path = path::Path::new(&tmp_llobj_path);
+    let tmp_obj_path = format!("/tmp/wasm-{}.o", random_suffix);
+    let tmp_obj_path = path::Path::new(&tmp_obj_path);
     let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
     let exe_path = path::Path::new(&exe_path);
 
@@ -211,17 +217,37 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     }
 
     // Write and Link object files
-    log::info!("Writing LLVM object");
-    if !ctx.module.write_bitcode_to_path(&tmp_llobj_path) {
-        return Err(anyhow!("Failed to write to the LLVM object file"));
-    }
-    log::info!("wrote to {}", tmp_llobj_path.display());
+    log::info!("Writing object");
 
-    ctx.module
-        .print_to_file(tmp_asm_path.to_str().expect("error ll_path"))
-        .map_err(|e| anyhow!(e.to_string()))
-        .context("Failed to write to the ll file")?;
-    log::info!("wrote to {}", tmp_asm_path.display());
+    let aot_object = if !ctx.config.no_bc {
+        ctx.module
+            .print_to_file(tmp_asm_path.to_str().expect("error ll_path"))
+            .map_err(|e| anyhow!(e.to_string()))
+            .context("Failed to write to the ll file")?;
+        log::info!("wrote to {}", tmp_asm_path.display());
+        // invoke llvm-as-17
+        let mut cmd = std::process::Command::new("llvm-as-17");
+        let cmd = cmd.arg(tmp_asm_path).arg("-o").arg(tmp_llobj_path);
+        log::info!("{:?}", cmd);
+        let o = cmd
+            .output()
+            .map_err(|e| anyhow!(e.to_string()))
+            .context("Failed to assemble the LLVM IR")?;
+        if !o.status.success() {
+            let cc_stderr = String::from_utf8(o.stderr).unwrap();
+            return Err(anyhow!("Failed to assemble the LLVM IR: {}", cc_stderr));
+        }
+        log::info!("Assembled to {}", tmp_llobj_path.display());
+        tmp_llobj_path
+    } else {
+        log::info!("Compiling AOT momdule to ELF object instead of LLVM bitcode");
+        let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
+        target
+            .write_to_file(&ctx.module, FileType::Object, tmp_obj_path)
+            .expect("error write to file");
+        log::info!("wrote to {}", tmp_obj_path.display());
+        tmp_obj_path
+    };
 
     log::info!("Linking object files");
     let clangxx = args.clang_path.clone().unwrap_or("clang++-17".to_owned());
@@ -231,7 +257,7 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
         .unwrap_or("/usr/local/lib".to_owned());
     let mut cmd = std::process::Command::new(clangxx);
     let cmd = cmd
-        .arg(tmp_asm_path)
+        .arg(aot_object)
         .arg(format!("{}/libwanco_rt.a", library_path))
         .arg(format!("{}/libwanco_wasi.a", library_path))
         .arg("-g")
