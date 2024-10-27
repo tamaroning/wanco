@@ -4,7 +4,7 @@ source $SCRIPT_DIR/common.sh
 
 NUM_RUNS=3
 CHECKPOINT_FILE="checkpoint.pb"
-SKIP_BUILD=0
+SKIP_BUILD=1
 
 LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
 LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
@@ -33,11 +33,11 @@ measure_wasm_checkpoint_size() {
             echo "Error: failed to remove $CHECKPOINT_FILE"
             exit 1
         fi
-        sleep 0.5
 
-        "$@" > /dev/null 2>&1 \
-            & sleep $half_elapsed_time \
-            & pkill -10 -f "$exe_name"
+        echo "Run $i"
+        "$@" > /dev/null 2>&1 & \
+            (sleep $half_elapsed_time && pkill -10 -f "$exe_name" && echo "Send signal")
+        
         sleep 0.5
         local file_size=$(stat -c%s $CHECKPOINT_FILE)
         echo "$i: File size: $file_size"
@@ -64,7 +64,8 @@ if [ $SKIP_BUILD -eq 0 ]; then
     wanco --enable-cr ${LLAMA2_DIR}/llama2-c.wasm -o "llama2-c-cr"
     wanco --enable-cr ${LABBENCH_DIR}/nbody.c.wasm -o "nbody-cr"
     wanco --enable-cr ${LABBENCH_DIR}/binary-trees.c.wasm -o "binary-trees-cr"
-    wanco --enable-cr ${SQLITE_DIR}/sqlite_example.wasm -o "sqlite_example-cr"
+    #echo "Compiling sqlite"
+    #wanco --enable-cr ${SQLITE_DIR}/sqlite_example.wasm -o "sqlite_example-cr"
 fi
 
 cd $LLAMA2_DIR
@@ -74,6 +75,7 @@ measure_wasm_checkpoint_size "./nbody-cr" "--" 10000000
 measure_wasm_checkpoint_size "./binary-trees-cr" "--" 18
 
 # dbファイルや関連するファイルを削除
-rm -f test.db*
-measure_wasm_checkpoint_size "./sqlite_example-cr" "--" "test.db"
+#rm -f test.db test.db.journal
+#rm -f -rf test.db.lock
+#measure_wasm_checkpoint_size "./sqlite_example-cr" "--" "test.db"
  

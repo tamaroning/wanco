@@ -72,12 +72,13 @@ if [ $SKIP_BUILD -eq 0 ]; then
 fi
 
 cd $LLAMA2_DIR
-#measure_criu_checkpoint_size "./llama2-c-x86-64" "model.bin" "-n" 0 "-i" 'Once upon a time'
+measure_criu_checkpoint_size "./llama2-c-x86-64" "model.bin" "-n" 0 "-i" 'Once upon a time'
 cd $BENCH_DIR
-#measure_criu_checkpoint_size "./nbody-native" 10000000
+measure_criu_checkpoint_size "./nbody-native" 10000000
 measure_criu_checkpoint_size "./binary-trees-native" 18
 
 # dbファイルや関連するファイルを削除
-rm -f test.db*
-measure_criu_checkpoint_size $SQLITE_DIR/target/local/sqlite_example test.db
+#rm -f test.db test.db.journal
+#rm -f -rf test.db.lock
+#measure_criu_checkpoint_size $SQLITE_DIR/target/local/sqlite_example test.db
 
