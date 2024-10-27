@@ -387,7 +387,7 @@ pub(crate) fn gen_restore_table<'a>(
         .expect("should build conditional branch");
     ctx.builder.position_at_end(then_bb);
 
-    for i in (0..ctx.global_table_size.unwrap()).rev() {
+    for i in 0..ctx.global_table_size.unwrap() {
         let elem_ptr = unsafe {
             ctx.builder.build_gep(
                 ctx.inkwell_types.i32_type,
