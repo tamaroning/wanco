@@ -8,7 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <sys/mman.h>
-#include <ucontext.h>
+//#include <ucontext.h>
 #include <unistd.h>
 
 // global instancce of execution environment
@@ -122,7 +122,7 @@ int32_t extend_memory(ExecEnv *exec_env, int32_t inc_pages) {
             << inc_pages << std::endl;
     exit(1);
   }
-  int8_t *res = (int8_t *)mremap(exec_env->memory_base, old_size * PAGE_SIZE,
+  int8_t *res = (int8_t *)wanco_mremap(exec_env->memory_base, old_size * PAGE_SIZE,
                                  new_size * PAGE_SIZE, MREMAP_MAYMOVE);
   if (res == NULL) {
     Fatal() << "Failed to grow memory (" << inc_pages << ")" << std::endl;
