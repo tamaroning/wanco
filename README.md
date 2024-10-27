@@ -12,7 +12,8 @@ See [examples](./examples) for quick start.
 Prerequisites:
 - CMake and C++ compiler
 - Cargo
-- LLVM 17 (recommend to use llvm.sh if you are using apt)
+- LLVM 17 (recommend to use ./llvm.sh if you are using apt)
+    - Set `/usr/lib/llvm-17` to `LLVM_SYS_170_PREFIX`
 - POSIX compliant OS (Linux, TODO: support macOS)
 - clang or clang++ (version 17 or later)
 - protocol buffer (Run `apt install libprotobuf-dev`)
