@@ -17,6 +17,9 @@ pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
 pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;
 
+pub(crate) const MAX_LOCALS_STORE: usize = 10000;
+pub(crate) const MAX_STACK_STORE: usize = 10000;
+
 fn gen_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,

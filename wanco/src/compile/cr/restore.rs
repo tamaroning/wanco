@@ -7,7 +7,9 @@ use inkwell::{
 
 use crate::context::{Context, Global};
 
-use super::{gen_compare_migration_state, MIGRATION_STATE_RESTORE};
+use super::{
+    gen_compare_migration_state, MAX_LOCALS_STORE, MAX_STACK_STORE, MIGRATION_STATE_RESTORE,
+};
 
 pub(crate) fn gen_restore_dispatch<'a>(
     ctx: &mut Context<'a, '_>,
@@ -74,6 +76,14 @@ pub(crate) fn gen_restore_point<'a>(
     phi_bb: &BasicBlock<'a>,
     original_bb: &BasicBlock<'a>,
 ) {
+    let nlocals = locals.len();
+    let nstack = ctx.stack_frames.last().unwrap().stack.len();
+    if nlocals > MAX_LOCALS_STORE || nstack > MAX_STACK_STORE {
+        log::warn!("Too large frame to checkpoint/restore, skipped");
+        log::warn!("nlocals: {}, nstack: {}", nlocals, nstack);
+        return;
+    }
+
     let current_fn = ctx.current_fn.unwrap();
     let op_index = ctx.current_op.unwrap();
     let restore_start_bb = ctx
