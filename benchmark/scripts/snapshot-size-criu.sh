@@ -8,10 +8,11 @@ SKIP_BUILD=1
 
 LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
 LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
+SQLITE_DIR=${SCRIPT_DIR}/../sqlite_example
 BENCH_DIR=${SCRIPT_DIR}/..
 
 measure_criu_checkpoint_size() {
-    local exe_name=$(echo $1 | sed 's/[^a-zA-Z0-9_-]//g')
+    local exe_name=$(basename "$1")
     echo "--- $exe_name ---"
     echo "command: $@"
     # grep with first five characters of the command
@@ -38,9 +39,10 @@ measure_criu_checkpoint_size() {
         mkdir $CHECKPOINT_DIR
         sleep 0.3
 
+        # sqliteではdbのlockを取るので、--file-locksで無理やりダンプする
         "$@" > /dev/null 2>&1 & \
             sleep $half_elapsed_time & \
-            criu dump --shell-job -t $(pgrep $exe_name) -D checkpoint
+            criu dump --shell-job -t $(pgrep $exe_name) --file-locks -D $CHECKPOINT_DIR
         sleep 0.3
         
         local file_size=$(du -sb "$CHECKPOINT_DIR" | cut -f1)
@@ -74,4 +76,8 @@ cd $LLAMA2_DIR
 cd $BENCH_DIR
 #measure_criu_checkpoint_size "./nbody-native" 10000000
 measure_criu_checkpoint_size "./binary-trees-native" 18
+
+# dbファイルや関連するファイルを削除
+rm -f test.db*
+measure_criu_checkpoint_size $SQLITE_DIR/target/local/sqlite_example test.db
 

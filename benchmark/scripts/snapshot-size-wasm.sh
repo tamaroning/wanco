@@ -4,16 +4,17 @@ source $SCRIPT_DIR/common.sh
 
 NUM_RUNS=3
 CHECKPOINT_FILE="checkpoint.pb"
-SKIP_BUILD=1
+SKIP_BUILD=0
 
 LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
 LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
+SQLITE_DIR=${SCRIPT_DIR}/../sqlite_example
 BENCH_DIR=${SCRIPT_DIR}/..
 
 measure_wasm_checkpoint_size() {
-    local exe_name=$(echo $1 | sed 's/[^a-zA-Z0-9_-]//g')
+    local exe_name=$(basename "$1")
     echo "--- $exe_name ---"
-    echo "ommand: $@"
+    echo "command: $@"
 
     # check command run without error
     "$@" > /dev/null 2>&1
@@ -63,11 +64,16 @@ if [ $SKIP_BUILD -eq 0 ]; then
     wanco --enable-cr ${LLAMA2_DIR}/llama2-c.wasm -o "llama2-c-cr"
     wanco --enable-cr ${LABBENCH_DIR}/nbody.c.wasm -o "nbody-cr"
     wanco --enable-cr ${LABBENCH_DIR}/binary-trees.c.wasm -o "binary-trees-cr"
+    wanco --enable-cr ${SQLITE_DIR}/sqlite_example.wasm -o "sqlite_example-cr"
 fi
 
 cd $LLAMA2_DIR
-measure_wasm_checkpoint_size "./../llama2-c-cr" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
+measure_wasm_checkpoint_size "./../llama2-c-cr" "--" "model.bin" "-n" 0 #"-i" 'Once upon a time'
 cd $BENCH_DIR
 measure_wasm_checkpoint_size "./nbody-cr" "--" 10000000
 measure_wasm_checkpoint_size "./binary-trees-cr" "--" 18
 
+# dbファイルや関連するファイルを削除
+rm -f test.db*
+measure_wasm_checkpoint_size "./sqlite_example-cr" "--" "test.db"
+ 
