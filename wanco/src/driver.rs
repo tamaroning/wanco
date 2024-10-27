@@ -225,6 +225,8 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
             .map_err(|e| anyhow!(e.to_string()))
             .context("Failed to write to the ll file")?;
         log::info!("wrote to {}", tmp_asm_path.display());
+        tmp_asm_path
+        /* 
         // invoke llvm-as-17
         let mut cmd = std::process::Command::new("llvm-as-17");
         let cmd = cmd.arg(tmp_asm_path).arg("-o").arg(tmp_llobj_path);
@@ -239,6 +241,7 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
         }
         log::info!("Assembled to {}", tmp_llobj_path.display());
         tmp_llobj_path
+        */
     } else {
         log::info!("Compiling AOT momdule to ELF object instead of LLVM bitcode");
         let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
