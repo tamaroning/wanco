@@ -37,18 +37,7 @@ measure_execution_time() {
     done
 
     # avg and mean
-    # avgが0になってる：
-    local total=0
-    for exec_time in ${exec_times[@]}; do
-        total=$(echo "$total + $exec_time" | bc)
-    done
-    local average=$(echo "scale=6; $total / $NUM_RUNS" | bc)
-    echo "Average: $average"
-    # mean
-    local sorted_exec_times=($(echo ${exec_times[@]} | tr ' ' '\n' | sort -n))
-    local num_exec_times=${#sorted_exec_times[@]}
-    local median_exec_time=${sorted_exec_times[$((num_exec_times / 2))]}
-    echo "Mean: $median_exec_time"
+    print_avg_and_mean ${exec_times[@]}
 }
 
 if [ $SKIP_BUILD -eq 0 ]; then

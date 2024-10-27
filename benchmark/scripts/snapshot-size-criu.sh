@@ -50,18 +50,7 @@ measure_criu_checkpoint_size() {
         file_sizes+=($file_size)
     done
 
-    # avg and mean
-    local total_file_size=0
-    for file_size in ${file_sizes[@]}; do
-        total_file_size=$(echo "$total_file_size + $file_size" | bc)
-    done
-    local average_file_size=$(echo "$total_file_size / $NUM_RUNS" | bc)
-    echo "Average: $average_file_size"
-    # mean
-    local sorted_file_sizes=($(echo ${file_sizes[@]} | tr ' ' '\n' | sort -n))
-    local num_file_sizes=${#sorted_file_sizes[@]}
-    local median_file_size=${sorted_file_sizes[$((num_file_sizes / 2))]}
-    echo "Mean: $median_file_size"
+    print_avg_and_mean ${file_sizes[@]}
 }
 
 if [ $SKIP_BUILD -eq 0 ]; then

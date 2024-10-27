@@ -29,3 +29,16 @@ get_elapsed_time() {
     echo "$elapsed_time"
 }
 
+print_avg_and_mean() {
+    local total=0
+    for exec_time in "$@"; do
+        total=$(echo "$total + $exec_time" | bc)
+    done
+    local average=$(echo "scale=6; $total / $NUM_RUNS" | bc)
+    echo "Average: $average"
+    # mean
+    local sorted_exec_times=($(echo "$@" | tr ' ' '\n' | sort -n))
+    local num_exec_times=${#sorted_exec_times[@]}
+    local median_exec_time=${sorted_exec_times[$((num_exec_times / 2))]}
+    echo "Mean: $median_exec_time"
+}
