@@ -1,0 +1,191 @@
+--- llama2 ---
+command: ../llama2 -- model.bin -n 0 -i Once upon a time
+half elapsed time: 1.10700018150000000000
+1: Checkpoint time: .068376330
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 135580 Killed                  "$@" > /dev/null 2>&1
+1: File size: 2290254
+1: Restore time: .910547836
+2: Checkpoint time: .068133686
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 135619 Killed                  "$@" > /dev/null 2>&1
+2: File size: 2294349
+2: Restore time: .372999395
+3: Checkpoint time: .066260693
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 135678 Killed                  "$@" > /dev/null 2>&1
+3: File size: 2294378
+3: Restore time: .590087106
+4: Checkpoint time: Error: exit with code 1
+4: File size: 0
+4: Restore time: Error: exit with code 1
+5: Checkpoint time: .067395918
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 135755 Killed                  "$@" > /dev/null 2>&1
+5: File size: 2290220
+5: Restore time: .043955582
+6: Checkpoint time: .067573768
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 135798 Killed                  "$@" > /dev/null 2>&1
+6: File size: 2290217
+6: Restore time: .355630012
+7: Checkpoint time: Error: exit with code 1
+7: File size: 0
+7: Restore time: Error: exit with code 1
+8: Checkpoint time: .066822648
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 135877 Killed                  "$@" > /dev/null 2>&1
+8: File size: 2290307
+8: Restore time: .468381216
+^C
+tamaron@tamaron-rpi:~/work/wanco$ sudo ./benchmark/scripts/chkpt-time-criu.sh 
+--- llama2 ---
+command: ../llama2 -- model.bin -n 0 -i Once upon a time
+half elapsed time: .28169915400000000000
+1: Checkpoint time: .074706908
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 135992 Killed                  "$@" > /dev/null 2>&1
+1: File size: 2294327
+1: Restore time: .485875655
+2: Checkpoint time: .066426561
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136026 Killed                  "$@" > /dev/null 2>&1
+2: File size: 2290224
+2: Restore time: .845270042
+3: Checkpoint time: .056368796
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136064 Killed                  "$@" > /dev/null 2>&1
+3: File size: 2294315
+3: Restore time: .564693191
+4: Checkpoint time: .053979164
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136123 Killed                  "$@" > /dev/null 2>&1
+4: File size: 2290227
+4: Restore time: 1.282006800
+5: Checkpoint time: .053202397
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136161 Killed                  "$@" > /dev/null 2>&1
+5: File size: 2290199
+5: Restore time: .952231921
+6: Checkpoint time: .055237405
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136210 Killed                  "$@" > /dev/null 2>&1
+6: File size: 2294305
+6: Restore time: .960249457
+7: Checkpoint time: .054604636
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136256 Killed                  "$@" > /dev/null 2>&1
+7: File size: 2290294
+7: Restore time: 1.033228482
+8: Checkpoint time: .054475138
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136290 Killed                  "$@" > /dev/null 2>&1
+8: File size: 2298459
+8: Restore time: 1.478356252
+9: Checkpoint time: .054822430
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136358 Killed                  "$@" > /dev/null 2>&1
+9: File size: 2290228
+9: Restore time: .790262933
+10: Checkpoint time: .053390727
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136392 Killed                  "$@" > /dev/null 2>&1
+10: File size: 2290209
+10: Restore time: .250038007
+--- Checkpoint time ---
+Average: .057721
+Mean: .054822430
+--- Restore time ---
+Average: .864221
+Mean: .952231921
+--- File size ---
+Average: 2292278.700000
+Mean: 2290294
+--- nbody ---
+command: ./nbody -- 10000000
+half elapsed time: 1.06687580200000000000
+1: Checkpoint time: .062726133
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136589 Killed                  "$@" > /dev/null 2>&1
+1: File size: 467439
+1: Restore time: 1.172453780
+2: Checkpoint time: .057309858
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136652 Killed                  "$@" > /dev/null 2>&1
+2: File size: 471503
+2: Restore time: 1.159426558
+3: Checkpoint time: .062236659
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136695 Killed                  "$@" > /dev/null 2>&1
+3: File size: 471529
+3: Restore time: 1.167839143
+4: Checkpoint time: .060782123
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136746 Killed                  "$@" > /dev/null 2>&1
+4: File size: 467444
+4: Restore time: 1.158315224
+5: Checkpoint time: .063057350
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136795 Killed                  "$@" > /dev/null 2>&1
+5: File size: 471537
+5: Restore time: 1.164578747
+6: Checkpoint time: .061595278
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136847 Killed                  "$@" > /dev/null 2>&1
+6: File size: 467435
+6: Restore time: 1.162958956
+7: Checkpoint time: .062278509
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136903 Killed                  "$@" > /dev/null 2>&1
+7: File size: 471537
+7: Restore time: 1.166448575
+8: Checkpoint time: .057163823
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 136941 Killed                  "$@" > /dev/null 2>&1
+8: File size: 467436
+8: Restore time: 1.156426495
+9: Checkpoint time: .065169043
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137004 Killed                  "$@" > /dev/null 2>&1
+9: File size: 475612
+9: Restore time: 1.159721838
+10: Checkpoint time: .065283172
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137038 Killed                  "$@" > /dev/null 2>&1
+10: File size: 467413
+10: Restore time: 1.170912033
+--- Checkpoint time ---
+Average: .061760
+Mean: .062278509
+--- Restore time ---
+Average: 1.163908
+Mean: 1.164578747
+--- File size ---
+Average: 469888.500000
+Mean: 471503
+--- binary-trees ---
+command: ./binary-trees -- 18
+half elapsed time: 1.91816771150000000000
+1: Checkpoint time: .116978257
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137265 Killed                  "$@" > /dev/null 2>&1
+1: File size: 17248669
+1: Restore time: 2.047084010
+2: Checkpoint time: .118785250
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137329 Killed                  "$@" > /dev/null 2>&1
+2: File size: 17244596
+2: Restore time: 2.050598853
+3: Checkpoint time: .128208858
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137392 Killed                  "$@" > /dev/null 2>&1
+3: File size: 17244603
+3: Restore time: 2.025388488
+4: Checkpoint time: .121386714
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137455 Killed                  "$@" > /dev/null 2>&1
+4: File size: 17244610
+4: Restore time: 2.062870758
+5: Checkpoint time: .121955669
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137521 Killed                  "$@" > /dev/null 2>&1
+5: File size: 17244611
+5: Restore time: 2.088844376
+6: Checkpoint time: .126431903
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137580 Killed                  "$@" > /dev/null 2>&1
+6: File size: 17244592
+6: Restore time: 2.082816779
+7: Checkpoint time: .117185033
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137648 Killed                  "$@" > /dev/null 2>&1
+7: File size: 17244596
+7: Restore time: 2.068336393
+8: Checkpoint time: .122026298
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137716 Killed                  "$@" > /dev/null 2>&1
+8: File size: 17244607
+8: Restore time: 2.085040865
+9: Checkpoint time: .117652471
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137782 Killed                  "$@" > /dev/null 2>&1
+9: File size: 17244660
+9: Restore time: 2.056928541
+10: Checkpoint time: .122870027
+./benchmark/scripts/chkpt-time-criu.sh: line 1: 137853 Killed                  "$@" > /dev/null 2>&1
+10: File size: 17244627
+10: Restore time: 2.065866732
+--- Checkpoint time ---
+Average: .121348
+Mean: .121955669
+--- Restore time ---
+Average: 2.063377
+Mean: 2.065866732
+--- File size ---
+Average: 17245017.100000
+Mean: 17244610
