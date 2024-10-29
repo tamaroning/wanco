@@ -2,7 +2,7 @@
 SCRIPT_DIR=$(dirname $(realpath $0))
 source $SCRIPT_DIR/common.sh
 
-NUM_RUNS=3
+NUM_RUNS=10
 CHECKPOINT_FILE="checkpoint.pb"
 SKIP_BUILD=1
 
@@ -32,7 +32,7 @@ measure_execution_time() {
         fi
 
         local exec_time=$(get_elapsed_time "$@")
-        echo "$i: Exec time: $exec_time"
+        #echo "$i: Exec time: $exec_time"
         exec_times+=($exec_time)
     done
 

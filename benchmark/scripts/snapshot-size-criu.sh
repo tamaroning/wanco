@@ -2,7 +2,7 @@
 SCRIPT_DIR=$(dirname $(realpath $0))
 source $SCRIPT_DIR/common.sh
 
-NUM_RUNS=3
+NUM_RUNS=10
 CHECKPOINT_DIR="checkpoint"
 SKIP_BUILD=1
 

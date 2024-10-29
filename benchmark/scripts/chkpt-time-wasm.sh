@@ -2,7 +2,7 @@
 SCRIPT_DIR=$(dirname $(realpath $0))
 source $SCRIPT_DIR/common.sh
 
-NUM_RUNS=3
+NUM_RUNS=10
 CHECKPOINT_FILE="checkpoint.pb"
 SKIP_BUILD=1
 
@@ -31,6 +31,8 @@ measure_wasm_checkpoint_time() {
     echo "half elapsed time: $half_elapsed_time"
 
     chkpt_times=()
+    restore_times=()
+    file_sizes=()
     for i in $(seq 1 $NUM_RUNS); do
         rm -f $CHECKPOINT_FILE
         if [ $? -ne 0 ]; then
@@ -57,17 +59,18 @@ measure_wasm_checkpoint_time() {
             )
         #echo "$i: Checkpoint time: $chkpt_time"
 
+        sleep 0.1
         # check if $CHECKPOINT_FILE exists
         if [ ! -f $CHECKPOINT_FILE ]; then
             echo "Error: $CHECKPOINT_FILE does not exist"
             exit 1
         fi
-
         chkpt_times+=($chkpt_time)
 
+        local file_size=$(stat -c%s $CHECKPOINT_FILE)
+        file_sizes+=($file_size)
 
         # measure restore time
-
         rm -f restore-finish-time.txt
         sleep 0.1
         start_time=$(date +%s.%N)
@@ -85,6 +88,8 @@ measure_wasm_checkpoint_time() {
     print_avg_and_mean ${chkpt_times[@]}
     echo "--- Restore time ---"
     print_avg_and_mean ${restore_times[@]}
+    echo "--- File size ---"
+    print_avg_and_mean ${file_sizes[@]}
 }
 
 if [ $SKIP_BUILD -eq 0 ]; then
