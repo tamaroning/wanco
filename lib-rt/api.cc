@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
-#include <iomanip> // std::fixed, std::setprecision
 #include <iostream>
 #include <sys/mman.h>
 #include <thread>
@@ -45,6 +44,13 @@ extern "C" void push_frame(ExecEnv *exec_env) {
              wanco::MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   DEBUG_LOG << "call to push_frame" << std::endl;
+  if (wanco::RESTORE_START_TIME == 0) {
+    wanco::CHKPT_START_TIME =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+  }
+
   wanco::chkpt.frames.push_back(wanco::Frame());
 }
 
@@ -215,13 +221,13 @@ static void check_restore_finished(ExecEnv *exec_env, bool cond) {
     ASSERT(wanco::chkpt.restore_stack.empty() && "Stack not empty");
     ASSERT(wanco::chkpt.frames.empty() && "Frames not empty");
     // equivalent to date +%s.%N
-    auto time = std::chrono::duration_cast<std::chrono::milliseconds>(
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::system_clock::now().time_since_epoch())
-                    .count() /
-                1000.0;
+                    .count();
+    std::ofstream ofs("restore-time.txt");
+    time = time - wanco::RESTORE_START_TIME;
     // TODO: remove this (research purpose)
-    std::ofstream ofs("restore-finish-time.txt");
-    ofs << std::fixed << std::setprecision(5) << time << std::endl;
+    ofs << time << std::endl;
     ofs.close();
   }
 }

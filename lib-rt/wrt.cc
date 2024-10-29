@@ -1,6 +1,7 @@
 #include "aot.h"
 #include "chkpt/chkpt.h"
 #include "wanco.h"
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
@@ -16,6 +17,9 @@
 ExecEnv exec_env;
 
 namespace wanco {
+
+uint64_t CHKPT_START_TIME = 0;
+uint64_t RESTORE_START_TIME = 0;
 
 // global instance of checkpoint
 Checkpoint chkpt;
@@ -184,6 +188,11 @@ int wanco_main(int argc, char **argv) {
         .argv = (uint8_t **)argv,
     };
   } else {
+    RESTORE_START_TIME =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+
     // Restore from checkpoint
     std::ifstream ifs(config.restore_file);
     if (!ifs.is_open()) {
@@ -249,6 +258,15 @@ int wanco_main(int argc, char **argv) {
       encode_checkpoint_json(ofs, chkpt);
       Info() << "Snapshot has been saved to checkpoint.json" << std::endl;
     }
+
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+    time = time - wanco::CHKPT_START_TIME;
+    // TODO: remove this (research purpose)
+    std::ofstream ofs("chkpt-time.txt");
+    ofs << time << std::endl;
+    ofs.close();
   }
 
   // cleanup

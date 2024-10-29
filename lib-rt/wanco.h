@@ -13,6 +13,9 @@
 namespace wanco {
 constexpr bool USE_PROTOBUF = true;
 constexpr bool DEBUG_ENABLED = false;
+
+extern uint64_t CHKPT_START_TIME;
+extern uint64_t RESTORE_START_TIME;
 } // namespace wanco
 
 #define DEBUG_LOG if constexpr(wanco::DEBUG_ENABLED) Debug()
