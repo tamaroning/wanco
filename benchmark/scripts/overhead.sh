@@ -44,7 +44,7 @@ if [ $SKIP_BUILD -eq 0 ]; then
     echo "Compiling wasm files with wanco"
     cd $BENCH_DIR
     wanco ${LLAMA2_DIR}/llama2-c.wasm -o "llama2"
-    wanco --enable-cr ${LLAMA2_DIR}/llama2-c.wasm -o "llama2-cr"
+    wanco --enable-cr ${LLAMA2_DIR}/llama2-c.wasm -o "llama2-c-cr"
     wanco ${LABBENCH_DIR}/nbody.c.wasm -o "nbody"
     wanco --enable-cr ${LABBENCH_DIR}/nbody.c.wasm -o "nbody-cr"
     wanco ${LABBENCH_DIR}/binary-trees.c.wasm -o "binary-trees"
@@ -55,7 +55,7 @@ fi
 
 cd $LLAMA2_DIR
 measure_execution_time "./../llama2" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
-measure_execution_time "./../llama2-cr" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
+measure_execution_time "./../llama2-c-cr" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
 cd $BENCH_DIR
 measure_execution_time "./nbody" "--" 10000000
 measure_execution_time "./nbody-cr" "--" 10000000

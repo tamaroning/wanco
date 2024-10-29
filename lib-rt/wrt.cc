@@ -1,4 +1,5 @@
 #include "aot.h"
+#include "chkpt/chkpt.h"
 #include "wanco.h"
 #include <csignal>
 #include <cstdint>
@@ -76,7 +77,7 @@ int8_t *allocate_memory(const Config &config, int32_t num_pages) {
   // called)
 
   // Add guard pages
-  Debug() << "Allocating guard pages" << std::endl;
+  Info() << "Allocating guard pages" << std::endl;
   if (mmap((void *)(LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
            GUARD_PAGE_SIZE * 2 + MAX_LINEAR_MEMORY_SIZE, PROT_NONE,
            MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == NULL) {
@@ -96,8 +97,8 @@ int8_t *allocate_memory(const Config &config, int32_t num_pages) {
             << " bytes to linear memory" << std::endl;
     exit(1);
   }
-  Debug() << "Allocating liear memory: " << num_pages
-          << " pages, starting at 0x" << std::hex << (uint64_t)res << std::endl;
+  Info() << "Allocating linear memory: " << num_pages
+         << " pages, starting at 0x" << std::hex << (uint64_t)res << std::endl;
 // Zero out memory
 #ifdef __FreeBSD__
   std::memset(res, 0, num_bytes);
@@ -194,26 +195,30 @@ int wanco_main(int argc, char **argv) {
     if constexpr (USE_PROTOBUF) {
       if (!config.restore_file.ends_with(".pb")) {
         Warn() << "The file does not have a .pb extension. "
-                  "Attempting to parse as JSON."
+                  "Attempting to parse as proto."
                << std::endl;
       }
       chkpt = decode_checkpoint_proto(ifs);
     } else if (!config.restore_file.ends_with(".json")) {
       Warn() << "The file does not have a .json extension. "
-                "Attempting to parse as protobuf."
+                "Attempting to parse as JSON."
              << std::endl;
       chkpt = decode_checkpoint_json(ifs);
     }
     chkpt.prepare_restore();
-    Debug() << "Checkpoint has been loaded" << std::endl;
-    Debug() << "call stack: " << chkpt.frames.size() << " frames" << std::endl;
-    Debug() << "value stack: " << chkpt.restore_stack.size() << " values"
-            << std::endl;
+    Info() << "Checkpoint has been loaded" << std::endl;
+    Info() << "- call stack: " << chkpt.frames.size() << " frames" << std::endl;
+    Info() << "- value stack: " << chkpt.restore_stack.size() << " values"
+           << std::endl;
 
     int32_t memory_size = chkpt.memory_size;
     // Allocate memory and copy contents from checkpoint
     int8_t *memory = allocate_memory(config, memory_size);
+    Info() << "Restoring memory: " << std::dec << memory_size << " pages ("
+           << memory_size * PAGE_SIZE << " bytes)" << std::endl;
+
     std::memcpy(memory, chkpt.memory.data(), chkpt.memory.size());
+    ASSERT((std::size_t)(memory_size * PAGE_SIZE) == chkpt.memory.size());
     // Initialize exec_env
     exec_env = ExecEnv{
         .memory_base = memory,

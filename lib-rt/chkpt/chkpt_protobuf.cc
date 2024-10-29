@@ -1,6 +1,7 @@
 #include "chkpt.h"
 #include "lz4/lz4.h"
 #include "protobuf/chkpt.pb.h"
+#include "wanco.h"
 #include <fstream>
 #include <google/protobuf/util/json_util.h>
 
@@ -71,17 +72,21 @@ wanco::Checkpoint decode_checkpoint_proto(std::ifstream &f) {
   }
 
   ret.memory_size = buf.memory_size();
+  ret.memory.resize(ret.memory_size * PAGE_SIZE, 0);
 
-  Info() << "Decompressing memory" << std::endl;
+  Info() << "Decompressing memory: " << std::dec << ret.memory_size
+         << " pages (" << ret.memory.size() << " bytes)" << std::endl;
   std::string compressed = buf.memory_lz4();
-  ret.memory.resize(ret.memory_size * PAGE_SIZE);
   size_t size =
       LZ4_decompress_safe(compressed.data(), (char *)ret.memory.data(),
                           compressed.size(), ret.memory.size());
-  ASSERT(size == ret.memory.size());
+  if (size < 0) {
+    Fatal() << "Failed to decompress memory" << std::endl;
+    exit(1);
+  }
 
-  ret.memory =
-      std::vector<int8_t>(buf.memory_lz4().begin(), buf.memory_lz4().end());
+  ASSERT(size <= ret.memory.size());
+  ASSERT(ret.memory.size() == (std::size_t)(ret.memory_size * PAGE_SIZE));
 
   return ret;
 }

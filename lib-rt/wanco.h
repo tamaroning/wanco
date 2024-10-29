@@ -12,7 +12,7 @@
 
 namespace wanco {
 constexpr bool USE_PROTOBUF = true;
-constexpr bool DEBUG = true;
+constexpr bool DEBUG = false;
 } // namespace wanco
 
 class Debug {

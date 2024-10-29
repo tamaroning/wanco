@@ -143,17 +143,17 @@ fn gen_restore_wasm_stack<'a>(
     let mut restored_stack = Vec::new();
     for i in 0..stack.len() {
         let value_type = stack[i].get_type();
-        if stack.len() - i <= skip_stack_top {
-            // argumentなどのスキップするスタックトップの値は0で埋める
-            // (unwind時には、pushされないので)
-            restored_stack.push(value_type.const_zero());
-        } else {
+        if i < stack.len() - skip_stack_top {
             let cs = gen_restore_stack_value(ctx, exec_env_ptr, value_type)
                 .expect("should build push_T")
                 .try_as_basic_value()
                 .left()
                 .unwrap();
             restored_stack.push(cs);
+        } else {
+            // argumentなどのスキップするスタックトップの値は0で埋める
+            // (unwind時には、pushされないので)
+            restored_stack.push(value_type.const_zero());
         }
     }
 

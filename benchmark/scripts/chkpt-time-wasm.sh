@@ -4,7 +4,7 @@ source $SCRIPT_DIR/common.sh
 
 NUM_RUNS=3
 CHECKPOINT_FILE="checkpoint.pb"
-SKIP_BUILD=1
+SKIP_BUILD=0
 
 LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
 LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
@@ -30,7 +30,7 @@ measure_wasm_checkpoint_time() {
     local half_elapsed_time=$(get_half_elapsed_time "$@")
     echo "half elapsed time: $half_elapsed_time"
 
-    times=()
+    chkpt_times=()
     for i in $(seq 1 $NUM_RUNS); do
         rm -f $CHECKPOINT_FILE
         if [ $? -ne 0 ]; then
@@ -38,10 +38,12 @@ measure_wasm_checkpoint_time() {
             exit 1
         fi
 
+        # measure checkpoint time
+
         local start_time end_time pid
         #echo "Run $i"
         "$@" > /dev/null 2>&1 & \
-            local time=$(
+            local chkpt_time=$(
                 sleep $half_elapsed_time
                 pid=$(pgrep $exe_name)
                 pkill -10 -f "$exe_name"
@@ -55,7 +57,7 @@ measure_wasm_checkpoint_time() {
                 #echo "end_time: $end_time"
                 echo "$end_time - $start_time" | bc
             )
-        echo "$i: Time: $time"
+        echo "$i: Time: $chkpt_time"
 
         # check if $CHECKPOINT_FILE exists
         if [ ! -f $CHECKPOINT_FILE ]; then
@@ -63,10 +65,17 @@ measure_wasm_checkpoint_time() {
             exit 1
         fi
 
-        times+=($time)
+        chkpt_times+=($chkpt_time)
+
+        sleep 10
+
+
+        # measure restore time
+
+        # TODO:
     done
 
-    print_avg_and_mean ${times[@]}
+    print_avg_and_mean ${chkpt_times[@]}
 }
 
 if [ $SKIP_BUILD -eq 0 ]; then

@@ -1,4 +1,6 @@
 #include "aot.h"
+#include "wanco.h"
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -206,8 +208,20 @@ static void check_restore_finished(ExecEnv *exec_env, bool cond) {
   Debug() << "Rest frame size: " << std::dec << wanco::chkpt.frames.size()
           << std::endl;
   if (cond) {
-    Debug() << " Restore completed" << std::endl;
     exec_env->migration_state = wanco::MigrationState::STATE_NONE;
+    Debug() << " Restore completed" << std::endl;
+    ASSERT(wanco::chkpt.restore_stack.empty() && "Stack not empty");
+    ASSERT(wanco::chkpt.frames.empty() && "Frames not empty");
+    // equivalent to date +%s.%N
+    auto time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count() /
+                1000.0;
+    // write restore-finish-time.txt
+    // TODO: remove this (research purpose)
+    FILE *fp = fopen("restore-finish-time.txt", "w");
+    fprintf(fp, "%.6f\n", time);
+    fclose(fp);
   }
 }
 
@@ -219,6 +233,7 @@ extern "C" void pop_front_frame(ExecEnv *exec_env) {
          "Invalid migration state");
   ASSERT(!wanco::chkpt.frames.empty() && "No frame to restore");
   wanco::Frame &frame = wanco::chkpt.frames.front();
+  ASSERT(frame.locals.empty() && "Locals not empty");
   Debug() << "call to pop_front_frame -> Fn[" << frame.fn_index << "]"
           << std::endl;
 
