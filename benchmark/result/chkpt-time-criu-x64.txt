@@ -1,66 +1,36 @@
---- llama2-c-x86-64 ---
-command: ./llama2-c-x86-64 model.bin -n 0 -i Once upon a time
-half elapsed time: .02733789150000000000
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114660 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114691 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114741 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114771 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114802 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114842 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114877 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114914 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114944 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 114975 Killed                  "$@" > /dev/null 2>&1
+--- llama2 ---
+command: ../llama2 -- model.bin -n 0 -i Once upon a time
+half elapsed time: .11923841350000000000
 --- Checkpoint time ---
-Average: .031421
-Mean: .007920968
+Average: .030041
+Mean: .020802472
 --- Restore time ---
-Average: .029542
-Mean: .023322049
+Average: .261670
+Mean: .266325930
 --- File size ---
-Average: 481420.600000
-Mean: 479809
---- nbody-native ---
-command: ./nbody-native 10000000
-half elapsed time: .38801121950000000000
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115159 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115209 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115247 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115286 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115335 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115386 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115420 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115459 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115506 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115555 Killed                  "$@" > /dev/null 2>&1
+Average: 4078064.900000
+Mean: 4703514
+--- nbody ---
+command: ./nbody -- 10000000
+half elapsed time: .15574621950000000000
 --- Checkpoint time ---
-Average: .059783
-Mean: .063940333
+Average: .044301
+Mean: .023341195
 --- Restore time ---
-Average: .373842
-Mean: .380948853
+Average: .412705
+Mean: .409474016
 --- File size ---
-Average: 136466.000000
-Mean: 135249
---- binary-trees-native ---
-command: ./binary-trees-native 18
-half elapsed time: .62650680650000000000
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115742 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115812 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115851 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115889 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 115959 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 116001 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 116058 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 116111 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 116153 Killed                  "$@" > /dev/null 2>&1
-./benchmark/scripts/chkpt-time-criu.sh: line 1: 116204 Killed                  "$@" > /dev/null 2>&1
+Average: 2247810.300000
+Mean: 2872451
+--- binary-trees ---
+command: ./binary-trees -- 18
+half elapsed time: .40914515650000000000
 --- Checkpoint time ---
-Average: .094040
-Mean: .090383741
+Average: .106233
+Mean: .105525359
 --- Restore time ---
-Average: .685438
-Mean: .678998598
+Average: .621887
+Mean: .622679450
 --- File size ---
-Average: 33678468.300000
-Mean: 33677254
+Average: 18815378.500000
+Mean: 19649685
