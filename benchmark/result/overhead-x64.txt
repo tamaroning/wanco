@@ -1,0 +1,24 @@
+--- llama2 ---
+command: ./../llama2 -- model.bin -n 0 -i Once upon a time
+Average: .341870
+Mean: .314492154
+--- llama2-c-cr ---
+command: ./../llama2-c-cr -- model.bin -n 0 -i Once upon a time
+Average: .810539
+Mean: .768100199
+--- nbody ---
+command: ./nbody -- 10000000
+Average: .515751
+Mean: .512816017
+--- nbody-cr ---
+command: ./nbody-cr -- 10000000
+Average: .554144
+Mean: .553144963
+--- binary-trees ---
+command: ./binary-trees -- 18
+Average: .974138
+Mean: .978412077
+--- binary-trees-cr ---
+command: ./binary-trees-cr -- 18
+Average: 1.447570
+Mean: 1.444160356
