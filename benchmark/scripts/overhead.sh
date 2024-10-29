@@ -4,7 +4,6 @@ source $SCRIPT_DIR/common.sh
 
 NUM_RUNS=10
 CHECKPOINT_FILE="checkpoint.pb"
-SKIP_BUILD=1
 
 LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
 LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
@@ -40,18 +39,6 @@ measure_execution_time() {
     print_avg_and_mean ${exec_times[@]}
 }
 
-if [ $SKIP_BUILD -eq 0 ]; then
-    echo "Compiling wasm files with wanco"
-    cd $BENCH_DIR
-    wanco ${LLAMA2_DIR}/llama2-c.wasm -o "llama2"
-    wanco --enable-cr ${LLAMA2_DIR}/llama2-c.wasm -o "llama2-c-cr"
-    wanco ${LABBENCH_DIR}/nbody.c.wasm -o "nbody"
-    wanco --enable-cr ${LABBENCH_DIR}/nbody.c.wasm -o "nbody-cr"
-    wanco ${LABBENCH_DIR}/binary-trees.c.wasm -o "binary-trees"
-    wanco --enable-cr ${LABBENCH_DIR}/binary-trees.c.wasm -o "binary-trees-cr"
-    #echo "Compiling sqlite"
-    #wanco --enable-cr ${SQLITE_DIR}/sqlite_example.wasm -o "sqlite_example-cr"
-fi
 
 cd $LLAMA2_DIR
 measure_execution_time "./../llama2" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'

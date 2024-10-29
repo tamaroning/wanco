@@ -4,12 +4,6 @@ source $SCRIPT_DIR/common.sh
 
 NUM_RUNS=10
 CHECKPOINT_DIR="checkpoint"
-SKIP_BUILD=1
-
-LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
-LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
-SQLITE_DIR=${SCRIPT_DIR}/../sqlite_example
-BENCH_DIR=${SCRIPT_DIR}/..
 
 measure_criu_checkpoint_time() {
     local exe_name=$(basename "$1")
@@ -72,13 +66,6 @@ measure_criu_checkpoint_time() {
     echo "--- File size ---"
     print_avg_and_mean ${file_sizes[@]}
 }
-
-if [ $SKIP_BUILD -eq 0 ]; then
-    echo "Compiling c files with clang"
-    cd $BENCH_DIR
-    clang -O1 ${LABBENCH_DIR}/nbody.c -o "nbody-native" -O1 -Wl,-lm
-    clang -O1 ${LABBENCH_DIR}/binary-trees.c -o "binary-trees-native" -O1
-fi
 
 cd $LLAMA2_DIR
 measure_criu_checkpoint_time "../llama2" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'

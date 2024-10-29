@@ -42,3 +42,8 @@ print_avg_and_mean() {
     local median_exec_time=${sorted_exec_times[$((num_exec_times / 2))]}
     echo "Mean: $median_exec_time"
 }
+
+LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
+LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
+SQLITE_DIR=${SCRIPT_DIR}/../sqlite_example
+BENCH_DIR=${SCRIPT_DIR}/..
