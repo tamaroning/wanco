@@ -12,17 +12,17 @@
 
 namespace wanco {
 constexpr bool USE_PROTOBUF = true;
-constexpr bool DEBUG = false;
+constexpr bool DEBUG_ENABLED = false;
 } // namespace wanco
+
+#define DEBUG_LOG if constexpr(wanco::DEBUG_ENABLED) Debug()
 
 class Debug {
 public:
   Debug() {}
 
   template <typename T> std::ostream &operator<<(T &&val) {
-    if constexpr (wanco::DEBUG) {
-      out << "[debug] " << std::forward<T>(val);
-    }
+    out << "[debug] " << std::forward<T>(val);
     return out;
   }
 

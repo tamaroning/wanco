@@ -178,7 +178,7 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
     exit(1);
   }
   // write out pb.json for debugging
-  if constexpr (DEBUG) {
+  if constexpr (DEBUG_ENABLED) {
     google::protobuf::util::JsonPrintOptions options;
     options.add_whitespace = true;
     options.always_print_primitive_fields = true;
