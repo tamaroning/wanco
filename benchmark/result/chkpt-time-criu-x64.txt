@@ -1,36 +1,39 @@
 --- llama2 ---
 command: ../llama2 -- model.bin -n 0 -i Once upon a time
-half elapsed time: .11923841350000000000
+half elapsed time: .16266971850000000000
+./benchmark/scripts/chkpt-time-criu.sh: line 35: 193143 Killed                  "$@" > /dev/null 2>&1
 --- Checkpoint time ---
-Average: .030041
-Mean: .020802472
+Average: 2004.400000
+Mean: 2116
 --- Restore time ---
-Average: .261670
-Mean: .266325930
+Average: 5588.100000
+Mean: 5698
 --- File size ---
-Average: 4078064.900000
-Mean: 4703514
+Average: 3659872.200000
+Mean: 4703526
 --- nbody ---
 command: ./nbody -- 10000000
-half elapsed time: .15574621950000000000
+half elapsed time: .16128306150000000000
+./benchmark/scripts/chkpt-time-criu.sh: line 35: 193888 Killed                  "$@" > /dev/null 2>&1
 --- Checkpoint time ---
-Average: .044301
-Mean: .023341195
+Average: 1660.600000
+Mean: 1669
 --- Restore time ---
-Average: .412705
-Mean: .409474016
+Average: 4484.900000
+Mean: 4367
 --- File size ---
-Average: 2247810.300000
-Mean: 2872451
+Average: 2039729.600000
+Mean: 2872456
 --- binary-trees ---
 command: ./binary-trees -- 18
-half elapsed time: .40914515650000000000
+half elapsed time: .40274551500000000000
+./benchmark/scripts/chkpt-time-criu.sh: line 35: 194631 Killed                  "$@" > /dev/null 2>&1
 --- Checkpoint time ---
-Average: .106233
-Mean: .105525359
+Average: 1791.800000
+Mean: 1846
 --- Restore time ---
-Average: .621887
-Mean: .622679450
+Average: 7493.300000
+Mean: 7875
 --- File size ---
-Average: 18815378.500000
-Mean: 19649685
+Average: 18606890.300000
+Mean: 19649681

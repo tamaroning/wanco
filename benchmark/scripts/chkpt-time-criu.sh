@@ -44,11 +44,11 @@ measure_criu_checkpoint_time() {
 
         # sqliteではdbのlockを取るので、--file-locksで無理やりダンプする
         "$@" > /dev/null 2>&1 & \
-            local time=$(
+            (
                 sleep $half_elapsed_time
-                local time=$(get_elapsed_time criu dump --shell-job -t $(pgrep $exe_name) --file-locks -D $CHECKPOINT_DIR)
-                echo $time
+                criu dump --shell-job -t $(pgrep $exe_name) --file-locks -D $CHECKPOINT_DIR
             )
+        time=$(crit decode -i checkpoint/stats-dump | jq '.entries[0].dump.freezing_time')
         echo "$i: Checkpoint time: $time"
         chkpt_times+=($time)
         sleep 0.1
@@ -58,12 +58,9 @@ measure_criu_checkpoint_time() {
         file_sizes+=($file_size)
         sleep 0.1
 
-
         # restore time
-        local restore_time=$(
-            local time=$(get_elapsed_time criu restore --shell-job -D $CHECKPOINT_DIR)
-            echo $time
-        )
+        criu restore --shell-job -D $CHECKPOINT_DIR
+        restore_time=$(crit decode -i checkpoint/stats-restore | jq '.entries[0].restore.restore_time')
         echo "$i: Restore time: $restore_time"
         restore_times+=($restore_time)
     done
