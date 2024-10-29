@@ -26,7 +26,7 @@ measure_criu_checkpoint_time() {
         exit 1
     fi
 
-    local half_elapsed_time=$(get_half_elapsed_time "$@")
+    local half_elapsed_time=$(echo "$(get_half_elapsed_time "$@") - 0.1"| bc)
     echo "half elapsed time: $half_elapsed_time"
 
     chkpt_times=()
@@ -38,6 +38,7 @@ measure_criu_checkpoint_time() {
             echo "Error: failed to remove $CHECKPOINT_DIR"
             exit 1
         fi
+        rm -rf -f $CHECKPOINT_DIR
         mkdir $CHECKPOINT_DIR
         sleep 0.1
 
@@ -48,18 +49,22 @@ measure_criu_checkpoint_time() {
                 local time=$(get_elapsed_time criu dump --shell-job -t $(pgrep $exe_name) --file-locks -D $CHECKPOINT_DIR)
                 echo $time
             )
+        echo "$i: Checkpoint time: $time"
         chkpt_times+=($time)
         sleep 0.1
 
         local file_size=$(du -sb "$CHECKPOINT_DIR" | cut -f1)
+        echo "$i: File size: $file_size"
         file_sizes+=($file_size)
         sleep 0.1
+
 
         # restore time
         local restore_time=$(
             local time=$(get_elapsed_time criu restore --shell-job -D $CHECKPOINT_DIR)
             echo $time
         )
+        echo "$i: Restore time: $restore_time"
         restore_times+=($restore_time)
     done
 
@@ -79,10 +84,10 @@ if [ $SKIP_BUILD -eq 0 ]; then
 fi
 
 cd $LLAMA2_DIR
-measure_criu_checkpoint_time "./llama2-c-x86-64" "model.bin" "-n" 0 "-i" 'Once upon a time'
+measure_criu_checkpoint_time "../llama2" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
 cd $BENCH_DIR
-measure_criu_checkpoint_time "./nbody-native" 10000000
-measure_criu_checkpoint_time "./binary-trees-native" 18
+measure_criu_checkpoint_time "./nbody" "--" 10000000
+measure_criu_checkpoint_time "./binary-trees" "--" 18
 
 # dbファイルや関連するファイルを削除
 #rm -f test.db test.db.journal
