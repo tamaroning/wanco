@@ -4,7 +4,7 @@ source $SCRIPT_DIR/common.sh
 
 NUM_RUNS=3
 CHECKPOINT_FILE="checkpoint.pb"
-SKIP_BUILD=0
+SKIP_BUILD=1
 
 LABBENCH_DIR=${SCRIPT_DIR}/../computer-lab-benchmark
 LLAMA2_DIR=${SCRIPT_DIR}/../llama2-c
@@ -53,11 +53,9 @@ measure_wasm_checkpoint_time() {
                     sleep 0.0001
                 done
                 end_time=$(date +%s.%N)
-                #echo "start_time: $start_time"
-                #echo "end_time: $end_time"
                 echo "$end_time - $start_time" | bc
             )
-        echo "$i: Time: $chkpt_time"
+        #echo "$i: Checkpoint time: $chkpt_time"
 
         # check if $CHECKPOINT_FILE exists
         if [ ! -f $CHECKPOINT_FILE ]; then
@@ -67,15 +65,26 @@ measure_wasm_checkpoint_time() {
 
         chkpt_times+=($chkpt_time)
 
-        sleep 10
-
 
         # measure restore time
 
-        # TODO:
+        rm -f restore-finish-time.txt
+        sleep 0.1
+        start_time=$(date +%s.%N)
+        $1 "--restore" $CHECKPOINT_FILE > /dev/null 2>&1
+        # end time is in restore-finish-time.txt
+        sleep 0.1
+        end_time=$(cat restore-finish-time.txt)
+        restore_time=$(echo "$end_time - $start_time" | bc)
+        #echo "Restore time: $restore_time"
+        
+        restore_times+=($restore_time)
     done
 
+    echo "--- Checkpoint time ---"
     print_avg_and_mean ${chkpt_times[@]}
+    echo "--- Restore time ---"
+    print_avg_and_mean ${restore_times[@]}
 }
 
 if [ $SKIP_BUILD -eq 0 ]; then
