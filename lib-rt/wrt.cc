@@ -71,7 +71,7 @@ struct Config {
   std::string restore_file;
 };
 
-int8_t *allocate_memory(const Config &config, int32_t num_pages) {
+int8_t *allocate_memory(int32_t num_pages) {
   uint64_t num_bytes = num_pages * PAGE_SIZE;
 
   // Memory layout
@@ -178,7 +178,7 @@ int wanco_main(int argc, char **argv) {
   if (config.restore_file.empty()) {
     // Allocate memory
     int memory_size = INIT_MEMORY_SIZE;
-    int8_t *memory = allocate_memory(config, memory_size);
+    int8_t *memory = allocate_memory(memory_size);
     // Initialize exec_env
     exec_env = ExecEnv{
         .memory_base = memory,
@@ -201,18 +201,22 @@ int wanco_main(int argc, char **argv) {
       return 1;
     }
 
+    int8_t *memory = nullptr;
     if constexpr (USE_PROTOBUF) {
       if (!config.restore_file.ends_with(".pb")) {
         Warn() << "The file does not have a .pb extension. "
                   "Attempting to parse as proto."
                << std::endl;
       }
-      chkpt = decode_checkpoint_proto(ifs);
+      auto p = decode_checkpoint_proto(ifs);
+      chkpt = p.first;
+      memory = p.second;
     } else if (!config.restore_file.ends_with(".json")) {
       Warn() << "The file does not have a .json extension. "
                 "Attempting to parse as JSON."
              << std::endl;
       chkpt = decode_checkpoint_json(ifs);
+      ASSERT(false && "Not implemented: memory");
     }
     chkpt.prepare_restore();
     Info() << "Checkpoint has been loaded" << std::endl;
@@ -220,18 +224,10 @@ int wanco_main(int argc, char **argv) {
     Info() << "- value stack: " << chkpt.restore_stack.size() << " values"
            << std::endl;
 
-    int32_t memory_size = chkpt.memory_size;
-    // Allocate memory and copy contents from checkpoint
-    int8_t *memory = allocate_memory(config, memory_size);
-    Info() << "Restoring memory: " << std::dec << memory_size << " pages ("
-           << memory_size * PAGE_SIZE << " bytes)" << std::endl;
-
-    std::memcpy(memory, chkpt.memory.data(), chkpt.memory.size());
-    ASSERT((std::size_t)(memory_size * PAGE_SIZE) == chkpt.memory.size());
     // Initialize exec_env
     exec_env = ExecEnv{
         .memory_base = memory,
-        .memory_size = memory_size,
+        .memory_size = chkpt.memory_size,
         .migration_state = MigrationState::STATE_RESTORE,
         .argc = argc,
         .argv = (uint8_t **)argv,
@@ -243,15 +239,12 @@ int wanco_main(int argc, char **argv) {
   aot_main(&exec_env);
 
   if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE) {
-    chkpt.memory = std::vector<int8_t>(exec_env.memory_base,
-                                       exec_env.memory_base +
-                                           exec_env.memory_size * PAGE_SIZE);
     chkpt.memory_size = exec_env.memory_size;
 
     // write snapshot
     if constexpr (USE_PROTOBUF) {
       std::ofstream ofs("checkpoint.pb");
-      encode_checkpoint_proto(ofs, chkpt);
+      encode_checkpoint_proto(ofs, chkpt, exec_env.memory_base);
       Info() << "Snapshot has been saved to checkpoint.pb" << std::endl;
     } else {
       std::ofstream ofs("checkpoint.json");

@@ -64,7 +64,6 @@ class Checkpoint {
 public:
   std::deque<Frame> frames;
   std::deque<Value> globals;
-  std::vector<int8_t> memory;
   std::deque<int32_t> table;
   int memory_size = 0;
 
@@ -75,7 +74,6 @@ public:
   void clear() {
     frames.clear();
     globals.clear();
-    memory.clear();
     table.clear();
     memory_size = 0;
     restore_stack.clear();
@@ -95,8 +93,9 @@ void encode_checkpoint_json(std::ofstream &ofs, Checkpoint &chkpt);
 
 Checkpoint decode_checkpoint_json(std::ifstream &f);
 
-wanco::Checkpoint decode_checkpoint_proto(std::ifstream &f);
+std::pair<wanco::Checkpoint, int8_t *>
+decode_checkpoint_proto(std::ifstream &f);
 
-void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt);
+void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt, int8_t *memory_base);
 
 } // namespace wanco

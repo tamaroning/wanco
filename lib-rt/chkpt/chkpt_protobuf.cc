@@ -49,7 +49,8 @@ static wanco::Frame decode_frame_proto(const chkpt::Frame &f) {
   return frame;
 }
 
-wanco::Checkpoint decode_checkpoint_proto(std::ifstream &f) {
+std::pair<wanco::Checkpoint, int8_t *>
+decode_checkpoint_proto(std::ifstream &f) {
   Checkpoint ret;
   chkpt::Checkpoint buf;
   if (!buf.ParseFromIstream(&f)) {
@@ -72,23 +73,20 @@ wanco::Checkpoint decode_checkpoint_proto(std::ifstream &f) {
   }
 
   ret.memory_size = buf.memory_size();
-  ret.memory.resize(ret.memory_size * PAGE_SIZE, 0);
+  int8_t *memory_base = allocate_memory(ret.memory_size);
 
   Info() << "Decompressing memory: " << std::dec << ret.memory_size
-         << " pages (" << ret.memory.size() << " bytes)" << std::endl;
+         << " pages (" << ret.memory_size * PAGE_SIZE << " bytes)" << std::endl;
   std::string compressed = buf.memory_lz4();
   size_t size =
-      LZ4_decompress_safe(compressed.data(), (char *)ret.memory.data(),
-                          compressed.size(), ret.memory.size());
+      LZ4_decompress_safe(compressed.data(), (char *)memory_base,
+                          compressed.size(), ret.memory_size * PAGE_SIZE);
   if (size < 0) {
     Fatal() << "Failed to decompress memory" << std::endl;
     exit(1);
   }
 
-  ASSERT(size <= ret.memory.size());
-  ASSERT(ret.memory.size() == (std::size_t)(ret.memory_size * PAGE_SIZE));
-
-  return ret;
+  return {ret, memory_base};
 }
 
 static chkpt::Value encode_value_proto(const wanco::Value &v) {
@@ -134,7 +132,8 @@ static chkpt::Frame encode_frame_proto(const wanco::Frame &f) {
   return ret;
 }
 
-void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
+void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
+                             int8_t *memory_base) {
   chkpt::Checkpoint buf;
   for (const auto &fr : chkpt.frames) {
     chkpt::Frame f = encode_frame_proto(fr);
@@ -156,15 +155,16 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt) {
                          std::chrono::system_clock::now().time_since_epoch())
                          .count();
   Info() << "Compressing memory" << std::endl;
-  int guarantee = LZ4_compressBound(chkpt.memory.size());
+  int guarantee = LZ4_compressBound(chkpt.memory_size * PAGE_SIZE);
   std::vector<char> compressed;
   compressed.resize(guarantee);
-  int sz = LZ4_compress_default((char *)chkpt.memory.data(), compressed.data(),
-                                chkpt.memory.size(), compressed.capacity());
+  int sz = LZ4_compress_default((char *)memory_base, compressed.data(),
+                                chkpt.memory_size * PAGE_SIZE,
+                                compressed.capacity());
   compressed.resize(sz);
 
-  Info() << "Compression ratio: " << (double)sz / chkpt.memory.size()
-         << std::endl;
+  Info() << "Compression ratio: "
+         << (double)sz / (chkpt.memory_size * PAGE_SIZE) << std::endl;
   uint64_t end_time_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::system_clock::now().time_since_epoch())

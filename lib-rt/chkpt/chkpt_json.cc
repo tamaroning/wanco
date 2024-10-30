@@ -3,6 +3,7 @@
 #include "lz4/lz4.h"
 #include "nlohmann/json.h"
 #include "tobiaslocker/base64.h"
+#include "wanco.h"
 #include <cstddef>
 #include <fstream>
 #include <iostream>
@@ -130,21 +131,7 @@ void encode_checkpoint_json(std::ofstream &ofs, Checkpoint &chkpt) {
   */
 
   std::cerr << "[info] Compressing memory" << std::endl;
-  int guarantee = LZ4_compressBound(chkpt.memory.size());
-  std::vector<char> compressed;
-  compressed.resize(guarantee);
-  int sz = LZ4_compress_default((char *)chkpt.memory.data(), compressed.data(),
-                                chkpt.memory.size(), compressed.capacity());
-  compressed.resize(sz);
-
-  std::cout << "[info] compression ratio: " << (double)sz / chkpt.memory.size()
-            << std::endl;
-
-  auto base64 =
-      base64::to_base64(std::string_view(compressed.data(), compressed.size()));
-  ofs << "  \"memory-lz4\": \"" << base64 << "\"\n";
-
-  ofs << "}\n";
+  ASSERT(false);
 }
 
 static Value decode_value_json(json &j) {
@@ -203,11 +190,7 @@ Checkpoint decode_checkpoint_json(std::ifstream &f) {
   std::cerr << "[info] Decompressing memory" << std::endl;
   std::string base64 = j["memory-lz4"];
   std::string compressed = base64::from_base64(base64);
-  chkpt.memory.resize(chkpt.memory_size * PAGE_SIZE);
-  size_t size =
-      LZ4_decompress_safe(compressed.data(), (char *)chkpt.memory.data(),
-                          compressed.size(), chkpt.memory.size());
-  ASSERT(size == chkpt.memory.size());
+  ASSERT(false);
 
   return chkpt;
 }
