@@ -19,7 +19,9 @@ extern uint64_t CHKPT_START_TIME;
 extern uint64_t RESTORE_START_TIME;
 } // namespace wanco
 
-#define DEBUG_LOG if constexpr(wanco::DEBUG_ENABLED) Debug()
+#define DEBUG_LOG                                                              \
+  if constexpr (wanco::DEBUG_ENABLED)                                          \
+  Debug()
 
 class Debug {
 public:
@@ -72,3 +74,8 @@ public:
 private:
   std::ostream &out = std::cerr;
 };
+
+namespace wanco {
+// wrt.cc
+int8_t *allocate_memory(int32_t num_pages);
+} // namespace wanco
