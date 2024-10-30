@@ -1,36 +1,36 @@
 --- llama2-c-cr ---
 command: ./../llama2-c-cr -- model.bin -n 0 -i Once upon a time
-half elapsed time: .28624932650000000000
+half elapsed time: .24075855750000000000
 --- Checkpoint time ---
-Average: .006769
-Mean: .006774327
+Average: 3763.100000
+Mean: 3782
 --- Restore time ---
-Average: .004516
-Mean: .004554133
+Average: 2301.000000
+Mean: 2299
 --- File size ---
-Average: 1294399.300000
-Mean: 1294949
+Average: 1272440.000000
+Mean: 1272538
 --- nbody-cr ---
 command: ./nbody-cr -- 10000000
-half elapsed time: .29573745000000000000
+half elapsed time: .27680673550000000000
 --- Checkpoint time ---
-Average: .001085
-Mean: .001066896
+Average: 344.500000
+Mean: 336
 --- Restore time ---
-Average: .001645
-Mean: .001589481
+Average: 161.100000
+Mean: 147
 --- File size ---
 Average: 3912.000000
 Mean: 3912
 --- binary-trees-cr ---
 command: ./binary-trees-cr -- 18
-half elapsed time: .71328959150000000000
+half elapsed time: .91544467700000000000
 --- Checkpoint time ---
-Average: .029850
-Mean: .030125598
+Average: 22917.400000
+Mean: 22691
 --- Restore time ---
-Average: .012476
-Mean: .012442610
+Average: 8210.100000
+Mean: 8127
 --- File size ---
-Average: 4549566.800000
-Mean: 4552065
+Average: 4557504.400000
+Mean: 4552356
