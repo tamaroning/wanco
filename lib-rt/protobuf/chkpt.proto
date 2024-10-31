@@ -37,4 +37,5 @@ message Checkpoint {
 	repeated int32 table = 3;
 	int32 memory_size = 4;
 	bytes memory_lz4 = 5;
+	bytes memory = 6;
 }

@@ -787,6 +787,7 @@ class Checkpoint PROTOBUF_FINAL :
     kGlobalsFieldNumber = 2,
     kTableFieldNumber = 3,
     kMemoryLz4FieldNumber = 5,
+    kMemoryFieldNumber = 6,
     kMemorySizeFieldNumber = 4,
   };
   // repeated .chkpt.Frame frames = 1;
@@ -872,6 +873,31 @@ class Checkpoint PROTOBUF_FINAL :
   std::string* _internal_mutable_memory_lz4();
   public:
 
+  // bytes memory = 6;
+  void clear_memory();
+  const std::string& memory() const;
+  void set_memory(const std::string& value);
+  void set_memory(std::string&& value);
+  void set_memory(const char* value);
+  void set_memory(const void* value, size_t size);
+  std::string* mutable_memory();
+  std::string* release_memory();
+  void set_allocated_memory(std::string* memory);
+  GOOGLE_PROTOBUF_RUNTIME_DEPRECATED("The unsafe_arena_ accessors for"
+  "    string fields are deprecated and will be removed in a"
+  "    future release.")
+  std::string* unsafe_arena_release_memory();
+  GOOGLE_PROTOBUF_RUNTIME_DEPRECATED("The unsafe_arena_ accessors for"
+  "    string fields are deprecated and will be removed in a"
+  "    future release.")
+  void unsafe_arena_set_allocated_memory(
+      std::string* memory);
+  private:
+  const std::string& _internal_memory() const;
+  void _internal_set_memory(const std::string& value);
+  std::string* _internal_mutable_memory();
+  public:
+
   // int32 memory_size = 4;
   void clear_memory_size();
   ::PROTOBUF_NAMESPACE_ID::int32 memory_size() const;
@@ -893,6 +919,7 @@ class Checkpoint PROTOBUF_FINAL :
   ::PROTOBUF_NAMESPACE_ID::RepeatedField< ::PROTOBUF_NAMESPACE_ID::int32 > table_;
   mutable std::atomic<int> _table_cached_byte_size_;
   ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr memory_lz4_;
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr memory_;
   ::PROTOBUF_NAMESPACE_ID::int32 memory_size_;
   mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_protobuf_2fchkpt_2eproto;
@@ -1431,6 +1458,87 @@ inline void Checkpoint::unsafe_arena_set_allocated_memory_lz4(
   memory_lz4_.UnsafeArenaSetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
       memory_lz4, GetArena());
   // @@protoc_insertion_point(field_unsafe_arena_set_allocated:chkpt.Checkpoint.memory_lz4)
+}
+
+// bytes memory = 6;
+inline void Checkpoint::clear_memory() {
+  memory_.ClearToEmpty(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+}
+inline const std::string& Checkpoint::memory() const {
+  // @@protoc_insertion_point(field_get:chkpt.Checkpoint.memory)
+  return _internal_memory();
+}
+inline void Checkpoint::set_memory(const std::string& value) {
+  _internal_set_memory(value);
+  // @@protoc_insertion_point(field_set:chkpt.Checkpoint.memory)
+}
+inline std::string* Checkpoint::mutable_memory() {
+  // @@protoc_insertion_point(field_mutable:chkpt.Checkpoint.memory)
+  return _internal_mutable_memory();
+}
+inline const std::string& Checkpoint::_internal_memory() const {
+  return memory_.Get();
+}
+inline void Checkpoint::_internal_set_memory(const std::string& value) {
+  
+  memory_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), value, GetArena());
+}
+inline void Checkpoint::set_memory(std::string&& value) {
+  
+  memory_.Set(
+    &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), ::std::move(value), GetArena());
+  // @@protoc_insertion_point(field_set_rvalue:chkpt.Checkpoint.memory)
+}
+inline void Checkpoint::set_memory(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  
+  memory_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), ::std::string(value),
+              GetArena());
+  // @@protoc_insertion_point(field_set_char:chkpt.Checkpoint.memory)
+}
+inline void Checkpoint::set_memory(const void* value,
+    size_t size) {
+  
+  memory_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), ::std::string(
+      reinterpret_cast<const char*>(value), size), GetArena());
+  // @@protoc_insertion_point(field_set_pointer:chkpt.Checkpoint.memory)
+}
+inline std::string* Checkpoint::_internal_mutable_memory() {
+  
+  return memory_.Mutable(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+}
+inline std::string* Checkpoint::release_memory() {
+  // @@protoc_insertion_point(field_release:chkpt.Checkpoint.memory)
+  return memory_.Release(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+}
+inline void Checkpoint::set_allocated_memory(std::string* memory) {
+  if (memory != nullptr) {
+    
+  } else {
+    
+  }
+  memory_.SetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), memory,
+      GetArena());
+  // @@protoc_insertion_point(field_set_allocated:chkpt.Checkpoint.memory)
+}
+inline std::string* Checkpoint::unsafe_arena_release_memory() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:chkpt.Checkpoint.memory)
+  GOOGLE_DCHECK(GetArena() != nullptr);
+  
+  return memory_.UnsafeArenaRelease(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
+      GetArena());
+}
+inline void Checkpoint::unsafe_arena_set_allocated_memory(
+    std::string* memory) {
+  GOOGLE_DCHECK(GetArena() != nullptr);
+  if (memory != nullptr) {
+    
+  } else {
+    
+  }
+  memory_.UnsafeArenaSetAllocated(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
+      memory, GetArena());
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:chkpt.Checkpoint.memory)
 }
 
 #ifdef __GNUC__

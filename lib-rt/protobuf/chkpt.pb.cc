@@ -137,6 +137,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_protobuf_2fchkpt_2eproto::offs
   PROTOBUF_FIELD_OFFSET(::chkpt::Checkpoint, table_),
   PROTOBUF_FIELD_OFFSET(::chkpt::Checkpoint, memory_size_),
   PROTOBUF_FIELD_OFFSET(::chkpt::Checkpoint, memory_lz4_),
+  PROTOBUF_FIELD_OFFSET(::chkpt::Checkpoint, memory_),
 };
 static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, sizeof(::chkpt::Type)},
@@ -160,11 +161,11 @@ const char descriptor_table_protodef_protobuf_2fchkpt_2eproto[] PROTOBUF_SECTION
   "4\030\003 \001(\003H\000\022\r\n\003f32\030\004 \001(\002H\000\022\r\n\003f64\030\005 \001(\001H\000B"
   "\014\n\ntest_oneof\"^\n\005Frame\022\016\n\006fn_idx\030\001 \001(\005\022\n"
   "\n\002pc\030\002 \001(\005\022\034\n\006locals\030\003 \003(\0132\014.chkpt.Value"
-  "\022\033\n\005stack\030\004 \003(\0132\014.chkpt.Value\"\201\001\n\nCheckp"
+  "\022\033\n\005stack\030\004 \003(\0132\014.chkpt.Value\"\221\001\n\nCheckp"
   "oint\022\034\n\006frames\030\001 \003(\0132\014.chkpt.Frame\022\035\n\007gl"
   "obals\030\002 \003(\0132\014.chkpt.Value\022\r\n\005table\030\003 \003(\005"
   "\022\023\n\013memory_size\030\004 \001(\005\022\022\n\nmemory_lz4\030\005 \001("
-  "\014B\003\370\001\001b\006proto3"
+  "\014\022\016\n\006memory\030\006 \001(\014B\003\370\001\001b\006proto3"
   ;
 static const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable*const descriptor_table_protobuf_2fchkpt_2eproto_deps[1] = {
 };
@@ -176,7 +177,7 @@ static ::PROTOBUF_NAMESPACE_ID::internal::SCCInfoBase*const descriptor_table_pro
 };
 static ::PROTOBUF_NAMESPACE_ID::internal::once_flag descriptor_table_protobuf_2fchkpt_2eproto_once;
 const ::PROTOBUF_NAMESPACE_ID::internal::DescriptorTable descriptor_table_protobuf_2fchkpt_2eproto = {
-  false, false, descriptor_table_protodef_protobuf_2fchkpt_2eproto, "protobuf/chkpt.proto", 454,
+  false, false, descriptor_table_protodef_protobuf_2fchkpt_2eproto, "protobuf/chkpt.proto", 470,
   &descriptor_table_protobuf_2fchkpt_2eproto_once, descriptor_table_protobuf_2fchkpt_2eproto_sccs, descriptor_table_protobuf_2fchkpt_2eproto_deps, 4, 0,
   schemas, file_default_instances, TableStruct_protobuf_2fchkpt_2eproto::offsets,
   file_level_metadata_protobuf_2fchkpt_2eproto, 4, file_level_enum_descriptors_protobuf_2fchkpt_2eproto, file_level_service_descriptors_protobuf_2fchkpt_2eproto,
@@ -1062,6 +1063,11 @@ Checkpoint::Checkpoint(const Checkpoint& from)
     memory_lz4_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), from._internal_memory_lz4(),
       GetArena());
   }
+  memory_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  if (!from._internal_memory().empty()) {
+    memory_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), from._internal_memory(),
+      GetArena());
+  }
   memory_size_ = from.memory_size_;
   // @@protoc_insertion_point(copy_constructor:chkpt.Checkpoint)
 }
@@ -1069,6 +1075,7 @@ Checkpoint::Checkpoint(const Checkpoint& from)
 void Checkpoint::SharedCtor() {
   ::PROTOBUF_NAMESPACE_ID::internal::InitSCC(&scc_info_Checkpoint_protobuf_2fchkpt_2eproto.base);
   memory_lz4_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  memory_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
   memory_size_ = 0;
 }
 
@@ -1081,6 +1088,7 @@ Checkpoint::~Checkpoint() {
 void Checkpoint::SharedDtor() {
   GOOGLE_DCHECK(GetArena() == nullptr);
   memory_lz4_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  memory_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
 }
 
 void Checkpoint::ArenaDtor(void* object) {
@@ -1108,6 +1116,7 @@ void Checkpoint::Clear() {
   globals_.Clear();
   table_.Clear();
   memory_lz4_.ClearToEmpty(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+  memory_.ClearToEmpty(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
   memory_size_ = 0;
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
@@ -1165,6 +1174,14 @@ const char* Checkpoint::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID:
       case 5:
         if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 42)) {
           auto str = _internal_mutable_memory_lz4();
+          ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
+          CHK_(ptr);
+        } else goto handle_unusual;
+        continue;
+      // bytes memory = 6;
+      case 6:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 50)) {
+          auto str = _internal_mutable_memory();
           ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(ptr);
         } else goto handle_unusual;
@@ -1234,6 +1251,12 @@ failure:
         5, this->_internal_memory_lz4(), target);
   }
 
+  // bytes memory = 6;
+  if (this->memory().size() > 0) {
+    target = stream->WriteBytesMaybeAliased(
+        6, this->_internal_memory(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -1286,6 +1309,13 @@ size_t Checkpoint::ByteSizeLong() const {
         this->_internal_memory_lz4());
   }
 
+  // bytes memory = 6;
+  if (this->memory().size() > 0) {
+    total_size += 1 +
+      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::BytesSize(
+        this->_internal_memory());
+  }
+
   // int32 memory_size = 4;
   if (this->memory_size() != 0) {
     total_size += 1 +
@@ -1330,6 +1360,9 @@ void Checkpoint::MergeFrom(const Checkpoint& from) {
   if (from.memory_lz4().size() > 0) {
     _internal_set_memory_lz4(from._internal_memory_lz4());
   }
+  if (from.memory().size() > 0) {
+    _internal_set_memory(from._internal_memory());
+  }
   if (from.memory_size() != 0) {
     _internal_set_memory_size(from._internal_memory_size());
   }
@@ -1360,6 +1393,7 @@ void Checkpoint::InternalSwap(Checkpoint* other) {
   globals_.InternalSwap(&other->globals_);
   table_.InternalSwap(&other->table_);
   memory_lz4_.Swap(&other->memory_lz4_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+  memory_.Swap(&other->memory_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
   swap(memory_size_, other->memory_size_);
 }
 

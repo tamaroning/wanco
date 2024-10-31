@@ -75,15 +75,23 @@ decode_checkpoint_proto(std::ifstream &f) {
   ret.memory_size = buf.memory_size();
   int8_t *memory_base = allocate_memory(ret.memory_size);
 
-  Info() << "Decompressing memory: " << std::dec << ret.memory_size
-         << " pages (" << ret.memory_size * PAGE_SIZE << " bytes)" << std::endl;
-  std::string compressed = buf.memory_lz4();
-  size_t size =
-      LZ4_decompress_safe(compressed.data(), (char *)memory_base,
-                          compressed.size(), ret.memory_size * PAGE_SIZE);
-  if (size < 0) {
-    Fatal() << "Failed to decompress memory" << std::endl;
-    exit(1);
+  if (USE_LZ4) {
+    Info() << "Decompressing memory: " << std::dec << ret.memory_size
+           << " pages (" << ret.memory_size * PAGE_SIZE << " bytes)"
+           << std::endl;
+    std::string compressed = buf.memory_lz4();
+    size_t size =
+        LZ4_decompress_safe(compressed.data(), (char *)memory_base,
+                            compressed.size(), ret.memory_size * PAGE_SIZE);
+    if (size < 0) {
+      Fatal() << "Failed to decompress memory" << std::endl;
+      exit(1);
+    }
+  } else {
+    ASSERT(buf.memory().size() == (std::size_t)ret.memory_size * PAGE_SIZE);
+    Info() << "Copying memory: " << std::dec << ret.memory_size << " pages ("
+           << buf.memory().size() << " bytes)" << std::endl;
+    memcpy(memory_base, buf.memory().data(), buf.memory().size());
   }
 
   return {ret, memory_base};
@@ -150,28 +158,33 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
   }
 
   buf.set_memory_size(chkpt.memory_size);
+  if (USE_LZ4) {
+    uint64_t time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                           std::chrono::system_clock::now().time_since_epoch())
+                           .count();
+    Info() << "Compressing memory" << std::endl;
+    int guarantee = LZ4_compressBound(chkpt.memory_size * PAGE_SIZE);
+    std::vector<char> compressed;
+    compressed.resize(guarantee);
+    int sz = LZ4_compress_default((char *)memory_base, compressed.data(),
+                                  chkpt.memory_size * PAGE_SIZE,
+                                  compressed.capacity());
+    compressed.resize(sz);
 
-  uint64_t time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::system_clock::now().time_since_epoch())
-                         .count();
-  Info() << "Compressing memory" << std::endl;
-  int guarantee = LZ4_compressBound(chkpt.memory_size * PAGE_SIZE);
-  std::vector<char> compressed;
-  compressed.resize(guarantee);
-  int sz = LZ4_compress_default((char *)memory_base, compressed.data(),
-                                chkpt.memory_size * PAGE_SIZE,
-                                compressed.capacity());
-  compressed.resize(sz);
+    Info() << "Compression ratio: "
+           << (double)sz / (chkpt.memory_size * PAGE_SIZE) << std::endl;
+    uint64_t end_time_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
+    Info() << "Compression time: " << end_time_ms - time_ms << " ms"
+           << std::endl;
 
-  Info() << "Compression ratio: "
-         << (double)sz / (chkpt.memory_size * PAGE_SIZE) << std::endl;
-  uint64_t end_time_ms =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch())
-          .count();
-  Info() << "Compression time: " << end_time_ms - time_ms << " ms" << std::endl;
-
-  buf.set_memory_lz4(std::string(compressed.begin(), compressed.end()));
+    buf.set_memory_lz4(std::string(compressed.begin(), compressed.end()));
+  } else {
+    Info() << "Copying memory" << std::endl;
+    buf.set_memory(memory_base, chkpt.memory_size * PAGE_SIZE);
+  }
 
   if (!buf.SerializeToOstream(&ofs)) {
     Fatal() << "Failed to write checkpoint file" << std::endl;

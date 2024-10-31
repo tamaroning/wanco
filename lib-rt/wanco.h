@@ -1,6 +1,6 @@
 #pragma once
-#include <iostream>
 #include <cstdint>
+#include <iostream>
 
 #define ASSERT(condition)                                                      \
   do {                                                                         \
@@ -12,6 +12,7 @@
   } while (false)
 
 namespace wanco {
+constexpr bool USE_LZ4 = false;
 constexpr bool DEBUG_ENABLED = false;
 
 extern uint64_t CHKPT_START_TIME;
