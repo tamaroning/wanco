@@ -89,10 +89,6 @@ public:
   }
 };
 
-void encode_checkpoint_json(std::ofstream &ofs, Checkpoint &chkpt);
-
-Checkpoint decode_checkpoint_json(std::ifstream &f);
-
 std::pair<wanco::Checkpoint, int8_t *>
 decode_checkpoint_proto(std::ifstream &f);
 

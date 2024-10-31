@@ -12,7 +12,6 @@
   } while (false)
 
 namespace wanco {
-constexpr bool USE_PROTOBUF = true;
 constexpr bool DEBUG_ENABLED = false;
 
 extern uint64_t CHKPT_START_TIME;

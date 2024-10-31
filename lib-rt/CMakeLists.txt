@@ -9,7 +9,6 @@ target_compile_options(wanco_rt PRIVATE -Wall -g)
 target_sources(wanco_rt PRIVATE
     api.cc
     wrt.cc
-    chkpt/chkpt_json.cc
     chkpt/chkpt_protobuf.cc
     lz4/lz4.c
     protobuf/chkpt.pb.cc

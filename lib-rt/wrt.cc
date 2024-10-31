@@ -38,7 +38,7 @@ USAGE: <this file> [options] -- [arguments]
 OPTIONS:
   no options: Run the WebAssembly AOT module from the beginning
   --help: Display this message and exit
-  --restore <FILE>: Restore an execution from a checkpoint JSON file
+  --restore <FILE>: Restore an execution from a checkpoint file
 )";
 
 // forward decl
@@ -202,22 +202,14 @@ int wanco_main(int argc, char **argv) {
     }
 
     int8_t *memory = nullptr;
-    if constexpr (USE_PROTOBUF) {
-      if (!config.restore_file.ends_with(".pb")) {
-        Warn() << "The file does not have a .pb extension. "
-                  "Attempting to parse as proto."
-               << std::endl;
-      }
-      auto p = decode_checkpoint_proto(ifs);
-      chkpt = p.first;
-      memory = p.second;
-    } else if (!config.restore_file.ends_with(".json")) {
-      Warn() << "The file does not have a .json extension. "
-                "Attempting to parse as JSON."
+    if (!config.restore_file.ends_with(".pb")) {
+      Warn() << "The file does not have a .pb extension. "
+                "Attempting to parse as proto."
              << std::endl;
-      chkpt = decode_checkpoint_json(ifs);
-      ASSERT(false && "Not implemented: memory");
     }
+    auto p = decode_checkpoint_proto(ifs);
+    chkpt = p.first;
+    memory = p.second;
     chkpt.prepare_restore();
     Info() << "Checkpoint has been loaded" << std::endl;
     Info() << "- call stack: " << chkpt.frames.size() << " frames" << std::endl;
@@ -242,24 +234,17 @@ int wanco_main(int argc, char **argv) {
     chkpt.memory_size = exec_env.memory_size;
 
     // write snapshot
-    if constexpr (USE_PROTOBUF) {
-      std::ofstream ofs("checkpoint.pb");
-      encode_checkpoint_proto(ofs, chkpt, exec_env.memory_base);
-      Info() << "Snapshot has been saved to checkpoint.pb" << std::endl;
-    } else {
-      std::ofstream ofs("checkpoint.json");
-      encode_checkpoint_json(ofs, chkpt);
-      Info() << "Snapshot has been saved to checkpoint.json" << std::endl;
-    }
+    std::ofstream ofs("checkpoint.pb");
+    encode_checkpoint_proto(ofs, chkpt, exec_env.memory_base);
+    Info() << "Snapshot has been saved to checkpoint.pb" << std::endl;
 
     auto time = std::chrono::duration_cast<std::chrono::microseconds>(
                     std::chrono::system_clock::now().time_since_epoch())
                     .count();
     time = time - wanco::CHKPT_START_TIME;
     // TODO: remove this (research purpose)
-    std::ofstream ofs("chkpt-time.txt");
-    ofs << time << std::endl;
-    ofs.close();
+    std::ofstream chktime("chkpt-time.txt");
+    chktime << time << std::endl;
   }
 
   // cleanup
