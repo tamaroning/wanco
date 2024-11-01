@@ -42,7 +42,10 @@ measure_criu_checkpoint_time() {
                 sleep $half_elapsed_time
                 criu dump --shell-job -t $(pgrep $exe_name) --file-locks -D $CHECKPOINT_DIR
             )
-        time=$(crit decode -i checkpoint/stats-dump | jq '.entries[0].dump.freezing_time')
+        freezing_time=$(crit decode -i checkpoint/stats-dump | jq '.entries[0].dump.freezing_time')
+        memdump_time=$(crit decode -i checkpoint/stats-dump | jq '.entries[0].dump.memdump_time')
+        memwrite_time=$(crit decode -i checkpoint/stats-dump | jq '.entries[0].dump.memwrite_time')
+        time=$(echo "scale=2; $freezing_time + $memdump_time + $memwrite_time" | bc)
         echo "$i: Checkpoint time: $time"
         chkpt_times+=($time)
         sleep 0.1
