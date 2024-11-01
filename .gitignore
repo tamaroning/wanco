@@ -2,6 +2,7 @@
 **/*.ll
 **/*.o
 **/*.a
+**/*.bc
 **/a.out
 **/*.wat
 **/*.wasm
@@ -12,30 +13,28 @@ build/
 !demo/**/*.wasm
 !examples/**/*.wat
 !examples/**/*.wasm
-
 !benchmark/**/*.wasm
+
 llama2*
-!llama2-c-x86-64
 binary-trees*
 nbody*
 
-*.bc
-*.cc
-*.json
-*.c
-!benchmark/sqlite_example/main.c
-
-checkpoint.json
+# snapshots
 checkpoint.pb
 checkpoint.pb.json
+
+# benchmark
+restore-time.txt
+chkpt-time.txt
 
 # clangd
 compile_commands.json
 .cache
 
+# rust
 **/target/
 
-# clion?
+# clion
 **/.idea/
 **/cmake-build-debug/
 
