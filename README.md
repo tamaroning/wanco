@@ -10,17 +10,20 @@ See [examples](./examples) for quick start.
 ## Build
 
 Prerequisites:
-- CMake and C++ compiler
-- Cargo
-- LLVM 17 (recommend to use ./llvm.sh if you are using apt)
-    - Set `/usr/lib/llvm-17` to `LLVM_SYS_170_PREFIX`
 - POSIX compliant OS (Linux, TODO: support macOS)
-- clang or clang++ (version 17 or later)
-- protocol buffer (Run `apt install libprotobuf-dev`)
-    - For development, run `apt install libprotobuf-dev protobuf-compiler`
+- CMake and C++ compiler
+- Rust and Cargo
+- LLVM 17
+    - Easiest way to install LLVM 17 is to use llvm.sh (Ubuntu/Debian)
+    - `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`
+    - `chmod +x llvm.sh`
+    - `./llvm.sh 17`
+- protocol buffer
+    - Run `apt install libprotobuf-dev protobuf-compiler`
 <!-- - libunwind-dev (Run `apt install libunwind-dev`) -->
 
-First you need to clone the project:
+
+First clone the project:
 
 ```sh
 $ git clone git@github.com:tamaroning/wanco.git
@@ -40,8 +43,6 @@ To install the compilers and runtime libraries, run the following commands:
 ```sh
 $ sudo make install
 ```
-
-For debugging, run the compiler with `RUST_LOG="debug" wanco ...`.
 
 ## Run
 
@@ -64,6 +65,8 @@ To show the help, run:
 ```sh
 $ wanco --help
 ```
+
+For debugging, run the compiler with `RUST_LOG="debug" wanco <ARGS>`.
 
 ### Enable Checkpoint/Restore functionalities
 
@@ -112,6 +115,14 @@ To test the compiler, run:
 ```sh
 $ cargo test
 ```
+
+## Devcontainer
+
+```
+docker buildx build .
+
+```
+
 
 ## LICENSE
 
