@@ -43,12 +43,16 @@ measure_execution_time() {
 cd $LLAMA2_DIR
 measure_execution_time "./../llama2" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
 measure_execution_time "./../llama2-c-cr" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
+measure_execution_time "./../llama2-c-no-loop" "--" "model.bin" "-n" 0 "-i" 'Once upon a time'
 cd $BENCH_DIR
 measure_execution_time "./nbody" "--" 10000000
 measure_execution_time "./nbody-cr" "--" 10000000
+measure_execution_time "./nbody-no-loop" "--" 10000000
 
 measure_execution_time "./binary-trees" "--" 18
 measure_execution_time "./binary-trees-cr" "--" 18
+measure_execution_time "./binary-trees-no-loop" "--" 18
+
 
 # dbファイルや関連するファイルを削除
 #rm -f test.db test.db.journal
