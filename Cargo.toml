@@ -10,7 +10,3 @@ default-members = ["wanco"]
 [[bin]]
 name = "wanco"
 path = "src/main.rs"
-
-#[[lib]]
-#name = "lib-wasi"
-#path = "src/lib.rs"
