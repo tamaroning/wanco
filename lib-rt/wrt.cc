@@ -1,6 +1,5 @@
 #include "aot.h"
 #include "chkpt/chkpt.h"
-#include "v2/chkpt_v2.h"
 #include "wanco.h"
 #include <chrono>
 #include <csignal>
@@ -21,8 +20,6 @@ uint64_t RESTORE_START_TIME = 0;
 
 // global instance of checkpoint
 Checkpoint chkpt;
-
-CheckpointV2 chkpt_v2;
 
 // linear memory: 4GiB
 static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0x100000000000;

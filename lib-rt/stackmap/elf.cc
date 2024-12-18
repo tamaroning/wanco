@@ -20,9 +20,6 @@ struct SectionInfo {
 };
 
 std::span<const uint8_t> get_stackmap_section() {
-  // get section whose name == "llvm.stackmaps"
-  // using /proc/self/maps
-
   SectionInfo section_info = {".llvm_stackmaps", nullptr, 0};
 
   // `dl_iterate_phdr` を使用してセクションを検索

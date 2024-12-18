@@ -1,6 +1,5 @@
 #pragma once
 #include "chkpt/chkpt.h"
-#include "v2/chkpt_v2.h"
 #include "wanco.h"
 #include <cstdint>
 
@@ -17,7 +16,6 @@ enum class MigrationState : int32_t {
 };
 
 extern "C" Checkpoint chkpt;
-extern "C" CheckpointV2 chkpt_v2;
 
 } // namespace wanco
 
