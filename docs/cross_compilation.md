@@ -7,10 +7,10 @@ compile fib
 
 ```
 # native (x86-64)
-RUST_LOG="debug" cargo run -- demo/fib.wat -o fib-x86 --enable-cr --optimize-cr
+RUST_LOG="debug" cargo run -- demo/fib.wat -o fib-x86 --enable-cr
 
 # aarch64
-RUST_LOG="debug" cargo run -- -l/usr/local/wanco-aarch64/lib demo/fib.wat --target aarch64-linux-gnu -o fib-aarch64 --enable-cr --optimize-cr
+RUST_LOG="debug" cargo run -- -l/usr/local/wanco-aarch64/lib demo/fib.wat --target aarch64-linux-gnu -o fib-aarch64 --enable-cr
 ```
 
 ## Run

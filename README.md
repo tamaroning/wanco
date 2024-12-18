@@ -73,7 +73,7 @@ For debugging, run the compiler with `RUST_LOG="debug" wanco <ARGS>`.
 Compile a WebAssembly file with C/R enabled and run it:
 
 ```sh
-$ wanco --enable-cr --optimize-cr demo/fib.wat
+$ wanco --enable-cr demo/fib.wat
 $ a.out
 ```
 

@@ -6,7 +6,7 @@ See [../examples](../examples) instead for general usage.
 First, compile the fibonacci program (fib.wat) with C/R enabled and run it:
 
 ```sh
-$ wanco fib.wat --enable-cr --optimize-cr
+$ wanco fib.wat --enable-cr
 $ ./a.out
 ```
 
