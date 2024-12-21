@@ -20,6 +20,10 @@ Prerequisites:
     - `./llvm.sh 17`
 - protocol buffer
     - Run `apt install libprotobuf-dev protobuf-compiler`
+- Libunwind
+    - Run `apt install libunwind-dev`
+- Libdwarf
+    - Run `apt install libdwarf-dev`
 <!-- - libunwind-dev (Run `apt install libunwind-dev`) -->
 
 

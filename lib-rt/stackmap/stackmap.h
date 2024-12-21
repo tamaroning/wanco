@@ -4,8 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace Stackmap {
-
+namespace wanco {
 /*
 Header {
   uint8  : Stack Map Version (current version is 3)
@@ -117,8 +116,8 @@ struct Stackmap {
   std::vector<StkMapRecord> stkmap_records;
 };
 
-} // namespace Stackmap
+Stackmap parse_stackmap(std::span<const uint8_t> data);
 
-Stackmap::Stackmap parse_stackmap(std::span<const uint8_t> data);
+std::string stackmap_to_string(const Stackmap &stackmap);
 
-std::string stackmap_to_string(const Stackmap::Stackmap &stackmap);
+} // namespace wanco

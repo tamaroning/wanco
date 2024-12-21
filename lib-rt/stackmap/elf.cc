@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <vector>
 
+namespace wanco {
+
 static int find_elf_section(struct dl_phdr_info *info, size_t size, void *data);
 
 struct SectionInfo {
@@ -20,9 +22,8 @@ struct SectionInfo {
 };
 
 std::span<const uint8_t> get_stackmap_section() {
+  // Search stackmap section using `dl_iterate_phdr`
   SectionInfo section_info = {".llvm_stackmaps", nullptr, 0};
-
-  // `dl_iterate_phdr` を使用してセクションを検索
   dl_iterate_phdr(find_elf_section, &section_info);
 
   if (section_info.address == nullptr) {
@@ -82,7 +83,8 @@ static int find_elf_section(struct dl_phdr_info *info, size_t size,
     }
   }
 
-  return 0; // 継続して探索
+  // continue to search
+  return 0;
 }
 
 std::optional<std::vector<uint8_t>> get_section_data(const char *section_name) {
@@ -137,3 +139,5 @@ std::optional<std::vector<uint8_t>> get_section_data(const char *section_name) {
 
   return std::nullopt;
 }
+
+} // namespace wanco

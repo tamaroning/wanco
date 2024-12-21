@@ -3,16 +3,17 @@
 #include "x86_64.h"
 #include <cstdint>
 #include <elf.h>
-#include <fstream>
 #include <iostream>
 #include <link.h>
-#include <optional>
 #include <span>
 #include <sstream>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <vector>
+
+namespace waco {
+namespace stackmap {
 
 static uint16_t parse_u16(const uint8_t *&ptr) {
   uint16_t value = *reinterpret_cast<const uint16_t *>(ptr);
@@ -220,3 +221,6 @@ std::string stackmap_to_string(const Stackmap::Stackmap &stackmap) {
 
   return ss.str();
 }
+
+} // namespace stackmap
+} // namespace waco

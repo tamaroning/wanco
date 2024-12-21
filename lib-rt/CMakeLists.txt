@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 find_package(Protobuf REQUIRED)
+find_package(Libdwarf REQUIRED)
+find_package(Libunwind REQUIRED)
 
 protobuf_generate_cpp (PROTO_SRCS PROTO_HDRS protobuf/chkpt.proto)
 get_filename_component(PROTO_HDR_DIRS ${PROTO_HDRS} DIRECTORY)

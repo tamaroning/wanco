@@ -1,12 +1,16 @@
 #include "aot.h"
+#include "stackmap/elf.h"
+#include "stackmap/stackmap.h"
 #include "wanco.h"
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <sys/mman.h>
 #include <thread>
+#include <ucontext.h>
 #include <unistd.h>
 
 namespace wanco {
@@ -398,6 +402,26 @@ extern "C" int32_t pop_front_table_index(ExecEnv *exec_env) {
   DEBUG_LOG << "call to pop_front_table_index -> " << idx << std::endl;
   wanco::chkpt.table.pop_front();
   return idx;
+}
+
+extern "C" void start_checkpoint(ExecEnv *exec_env) {
+  Info() << " Intercepted" << std::endl;
+  ASSERT(exec_env->migration_state ==
+             wanco::MigrationState::STATE_CHECKPOINT_START &&
+         "Invalid migration state");
+  // exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_START;
+  std::optional<std::vector<uint8_t>> stackmap_section_opt =
+      wanco::get_section_data(".llvm_stackmaps");
+  if (!stackmap_section_opt.has_value()) {
+    std::cerr << "Error: unable to obtain stackmap section" << std::endl;
+    std::exit(1);
+  }
+  std::vector<uint8_t> stackmap_section = stackmap_section_opt.value();
+  wanco::Stackmap stackmap = wanco::parse_stackmap(stackmap_section);
+  std::cerr << stackmap_to_string(stackmap);
+
+  Info() << " Killed" << std::endl;
+  std::exit(0);
 }
 
 /*
