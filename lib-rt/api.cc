@@ -417,8 +417,8 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     std::exit(1);
   }
   std::vector<uint8_t> stackmap_section = stackmap_section_opt.value();
-  wanco::Stackmap stackmap = wanco::parse_stackmap(stackmap_section);
-  std::cerr << stackmap_to_string(stackmap);
+  wanco::stackmap::Stackmap stackmap = wanco::parse_stackmap(stackmap_section);
+  std::cerr << wanco::stackmap_to_string(stackmap);
 
   Info() << " Killed" << std::endl;
   std::exit(0);

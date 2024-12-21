@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <vector>
 
-namespace waco {
+namespace wanco {
 namespace stackmap {
 
 static uint16_t parse_u16(const uint8_t *&ptr) {
@@ -33,47 +33,43 @@ static uint64_t parse_u64(const uint8_t *&ptr) {
   return value;
 }
 
-static Stackmap::Header parse_header(const uint8_t *&ptr) {
-  Stackmap::Header header = *reinterpret_cast<const Stackmap::Header *>(ptr);
+static Header parse_header(const uint8_t *&ptr) {
+  Header header = *reinterpret_cast<const Header *>(ptr);
   ptr += sizeof(header);
   return header;
 }
 
-static Stackmap::StkSizeRecord parse_stk_size_record(const uint8_t *&ptr) {
-  Stackmap::StkSizeRecord record =
-      *reinterpret_cast<const Stackmap::StkSizeRecord *>(ptr);
+static StkSizeRecord parse_stk_size_record(const uint8_t *&ptr) {
+  StkSizeRecord record = *reinterpret_cast<const StkSizeRecord *>(ptr);
   ptr += sizeof(record);
   return record;
 }
 
-static Stackmap::Constant parse_constant(const uint8_t *&ptr) {
-  Stackmap::Constant constant =
-      *reinterpret_cast<const Stackmap::Constant *>(ptr);
+static Constant parse_constant(const uint8_t *&ptr) {
+  Constant constant = *reinterpret_cast<const Constant *>(ptr);
   ptr += sizeof(constant);
   return constant;
 }
 
-static Stackmap::Location parse_location(const uint8_t *&ptr) {
-  Stackmap::Location location =
-      *reinterpret_cast<const Stackmap::Location *>(ptr);
+static Location parse_location(const uint8_t *&ptr) {
+  Location location = *reinterpret_cast<const Location *>(ptr);
   ptr += sizeof(location);
   return location;
 }
 
-static Stackmap::LiveOut parse_live_out(const uint8_t *&ptr) {
-  Stackmap::LiveOut live_out =
-      *reinterpret_cast<const Stackmap::LiveOut *>(ptr);
+static LiveOut parse_live_out(const uint8_t *&ptr) {
+  LiveOut live_out = *reinterpret_cast<const LiveOut *>(ptr);
   ptr += sizeof(live_out);
   return live_out;
 }
 
-static Stackmap::StkMapRecord parse_stk_map_record(const uint8_t *&ptr) {
+static StkMapRecord parse_stk_map_record(const uint8_t *&ptr) {
   uint64_t patchpoint_id = parse_u64(ptr);
   uint32_t instruction_offset = parse_u32(ptr);
   uint16_t record_flags = parse_u16(ptr);
   uint16_t num_locations = parse_u16(ptr);
 
-  std::vector<Stackmap::Location> locations;
+  std::vector<Location> locations;
   for (uint16_t i = 0; i < num_locations; i++)
     locations.push_back(parse_location(ptr));
 
@@ -84,7 +80,7 @@ static Stackmap::StkMapRecord parse_stk_map_record(const uint8_t *&ptr) {
   }
   uint16_t padding2 = parse_u16(ptr);
   uint16_t num_live_outs = parse_u16(ptr);
-  std::vector<Stackmap::LiveOut> live_outs;
+  std::vector<LiveOut> live_outs;
   for (uint16_t i = 0; i < num_live_outs; i++)
     live_outs.push_back(parse_live_out(ptr));
 
@@ -94,67 +90,67 @@ static Stackmap::StkMapRecord parse_stk_map_record(const uint8_t *&ptr) {
     padding3 = parse_u32(ptr);
   }
 
-  return Stackmap::StkMapRecord{.patchpoint_id = patchpoint_id,
-                                .instruction_offset = instruction_offset,
-                                .record_flags = record_flags,
-                                .num_locations = num_locations,
-                                .locations = locations,
-                                .padding1 = padding1,
-                                .padding2 = padding2,
-                                .num_live_outs = num_live_outs,
-                                .live_outs = live_outs,
-                                .padding3 = padding3};
+  return StkMapRecord{.patchpoint_id = patchpoint_id,
+                      .instruction_offset = instruction_offset,
+                      .record_flags = record_flags,
+                      .num_locations = num_locations,
+                      .locations = locations,
+                      .padding1 = padding1,
+                      .padding2 = padding2,
+                      .num_live_outs = num_live_outs,
+                      .live_outs = live_outs,
+                      .padding3 = padding3};
 }
 
-Stackmap::Stackmap parse_stackmap(std::span<const uint8_t> data) {
+Stackmap parse_stackmap(std::span<const uint8_t> data) {
   const uint8_t *ptr = data.data();
   ASSERT(ptr != nullptr && "Invalid data");
   ASSERT((uint64_t)ptr % 8 == 0 && "Invalid data alignment");
-  Stackmap::Header header = parse_header(ptr);
+  Header header = parse_header(ptr);
 
   uint32_t num_functions = parse_u32(ptr);
   uint32_t num_constants = parse_u32(ptr);
   uint32_t num_records = parse_u32(ptr);
 
-  std::vector<Stackmap::StkSizeRecord> stksize_records;
+  std::vector<StkSizeRecord> stksize_records;
   for (uint32_t i = 0; i < num_functions; i++)
     stksize_records.push_back(parse_stk_size_record(ptr));
 
-  std::vector<Stackmap::Constant> constants;
+  std::vector<Constant> constants;
   for (uint32_t i = 0; i < num_constants; i++)
     constants.push_back(parse_constant(ptr));
 
-  std::vector<Stackmap::StkMapRecord> stkmap_records;
+  std::vector<StkMapRecord> stkmap_records;
   for (uint32_t i = 0; i < num_records; i++)
     stkmap_records.push_back(parse_stk_map_record(ptr));
 
-  return Stackmap::Stackmap{.header = header,
-                            .num_functions = num_functions,
-                            .num_constants = num_constants,
-                            .num_records = num_records,
-                            .stksize_records = stksize_records,
-                            .constants = constants,
-                            .stkmap_records = stkmap_records};
+  return Stackmap{.header = header,
+                  .num_functions = num_functions,
+                  .num_constants = num_constants,
+                  .num_records = num_records,
+                  .stksize_records = stksize_records,
+                  .constants = constants,
+                  .stkmap_records = stkmap_records};
 }
 
-static std::string location_kind_to_string(Stackmap::LocationKind kind) {
+static std::string location_kind_to_string(LocationKind kind) {
   switch (kind) {
-  case Stackmap::LocationKind::REGISTER:
+  case LocationKind::REGISTER:
     return "Register";
-  case Stackmap::LocationKind::DIRECT:
+  case LocationKind::DIRECT:
     return "Direct";
-  case Stackmap::LocationKind::INDIRECT:
+  case LocationKind::INDIRECT:
     return "Indirect";
-  case Stackmap::LocationKind::CONSTANT:
+  case LocationKind::CONSTANT:
     return "Constant";
-  case Stackmap::LocationKind::CONSTANT_INDEX:
+  case LocationKind::CONSTANT_INDEX:
     return "Constant index";
   default:
     return "Unknown";
   }
 }
 
-std::string stackmap_to_string(const Stackmap::Stackmap &stackmap) {
+std::string stackmap_to_string(const Stackmap &stackmap) {
   std::stringstream ss;
 
   ss << "Version: " << stackmap.header.version << std::endl;
@@ -163,7 +159,7 @@ std::string stackmap_to_string(const Stackmap::Stackmap &stackmap) {
   ss << "Num records: " << stackmap.num_records << std::endl;
 
   for (size_t i = 0; i < stackmap.stksize_records.size(); i++) {
-    const Stackmap::StkSizeRecord &record = stackmap.stksize_records[i];
+    const StkSizeRecord &record = stackmap.stksize_records[i];
     ss << "StkSizeRecord[" << i << "]" << std::endl;
     ss << "  Address: 0x" << std::hex << record.function_address << std::endl;
     ss << "  Stack size: " << std::dec << record.stack_size << std::endl;
@@ -173,14 +169,14 @@ std::string stackmap_to_string(const Stackmap::Stackmap &stackmap) {
   /*
   for (size_t i = 0; i < stackmap.constants.size (); i++)
     {
-      const Stackmap::Constant &constant = stackmap.constants[i];
+      const Constant &constant = stackmap.constants[i];
       ss << "Constant[" << i << "]" << std::endl;
       ss << "  Value: " << constant.large_constant << std::endl;
     }
     */
 
   for (size_t i = 0; i < stackmap.stkmap_records.size(); i++) {
-    const Stackmap::StkMapRecord &record = stackmap.stkmap_records[i];
+    const StkMapRecord &record = stackmap.stkmap_records[i];
     ss << "StkMapRecord[" << i << "]" << std::endl;
     ss << "  Patchpoint ID: " << record.patchpoint_id << std::endl;
     ss << "  Instruction offset: " << record.instruction_offset << std::endl;
@@ -188,24 +184,24 @@ std::string stackmap_to_string(const Stackmap::Stackmap &stackmap) {
     ss << "  Num locations: " << record.num_locations << std::endl;
 
     for (size_t j = 0; j < record.locations.size(); j++) {
-      const Stackmap::Location &location = record.locations[j];
+      const Location &location = record.locations[j];
       ss << "  Location[" << j << "] = ";
       Register reg{location.dwarf_regnum};
       switch (location.kind) {
-      case Stackmap::LocationKind::REGISTER: {
+      case LocationKind::REGISTER: {
         ss << reg_to_string(reg) << std::endl;
       } break;
-      case Stackmap::LocationKind::DIRECT: {
+      case LocationKind::DIRECT: {
         ss << reg_to_string(reg) << " + " << location.offset << std::endl;
       } break;
-      case Stackmap::LocationKind::INDIRECT: {
+      case LocationKind::INDIRECT: {
         ss << "[" << reg_to_string(reg) << " + " << location.offset << "]"
            << std::endl;
       } break;
-      case Stackmap::LocationKind::CONSTANT: {
+      case LocationKind::CONSTANT: {
         ss << location.offset << std::endl;
       } break;
-      case Stackmap::LocationKind::CONSTANT_INDEX: {
+      case LocationKind::CONSTANT_INDEX: {
         ASSERT(location.offset < stackmap.constants.size() &&
                "Invalid constant index");
         ss << "Constants[" << location.offset
@@ -223,4 +219,4 @@ std::string stackmap_to_string(const Stackmap::Stackmap &stackmap) {
 }
 
 } // namespace stackmap
-} // namespace waco
+} // namespace wanco
