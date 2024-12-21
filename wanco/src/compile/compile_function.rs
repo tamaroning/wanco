@@ -17,7 +17,6 @@ use crate::{
             gen_migration_point,
             restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
         },
-        cr_v2::{gen_migration_point_v2, gen_stackmap},
         helper::{self, gen_float_compare, gen_int_compare, gen_llvm_intrinsic},
     },
     context::{Context, Global, StackFrame},
@@ -189,13 +188,6 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
     }
 
-    // Generate migration point v2
-    // TODO: populate same things at other location
-    if ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
-        gen_migration_point_v2(ctx, &exec_env_ptr).expect("fail to gen_migration_point_v2");
-        gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
-    }
-
     // Generate checkpoint (v1)
     if ctx.config.enable_cr {
         ctx.current_op = Some(i32::MAX as u32);
@@ -234,13 +226,6 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
         ctx.current_op = Some(num_op);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
-
-        // Keep stackmap for migration point v2
-        if (ctx.config.checkpoint_v2 || ctx.config.restore_v2)
-            && matches!(op, Operator::Call { .. } | Operator::CallIndirect { .. })
-        {
-            gen_stackmap(ctx, &exec_env_ptr, &locals).expect("fail to gen_stackmap");
-        }
 
         num_op += 1;
     }

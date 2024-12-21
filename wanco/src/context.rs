@@ -109,6 +109,7 @@ pub struct Context<'a, 'b> {
     pub fn_push_global_f32: Option<FunctionValue<'a>>,
     pub fn_push_global_f64: Option<FunctionValue<'a>>,
     pub fn_push_table_index: Option<FunctionValue<'a>>,
+    pub fn_start_checkpoint: Option<FunctionValue<'a>>,
     // restore related
     pub fn_pop_front_frame: Option<FunctionValue<'a>>,
     pub fn_frame_is_empty: Option<FunctionValue<'a>>,
@@ -135,8 +136,6 @@ pub struct Context<'a, 'b> {
 
     // C/R v2
     next_stackmap_id: AtomicU64,
-    // C/R v2 api
-    pub fn_start_checkpoint_v2: Option<FunctionValue<'a>>,
 
     // common to both C/R v1 and v2
     pub num_migration_points: u32,
@@ -199,6 +198,7 @@ impl<'a> Context<'a, '_> {
             fn_push_global_f32: None,
             fn_push_global_f64: None,
             fn_push_table_index: None,
+            fn_start_checkpoint: None,
 
             fn_get_pc_from_frame: None,
             fn_frame_is_empty: None,
@@ -223,7 +223,6 @@ impl<'a> Context<'a, '_> {
             analysis_v1: None,
 
             next_stackmap_id: AtomicU64::new(0),
-            fn_start_checkpoint_v2: None,
 
             num_migration_points: 0,
         }

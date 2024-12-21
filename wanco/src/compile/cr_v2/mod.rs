@@ -10,42 +10,6 @@ use crate::context::Context;
 
 use super::cr::{gen_compare_migration_state, MIGRATION_STATE_CHECKPOINT_START};
 
-pub fn gen_migration_point_v2<'a>(
-    ctx: &mut Context<'a, '_>,
-    exec_env_ptr: &PointerValue<'a>,
-) -> Result<()> {
-    let current_fn = ctx.current_fn.unwrap();
-    let test = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_START)
-        .expect("fail to gen_compare_migration_state");
-
-    let then_block = ctx
-        .ictx
-        .append_basic_block(current_fn, "migration_triggered");
-    let else_block = ctx
-        .ictx
-        .append_basic_block(current_fn, "migration_not_triggered");
-    ctx.builder
-        .build_conditional_branch(test.into_int_value(), then_block, else_block)
-        .expect("fail to build_conditional_branch");
-
-    ctx.builder.position_at_end(then_block);
-    // call start_checkpoint_v2
-    ctx.builder
-        .build_call(
-            ctx.fn_start_checkpoint_v2.unwrap(),
-            &[exec_env_ptr.as_basic_value_enum().into()],
-            "",
-        )
-        .expect("fail to build_call start_checkpoint_v2");
-
-    ctx.builder
-        .build_unconditional_branch(else_block)
-        .expect("fail to build_unconditional_branch");
-
-    ctx.builder.position_at_end(else_block);
-    Ok(())
-}
-
 pub fn gen_stackmap<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,

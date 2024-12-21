@@ -3,10 +3,7 @@ use clap::Parser;
 use inkwell::targets::{self, FileType};
 use std::path;
 
-use crate::{
-    compile::{self, cr_v2},
-    context::Context,
-};
+use crate::{compile, context::Context};
 
 #[derive(clap::ValueEnum, Debug, Clone)]
 pub enum OptimizationLevel {
@@ -81,14 +78,6 @@ pub struct Args {
     #[arg(long, default_value = "256")]
     pub migration_point_per_inst: u32,
 
-    /// TODO: Enable the checkpoint feature. (v2)
-    #[arg(long)]
-    pub checkpoint_v2: bool,
-
-    /// TODO: Enable the restore feature. (v2)
-    #[arg(long)]
-    pub restore_v2: bool,
-
     /// Optimization level.
     #[arg(short = 'O', value_enum, default_value = "1")]
     pub optimization: OptimizationLevel,
@@ -117,12 +106,6 @@ pub fn check_config(args: &Args) -> bool {
         log::error!("Specify --enable-cr to enable checkpoint/restore feature (v1)");
         return false;
     }
-
-    if args.enable_cr && (args.checkpoint_v2 || args.restore_v2) {
-        log::error!("Cannot use both v1 and v2 checkpoint/restore features");
-        return false;
-    }
-
     true
 }
 
@@ -134,50 +117,6 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     let mut ctx = Context::new(args, &ictx, &module, builder);
 
     compile::compile_module(wasm, &mut ctx)?;
-
-    if ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
-        log::info!("Writing module to memory buffer");
-        let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
-        // TODO: remove
-        {
-            ctx.module
-                .print_to_file("wasm.ll")
-                .map_err(|e| anyhow!(e.to_string()))
-                .context("Failed to write to the ll file")?;
-            log::info!("wrote to wasm.ll");
-        }
-        // write module to memory
-        let buf = target
-            .write_to_memory_buffer(ctx.module, targets::FileType::Object)
-            .map_err(|e| anyhow!(e.to_string()))?;
-        log::info!("Wrote module to memory buffer");
-        let obj = buf
-            .create_object_file()
-            .map_err(|()| anyhow!("Failed to create object file"))?;
-
-        log::info!("Searching stackmap");
-        let sections = obj.get_sections();
-        let mut stackmap = None;
-        for section in sections {
-            let Some(name) = section.get_name() else {
-                continue;
-            };
-            let name = name.to_str().expect("error get section name");
-            if name != ".llvm_stackmaps" && name != "__llvm_stackmaps" {
-                continue;
-            }
-            let data = section.get_contents();
-            log::info!("Parsing stackmap");
-            let res = cr_v2::stackmap::parse(data);
-            stackmap = Some(res.map_err(|e| anyhow!(e))?);
-        }
-
-        if let Some(stkmap) = stackmap {
-            cr_v2::stackmap::prettyprint(&stkmap);
-        } else {
-            log::error!("Failed to find .llvm_stackmap section");
-        }
-    }
 
     //let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
     //let triple = target.get_triple();
@@ -226,7 +165,7 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
             .context("Failed to write to the ll file")?;
         log::info!("wrote to {}", tmp_asm_path.display());
         tmp_asm_path
-        /* 
+        /*
         // invoke llvm-as-17
         let mut cmd = std::process::Command::new("llvm-as-17");
         let cmd = cmd.arg(tmp_asm_path).arg("-o").arg(tmp_llobj_path);

@@ -5,7 +5,6 @@ mod compile_module;
 mod compile_type;
 pub mod control;
 pub mod cr;
-pub mod cr_v2;
 pub mod helper;
 mod synthesize;
 
