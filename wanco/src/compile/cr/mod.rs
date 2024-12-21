@@ -9,10 +9,9 @@ use restore::gen_restore_point;
 use crate::context::Context;
 
 pub(crate) mod checkpoint;
-pub(crate) mod opt;
 pub(crate) mod restore;
 
-pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
+//pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
 pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;

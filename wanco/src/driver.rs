@@ -132,8 +132,8 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     let random_suffix = rand::random::<u64>();
     let tmp_asm_path = format!("/tmp/wasm-{}.ll", random_suffix);
     let tmp_asm_path = path::Path::new(&tmp_asm_path);
-    let tmp_llobj_path = format!("/tmp/wasm-{}.bc", random_suffix);
-    let tmp_llobj_path = path::Path::new(&tmp_llobj_path);
+    //let tmp_llobj_path = format!("/tmp/wasm-{}.bc", random_suffix);
+    //let tmp_llobj_path = path::Path::new(&tmp_llobj_path);
     let tmp_obj_path = format!("/tmp/wasm-{}.o", random_suffix);
     let tmp_obj_path = path::Path::new(&tmp_obj_path);
     let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());

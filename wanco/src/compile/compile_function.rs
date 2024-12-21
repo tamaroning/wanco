@@ -25,79 +25,6 @@ use anyhow::{anyhow, bail, Context as _, Result};
 
 use super::helper::{gen_memory_base, gen_memory_size};
 
-mod op_counter {
-    use wasmparser::Operator;
-
-    pub(super) struct OpCounter {
-        // if this reaches the threshold (args.migration_point_per_inst),
-        // migration point is inserted
-        inst_count: u32,
-        // track end instructions
-        scopes: Vec<EndKind>,
-    }
-
-    enum EndKind {
-        Block,
-        Loop,
-        If,
-    }
-
-    impl OpCounter {
-        pub(super) fn new() -> Self {
-            Self {
-                inst_count: 0,
-                scopes: Vec::new(),
-            }
-        }
-
-        pub(super) fn reset_inst_count(&mut self) {
-            self.inst_count = 0;
-        }
-
-        pub(super) fn get_inst_count(&self) -> u32 {
-            self.inst_count
-        }
-
-        pub(super) fn eat_inst(&mut self, op: &Operator) {
-            match op {
-                Operator::Block { .. } => {
-                    self.scopes.push(EndKind::Block);
-                }
-                Operator::Loop { .. } => {
-                    // Since migration points are inserted to every loop,
-                    // reset the instruction count
-                    self.inst_count = 0;
-                    self.scopes.push(EndKind::Loop);
-                }
-                Operator::If { .. } => {
-                    self.scopes.push(EndKind::If);
-                }
-                Operator::End => {
-                    if matches!(self.scopes.pop(), Some(EndKind::Loop)) {
-                        self.inst_count = 0;
-                    }
-                }
-                Operator::Call { .. } | Operator::CallIndirect { .. } => {
-                    self.inst_count = 0;
-                }
-                // Ignore other control flow instructions
-                Operator::Else { .. }
-                | Operator::Br { .. }
-                | Operator::BrIf { .. }
-                | Operator::BrTable { .. }
-                | Operator::Return
-                | Operator::Unreachable
-                | Operator::Nop => {
-                    self.inst_count += 0;
-                }
-                _ => {
-                    self.inst_count += 1;
-                }
-            }
-        }
-    }
-}
-
 pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Result<()> {
     log::debug!(
         "Compile function (idx = {})",
@@ -175,14 +102,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // entry dispatcher for restore (v1)
-    let should_gen_restore_dispatch_v1 = ctx.config.enable_cr
-        && (!ctx.config.optimize_cr
-            || ctx
-                .analysis_v1
-                .as_ref()
-                .unwrap()
-                .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap()));
-    if should_gen_restore_dispatch_v1 {
+    if ctx.config.enable_cr {
         ctx.restore_dispatch_bb = None;
         ctx.restore_dispatch_cases = vec![];
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
@@ -231,7 +151,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // finalize dispatcher for restore (v1)
-    if should_gen_restore_dispatch_v1 {
+    if ctx.config.enable_cr {
         ctx.builder
             .position_at_end(ctx.restore_dispatch_bb.unwrap());
         gen_finalize_restore_dispatch(ctx, &exec_env_ptr)

@@ -577,14 +577,7 @@ pub fn gen_call<'a>(
         .expect("should build call");
 
     // Generate unwinding code for checkpoint
-    if ctx.config.enable_cr
-        && (!ctx.config.optimize_cr
-            || ctx
-                .analysis_v1
-                .as_ref()
-                .unwrap()
-                .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap()))
-    {
+    if ctx.config.enable_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
@@ -683,14 +676,7 @@ pub fn gen_call_indirect<'a>(
     }
 
     // Generate unwinding code for checkpoint
-    if ctx.config.enable_cr
-        && (!ctx.config.optimize_cr
-            || ctx
-                .analysis_v1
-                .as_ref()
-                .unwrap()
-                .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap()))
-    {
+    if ctx.config.enable_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::atomic::AtomicU64};
+use std::collections::HashMap;
 
 use inkwell::{
     basic_block::BasicBlock,
@@ -132,12 +132,6 @@ pub struct Context<'a, 'b> {
     pub restore_dispatch_bb: Option<BasicBlock<'a>>,
     pub restore_dispatch_cases: Vec<(IntValue<'a>, BasicBlock<'a>)>,
 
-    pub analysis_v1: Option<crate::compile::cr::opt::Analysis>,
-
-    // C/R v2
-    next_stackmap_id: AtomicU64,
-
-    // common to both C/R v1 and v2
     pub num_migration_points: u32,
 }
 
@@ -220,10 +214,6 @@ impl<'a> Context<'a, '_> {
             restore_dispatch_bb: None,
             restore_dispatch_cases: Vec::new(),
 
-            analysis_v1: None,
-
-            next_stackmap_id: AtomicU64::new(0),
-
             num_migration_points: 0,
         }
     }
@@ -262,13 +252,15 @@ impl<'a> Context<'a, '_> {
         Ok(&frame.stack[index..])
     }
 
-    /// Peek nth value from the stack top (top is 0th value)
+    // Peek nth value from the stack top (top is 0th value)
+    /*
     pub fn peek_from_top(&self, n: usize) -> Result<&BasicValueEnum<'a>> {
         let frame = self.stack_frames.last().expect("frame empty");
         let mut it = frame.stack.iter().rev().skip(n);
         it.next()
             .ok_or_else(|| anyhow::anyhow!("stack length too short"))
     }
+    */
 
     /// Get size of the current stack frame
     pub fn current_frame_size(&self) -> usize {
@@ -282,7 +274,7 @@ impl<'a> Context<'a, '_> {
         frame.stack.truncate(stack_size);
     }
 
-    /// Pop the stack and load the value if it is a pointer.
+    // Pop the stack and load the value if it is a pointer.
     /*
     pub fn pop_and_load(&mut self) -> BasicValueEnum<'a> {
         let frame = self.stack_frames.last_mut().expect("frame empty");
@@ -300,11 +292,4 @@ impl<'a> Context<'a, '_> {
         }
     }
     */
-
-    pub fn get_next_stackmap_id(&self) -> u64 {
-        let id = self
-            .next_stackmap_id
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        id
-    }
 }

@@ -8,7 +8,7 @@ use crate::context::{Context, Global};
 
 use super::{
     gen_compare_migration_state, gen_set_migration_state, MAX_LOCALS_STORE, MAX_STACK_STORE,
-    MIGRATION_STATE_CHECKPOINT_CONTINUE, MIGRATION_STATE_CHECKPOINT_START,
+    MIGRATION_STATE_CHECKPOINT_CONTINUE,
 };
 
 pub(crate) fn gen_store_globals<'a>(

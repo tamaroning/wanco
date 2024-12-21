@@ -16,7 +16,6 @@ use crate::{
         compile_global::{compile_data_section, compile_global_section},
         compile_memory::compile_memory_section,
         compile_type::compile_type_section,
-        cr,
     },
     context::{Context, Function},
 };
@@ -142,10 +141,6 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
         None => {
             log::error!("CodeSection empty");
         }
-    }
-
-    if ctx.config.enable_cr && ctx.config.optimize_cr {
-        cr::opt::run_analysis_pass(ctx, &function_bodies)?;
     }
 
     ctx.current_function_idx = Some(ctx.num_imports);

@@ -13,11 +13,13 @@ pub struct InkwellTypes<'ctx> {
 
     // pointer types
     pub i8_ptr_type: PointerType<'ctx>,
+    /*
     pub i16_ptr_type: PointerType<'ctx>,
     pub i32_ptr_type: PointerType<'ctx>,
     pub i64_ptr_type: PointerType<'ctx>,
     pub f32_ptr_type: PointerType<'ctx>,
     pub f64_ptr_type: PointerType<'ctx>,
+    */
 }
 
 /// Basic insts of inkwell.
@@ -47,7 +49,7 @@ pub struct InkwellIntrinsics<'ctx> {
     pub maxnum_f64: FunctionValue<'ctx>,
     pub copysign_f32: FunctionValue<'ctx>,
     pub copysign_f64: FunctionValue<'ctx>,
-
+    // llvm.experimental.stackmap
     pub experimental_stackmap: FunctionValue<'ctx>,
 }
 
@@ -65,11 +67,13 @@ pub fn init_inkwell<'a>(
     let f64_type = ctx.f64_type();
 
     let i8_ptr_type = i8_type.ptr_type(AddressSpace::default());
+    /*
     let i16_ptr_type = i16_type.ptr_type(AddressSpace::default());
     let i32_ptr_type = i32_type.ptr_type(AddressSpace::default());
     let i64_ptr_type = i64_type.ptr_type(AddressSpace::default());
     let f32_ptr_type = f32_type.ptr_type(AddressSpace::default());
     let f64_ptr_type = f64_type.ptr_type(AddressSpace::default());
+    */
 
     let bool_type_meta: BasicMetadataTypeEnum = bool_type.into();
     //let i8_type_meta: BasicMetadataTypeEnum = i8_type.into();
@@ -130,11 +134,13 @@ pub fn init_inkwell<'a>(
             f32_type,
             f64_type,
             i8_ptr_type,
+            /*
             i16_ptr_type,
             i32_ptr_type,
             i64_ptr_type,
             f32_ptr_type,
             f64_ptr_type,
+            */
         },
         InkwellIntrinsics {
             ctlz_i32,
