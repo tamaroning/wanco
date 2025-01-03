@@ -231,6 +231,12 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     // link protobuf
     cmd.arg("-lprotobuf");
 
+    // link libelf
+    cmd.arg("-lelf");
+
+    // link libdwarf
+    cmd.arg("-ldwarf");
+
     // link libunwind
     let triple = get_target_machine(args).unwrap().get_triple();
     let triple = triple.as_str().to_str().unwrap();
