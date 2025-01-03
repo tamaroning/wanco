@@ -4,6 +4,7 @@ use inkwell::{
     basic_block::BasicBlock,
     builder::Builder,
     context::Context as InkwellContext,
+    debug_info::{DICompileUnit, DISubprogram, DebugInfoBuilder},
     module::Module,
     types::{BasicTypeEnum, FunctionType, StructType},
     values::{BasicValueEnum, FunctionValue, GlobalValue, IntValue},
@@ -52,6 +53,8 @@ pub struct Context<'a, 'b> {
     pub ictx: &'a InkwellContext,
     pub module: &'b Module<'a>,
     pub builder: Builder<'a>,
+    pub debug_builder: DebugInfoBuilder<'a>,
+    pub debug_unit: DICompileUnit<'a>,
     pub inkwell_types: InkwellTypes<'a>,
     pub inkwell_intrs: InkwellIntrinsics<'a>,
 
@@ -84,6 +87,7 @@ pub struct Context<'a, 'b> {
     // builder state
     pub current_function_idx: Option<u32>,
     pub current_fn: Option<FunctionValue<'a>>,
+    pub current_fn_subprogram: Option<DISubprogram<'a>>,
     pub current_op: Option<u32>,
     pub control_frames: Vec<ControlFrame<'a>>,
     /// Wasm value stack for the current builder position
@@ -141,6 +145,8 @@ impl<'a> Context<'a, '_> {
         ictx: &'a InkwellContext,
         module: &'b Module<'a>,
         builder: Builder<'a>,
+        debug_builder: DebugInfoBuilder<'a>,
+        debug_unit: DICompileUnit<'a>,
     ) -> Context<'a, 'b> {
         let (inkwell_types, inkwell_intrs) = init_inkwell(ictx, module);
 
@@ -149,6 +155,8 @@ impl<'a> Context<'a, '_> {
             ictx,
             module,
             builder,
+            debug_builder,
+            debug_unit,
             inkwell_types,
             inkwell_intrs,
 
@@ -171,6 +179,7 @@ impl<'a> Context<'a, '_> {
 
             current_function_idx: None,
             current_fn: None,
+            current_fn_subprogram: None,
             current_op: None,
             control_frames: Vec::new(),
             stack_frames: Vec::new(),

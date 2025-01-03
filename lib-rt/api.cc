@@ -1,4 +1,5 @@
 #include "aot.h"
+#include "stackmap/backward.h"
 #include "stackmap/elf.h"
 #include "stackmap/stackmap.h"
 #include "wanco.h"
@@ -409,6 +410,7 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   ASSERT(exec_env->migration_state ==
              wanco::MigrationState::STATE_CHECKPOINT_START &&
          "Invalid migration state");
+  wanco::do_stacktrace();
   // exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_START;
   std::optional<std::vector<uint8_t>> stackmap_section_opt =
       wanco::get_section_data(".llvm_stackmaps");
@@ -417,8 +419,9 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     std::exit(1);
   }
   std::vector<uint8_t> stackmap_section = stackmap_section_opt.value();
-  wanco::stackmap::Stackmap stackmap = wanco::parse_stackmap(stackmap_section);
-  std::cerr << wanco::stackmap_to_string(stackmap);
+  wanco::stackmap::Stackmap stackmap =
+      wanco::stackmap::parse_stackmap(stackmap_section);
+  std::cerr << wanco::stackmap::stackmap_to_string(stackmap);
 
   Info() << " Killed" << std::endl;
   std::exit(0);

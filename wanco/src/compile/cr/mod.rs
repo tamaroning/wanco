@@ -1,8 +1,9 @@
 use anyhow::Result;
 use checkpoint::gen_checkpoint_start;
 use inkwell::{
+    debug_info::{self, AsDIScope, DIScope},
     types::BasicTypeEnum,
-    values::{BasicValue, BasicValueEnum, PointerValue},
+    values::{AnyValue, BasicValue, BasicValueEnum, PointerValue},
 };
 use restore::gen_restore_point;
 
@@ -129,6 +130,42 @@ pub(crate) fn gen_migration_point<'a>(
 
     // checkpoint
     ctx.builder.position_at_end(chkpt_bb);
+
+    // genereate stackmap
+    static mut stackmap_id: i32 = 0;
+    unsafe {
+        stackmap_id += 1;
+    }
+    let stackmap_id_ = unsafe { stackmap_id };
+
+    ctx.builder
+        .build_call(
+            ctx.inkwell_intrs.experimental_stackmap,
+            &[
+                ctx.inkwell_types
+                    .i64_type
+                    .const_int(stackmap_id_ as u64, false)
+                    .as_basic_value_enum()
+                    .into(),
+                ctx.inkwell_types
+                    .i32_type
+                    .const_int(0, false)
+                    .as_basic_value_enum()
+                    .into(),
+            ],
+            "",
+        )
+        .expect("fail to build_call experimental_stackmap");
+
+    // call start_checkpoint
+    ctx.builder
+        .build_call(
+            ctx.fn_start_checkpoint.unwrap(),
+            &[exec_env_ptr.as_basic_value_enum().into()],
+            "",
+        )
+        .expect("fail to build_call fn_start_checkpoint");
+
     gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
 
     // restore (create new bb)

@@ -17,6 +17,7 @@ use crate::{
             gen_migration_point,
             restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
         },
+        debug,
         helper::{self, gen_float_compare, gen_int_compare, gen_llvm_intrinsic},
     },
     context::{Context, Global, StackFrame},
@@ -33,6 +34,11 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
     let current_fn = ctx.function_values[ctx.current_function_idx.unwrap() as usize];
     ctx.current_fn = Some(current_fn);
+    ctx.current_fn_subprogram = Some(debug::create_subprogram_info(
+        ctx,
+        ctx.current_function_idx.unwrap(),
+    ));
+
     let entry_bb = ctx.ictx.append_basic_block(current_fn, "entry");
     let ret_bb = ctx.ictx.append_basic_block(current_fn, "ret");
     ctx.stack_frames.push(StackFrame::new());
@@ -116,8 +122,6 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         ctx.num_migration_points += 1;
     }
 
-    //let mut op_counter = op_counter::OpCounter::new();
-
     // compile instructions
     let mut op_reader = f.get_operators_reader()?.get_binary_reader();
     let mut num_op = 0;
@@ -125,26 +129,16 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         let op = op_reader.read_operator()?;
         log::trace!("- op[{}]: {:?}", num_op, &op);
 
-        // Insert migration point if the current block big enough
-        /*
-        op_counter.eat_inst(&op);
-        if ctx.config.enable_cr
-            && op_counter.get_inst_count() >= ctx.config.migration_point_per_inst
-            // FIXME: LLVM Error: Instruction does not dominate all uses!
-            && false
-        {
-            log::info!(
-                "Insert migration point at {} in Fn[{}]",
-                num_op,
-                ctx.current_function_idx.unwrap()
-            );
-            gen_migration_point(ctx, &exec_env_ptr, &locals, 0)
-                .expect("fail to gen_migration_point");
-            op_counter.reset_inst_count();
-        }
-        */
-
         ctx.current_op = Some(num_op);
+
+        let subprogram = ctx.current_fn_subprogram.as_ref().unwrap();
+        let location = debug::create_source_location(
+            ctx,
+            ctx.current_function_idx.unwrap(),
+            num_op,
+            subprogram,
+        );
+        ctx.builder.set_current_debug_location(location);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
 
         num_op += 1;

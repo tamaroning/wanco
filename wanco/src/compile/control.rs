@@ -2,6 +2,8 @@ use crate::context::Context;
 use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
+    debug_info::{AsDIScope, DIFlags, DIScope, DISubprogram, DIType},
+    llvm_sys::debuginfo::LLVMDIFlagZero,
     types::BasicTypeEnum,
     values::{BasicValue, BasicValueEnum, PhiValue, PointerValue},
 };

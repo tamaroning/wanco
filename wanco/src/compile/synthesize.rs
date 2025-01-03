@@ -216,11 +216,15 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
             fn_type_push_table_index,
             Some(Linkage::External),
         ));
-        ctx.fn_start_checkpoint = Some(ctx.module.add_function(
-            "start_checkpoint",
-            ctx.inkwell_types.void_type.fn_type(&[], false),
-            Some(Linkage::External),
-        ));
+        ctx.fn_start_checkpoint = Some(
+            ctx.module.add_function(
+                "start_checkpoint",
+                ctx.inkwell_types
+                    .void_type
+                    .fn_type(&[exec_env_ptr_type.into()], false),
+                Some(Linkage::External),
+            ),
+        );
 
         // restore api (v1)
         let fn_type_pop_front_frame = ctx
@@ -419,6 +423,8 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     }
 
     ctx.builder.build_return(None).expect("should build return");
+
+    ctx.debug_builder.finalize();
 
     Ok(())
 }

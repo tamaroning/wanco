@@ -1,9 +1,15 @@
 use anyhow::{anyhow, Context as _, Result};
 use clap::Parser;
-use inkwell::targets::{self, FileType};
+use inkwell::{
+    module::FlagBehavior,
+    targets::{self, FileType},
+};
 use std::path;
 
-use crate::{compile, context::Context};
+use crate::{
+    compile::{self, debug},
+    context::Context,
+};
 
 #[derive(clap::ValueEnum, Debug, Clone)]
 pub enum OptimizationLevel {
@@ -113,14 +119,28 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     // Create a new LLVM context and module
     let ictx = inkwell::context::Context::create();
     let module = ictx.create_module("wanco_aot");
+    // https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl09.html
+    module.add_basic_value_flag(
+        "Debug Info Version",
+        FlagBehavior::Warning,
+        ictx.i32_type().const_int(3, false),
+    );
+    module.add_basic_value_flag(
+        "Dwarf Version",
+        FlagBehavior::Warning,
+        ictx.i32_type().const_int(5, false),
+    );
     let builder = ictx.create_builder();
-    let mut ctx = Context::new(args, &ictx, &module, builder);
-
+    let (debug_builder, debug_compile_unit) = debug::create_debug_info_builder(&module);
+    let mut ctx = Context::new(
+        args,
+        &ictx,
+        &module,
+        builder,
+        debug_builder,
+        debug_compile_unit,
+    );
     compile::compile_module(wasm, &mut ctx)?;
-
-    //let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
-    //let triple = target.get_triple();
-    //log::debug!("target triple: {}", triple.as_str().to_str().unwrap());
 
     // TODO: Linker should use .bc file instead of .ll file.
     // Linker take .ll file for now since backward compatibility of the bc file is not guaranteed.
@@ -212,17 +232,17 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     cmd.arg("-lprotobuf");
 
     // link libunwind
-    /*
     let triple = get_target_machine(args).unwrap().get_triple();
     let triple = triple.as_str().to_str().unwrap();
-    if triple == "x86_64-unknown-linux-gnu" {
+    if triple.contains("x86_64") {
         cmd.arg("-lunwind");
         cmd.arg("-lunwind-x86_64");
-    } else if triple == "aarch64-unknown-linux-gnu" {
+    } else if triple.contains("aarch64-unknown-linux-gnu") {
         cmd.arg("-lunwind");
         cmd.arg("-lunwind-aarch64");
+    } else {
+        panic!("unsupported target");
     }
-    */
 
     if args.lto {
         cmd.arg("-flto");

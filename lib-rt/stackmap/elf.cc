@@ -1,8 +1,12 @@
+#include "stackmap/elf.h"
+#include "backward.h"
 #include "stackmap.h"
 #include <cstdint>
 #include <elf.h>
 #include <fstream>
 #include <iostream>
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
 #include <link.h>
 #include <optional>
 #include <span>
@@ -12,6 +16,40 @@
 #include <vector>
 
 namespace wanco {
+
+void do_stacktrace() {
+  // backward
+  backward::StackTrace st;
+  st.load_here(32);
+
+  backward::TraceResolver tr;
+  tr.load_stacktrace(st);
+  for (size_t i = 0; i < st.size(); ++i) {
+    backward::ResolvedTrace trace = tr.resolve(st[i]);
+    std::cout << "#" << i << " " << trace.object_filename << " "
+              << trace.object_function << " [" << trace.addr << "]"
+              << std::endl;
+  }
+
+  // libunwind
+  unw_cursor_t cursor;
+  unw_context_t context;
+  unw_getcontext(&context);
+  unw_init_local(&cursor, &context);
+  auto count = 0;
+  do {
+    unw_word_t offset, pc;
+    char fname[64];
+    unw_get_reg(&cursor, UNW_REG_IP, &pc);
+    fname[0] = '\0';
+    (void)unw_get_proc_name(&cursor, fname, sizeof(fname), &offset);
+    Dl_info info;
+    dladdr((void *)pc, &info);
+    fprintf(stderr, "%s : backtrace [%d] %s(%s+0x%lx) [%p]\n", __func__, count,
+            info.dli_fname, fname, offset, (void *)pc);
+    count++;
+  } while (unw_step(&cursor) > 0);
+}
 
 static int find_elf_section(struct dl_phdr_info *info, size_t size, void *data);
 

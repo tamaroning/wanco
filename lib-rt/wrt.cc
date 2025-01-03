@@ -106,7 +106,7 @@ auto allocate_memory(int32_t num_pages) -> int8_t * {
   return res;
 }
 
-static auto extend_memory(ExecEnv *exec_env, int32_t inc_pages) -> int32_t {
+auto extend_memory(ExecEnv *exec_env, int32_t inc_pages) -> int32_t {
   ASSERT(inc_pages >= 0);
   int32_t const old_size = exec_env->memory_size;
   int32_t const new_size = old_size + inc_pages;

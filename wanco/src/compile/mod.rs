@@ -7,5 +7,6 @@ pub mod control;
 pub mod cr;
 pub mod helper;
 mod synthesize;
+pub mod debug;
 
 pub use compile_module::compile_module;
