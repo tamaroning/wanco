@@ -33,11 +33,13 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     );
 
     let current_fn = ctx.function_values[ctx.current_function_idx.unwrap() as usize];
+    let subprogram = debug::create_subprogram_info(ctx, ctx.current_function_idx.unwrap());
+    current_fn.set_subprogram(subprogram);
+    let lexical_scope =
+        debug::create_function_lexical_scope(ctx, ctx.current_function_idx.unwrap(), &subprogram);
     ctx.current_fn = Some(current_fn);
-    ctx.current_fn_subprogram = Some(debug::create_subprogram_info(
-        ctx,
-        ctx.current_function_idx.unwrap(),
-    ));
+    ctx.current_fn_subprogram = Some(subprogram);
+    ctx.current_fn_lexical_scope = Some(lexical_scope);
 
     let entry_bb = ctx.ictx.append_basic_block(current_fn, "entry");
     let ret_bb = ctx.ictx.append_basic_block(current_fn, "ret");
@@ -131,12 +133,11 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
         ctx.current_op = Some(num_op);
 
-        let subprogram = ctx.current_fn_subprogram.as_ref().unwrap();
         let location = debug::create_source_location(
             ctx,
             ctx.current_function_idx.unwrap(),
             num_op,
-            subprogram,
+            ctx.current_fn_lexical_scope.as_ref().unwrap(),
         );
         ctx.builder.set_current_debug_location(location);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
@@ -152,7 +153,10 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
             .expect("should gen finalize restore dispatch");
     }
 
+    ctx.builder.unset_current_debug_location();
     ctx.current_fn = None;
+    ctx.current_fn_lexical_scope = None;
+    ctx.current_fn_subprogram = None;
     Ok(())
 }
 

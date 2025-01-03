@@ -1,9 +1,8 @@
 use anyhow::Result;
 use checkpoint::gen_checkpoint_start;
 use inkwell::{
-    debug_info::{self, AsDIScope, DIScope},
     types::BasicTypeEnum,
-    values::{AnyValue, BasicValue, BasicValueEnum, PointerValue},
+    values::{BasicValue, BasicValueEnum, PointerValue},
 };
 use restore::gen_restore_point;
 

@@ -1,6 +1,6 @@
 use inkwell::{
-    debug_info::{AsDIScope, DIFile, DISubprogram},
-    llvm_sys::debuginfo::LLVMDIFlagZero,
+    debug_info::{AsDIScope, DILexicalBlock, DISubprogram},
+    llvm_sys::debuginfo::{LLVMDIFlagPublic, LLVMDIFlagZero},
 };
 
 use crate::context::Context;
@@ -16,12 +16,12 @@ pub fn create_debug_info_builder<'a>(
         inkwell::debug_info::DWARFSourceLanguage::C,
         "<unknown>",
         "<unknown>",
-        "<unknown>",
+        "wanco",
         true,
         "",
         0,
-        "<unknown>",
-        inkwell::debug_info::DWARFEmissionKind::LineTablesOnly,
+        "",
+        inkwell::debug_info::DWARFEmissionKind::Full,
         0,
         false,
         false,
@@ -34,34 +34,50 @@ pub fn create_source_location<'a, 'b>(
     ctx: &Context<'a, 'b>,
     func_index: u32,
     insn_offset: u32,
-    subprogram: &DISubprogram<'a>,
+    function_lexical_scope: &DILexicalBlock<'a>,
 ) -> inkwell::debug_info::DILocation<'a> {
-    let disubprogram_scope = subprogram.as_debug_info_scope();
-    ctx.debug_builder
-        .create_debug_location(ctx.ictx, insn_offset, 0, disubprogram_scope, None)
+    // We just use function indices as line numbers and instruction offsets as column numbers.
+    ctx.debug_builder.create_debug_location(
+        ctx.ictx,
+        func_index,
+        insn_offset,
+        function_lexical_scope.as_debug_info_scope(),
+        None,
+    )
 }
 
-pub fn create_subprogram_info<'a, 'b>(
-    ctx: &Context<'a, 'b>,
-    func_index: u32,
-) -> DISubprogram<'a> {
-    let difile = ctx.debug_unit.get_file();
-    let difile_scope = difile.as_debug_info_scope();
+pub fn create_subprogram_info<'a, 'b>(ctx: &Context<'a, 'b>, func_index: u32) -> DISubprogram<'a> {
+    let file = ctx.debug_unit.get_file();
+    let scope = ctx.debug_unit.as_debug_info_scope();
     let fn_name = format!("func_{}", func_index);
-    let subprogram_type =
-        ctx.debug_builder
-            .create_subroutine_type(difile, None, &[], LLVMDIFlagZero);
+    // Use the function type () -> () for now.
+    let subprogram_type = ctx
+        .debug_builder
+        .create_subroutine_type(file, None, &[], LLVMDIFlagZero);
     ctx.debug_builder.create_function(
-        difile_scope,
+        scope,
         &fn_name,
-        None,
-        difile,
-        0,
+        Some(&fn_name),
+        file,
+        func_index,
         subprogram_type,
-        false,
         true,
+        true,
+        func_index,
+        LLVMDIFlagPublic,
+        true,
+    )
+}
+
+pub fn create_function_lexical_scope<'a, 'b>(
+    ctx: &Context<'a, 'b>,
+    function_index: u32,
+    subprogram: &DISubprogram<'a>,
+) -> DILexicalBlock<'a> {
+    ctx.debug_builder.create_lexical_block(
+        subprogram.as_debug_info_scope(),
+        ctx.debug_unit.get_file(),
+        function_index,
         0,
-        LLVMDIFlagZero,
-        true,
     )
 }
