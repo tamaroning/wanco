@@ -115,6 +115,10 @@ pub struct Context<'a, 'b> {
     pub fn_push_global_f64: Option<FunctionValue<'a>>,
     pub fn_push_table_index: Option<FunctionValue<'a>>,
     pub fn_start_checkpoint: Option<FunctionValue<'a>>,
+
+    // (func, insn_offset, num_locals)
+    pub patchpoint_metavalues: Vec<(u64, u64, u64)>,
+
     // restore related
     pub fn_pop_front_frame: Option<FunctionValue<'a>>,
     pub fn_frame_is_empty: Option<FunctionValue<'a>>,
@@ -204,6 +208,8 @@ impl<'a> Context<'a, '_> {
             fn_push_global_f64: None,
             fn_push_table_index: None,
             fn_start_checkpoint: None,
+
+            patchpoint_metavalues: Vec::new(),
 
             fn_get_pc_from_frame: None,
             fn_frame_is_empty: None,

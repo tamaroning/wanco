@@ -183,6 +183,10 @@ std::string stackmap_to_string(const Stackmap &stackmap) {
     ss << "  Record flags: " << record.record_flags << std::endl;
     ss << "  Num locations: " << record.num_locations << std::endl;
 
+    uint32_t func = (record.patchpoint_id >> 32) & 0xFFFFFFFF;
+    uint32_t insn = record.patchpoint_id & 0xFFFFFFFF;
+    ss << "  Wasm Function: " << func << ", Insn: " << insn << std::endl;
+
     for (size_t j = 0; j < record.locations.size(); j++) {
       const Location &location = record.locations[j];
       ss << "  Location[" << j << "] = ";

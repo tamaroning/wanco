@@ -14,7 +14,7 @@ use crate::{
             ControlFrame, UnreachableReason,
         },
         cr::{
-            gen_migration_point,
+            self, gen_migration_point,
             restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
         },
         debug,
@@ -45,7 +45,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     let start_loc = debug::create_source_location(
         ctx,
         function_idx,
-        debug::FUNCION_START_INSN_OFFSET,
+        debug::FUNCION_START_INSN_OFFSET as u32,
         ctx.current_fn_lexical_scope.as_ref().unwrap(),
     );
     ctx.builder.set_current_debug_location(start_loc);
@@ -123,6 +123,11 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         ctx.restore_dispatch_bb = None;
         ctx.restore_dispatch_cases = vec![];
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
+    }
+
+    if ctx.config.enable_cr {
+        ctx.current_op = Some(debug::FUNCION_START_INSN_OFFSET as u32);
+        cr::stackmap::gen_stackmap(ctx, &locals).expect("fail to gen_stackmap");
     }
 
     // Generate checkpoint (v1)

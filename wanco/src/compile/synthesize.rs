@@ -1,13 +1,21 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpace};
+use inkwell::{
+    module::{FlagBehavior, Linkage},
+    types::BasicType,
+    values::BasicValue,
+    AddressSpace,
+};
 
 use crate::context::Context;
 
-use super::cr::{
-    checkpoint::{gen_store_globals, gen_store_table},
-    restore::{gen_restore_globals, gen_restore_table},
+use super::{
+    cr::{
+        checkpoint::{gen_store_globals, gen_store_table},
+        restore::{gen_restore_globals, gen_restore_table},
+    },
+    debug,
 };
 
 pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
@@ -423,6 +431,14 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     }
 
     ctx.builder.build_return(None).expect("should build return");
+
+    // Embed patchpoint metadata values.
+    let patchpoint_metadata = debug::create_patchpoint_metavalues(ctx);
+    ctx.module.add_metadata_flag(
+        "wasm_locaction_metadata",
+        FlagBehavior::AppendUnique,
+        patchpoint_metadata,
+    );
 
     ctx.debug_builder.finalize();
 

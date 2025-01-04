@@ -10,6 +10,7 @@ use crate::context::Context;
 
 pub(crate) mod checkpoint;
 pub(crate) mod restore;
+pub(crate) mod stackmap;
 
 //pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
@@ -129,32 +130,6 @@ pub(crate) fn gen_migration_point<'a>(
 
     // checkpoint
     ctx.builder.position_at_end(chkpt_bb);
-
-    // genereate stackmap
-    static mut stackmap_id: i32 = 0;
-    unsafe {
-        stackmap_id += 1;
-    }
-    let stackmap_id_ = unsafe { stackmap_id };
-
-    ctx.builder
-        .build_call(
-            ctx.inkwell_intrs.experimental_stackmap,
-            &[
-                ctx.inkwell_types
-                    .i64_type
-                    .const_int(stackmap_id_ as u64, false)
-                    .as_basic_value_enum()
-                    .into(),
-                ctx.inkwell_types
-                    .i32_type
-                    .const_int(0, false)
-                    .as_basic_value_enum()
-                    .into(),
-            ],
-            "",
-        )
-        .expect("fail to build_call experimental_stackmap");
 
     // call start_checkpoint
     ctx.builder

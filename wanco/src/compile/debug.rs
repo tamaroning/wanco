@@ -1,11 +1,12 @@
+use crate::context::Context;
 use inkwell::{
     debug_info::{AsDIScope, DILexicalBlock, DISubprogram},
     llvm_sys::debuginfo::{LLVMDIFlagPublic, LLVMDIFlagZero},
+    values::{BasicMetadataValueEnum, MetadataValue},
 };
 
-use crate::context::Context;
-
-pub const FUNCION_START_INSN_OFFSET: u32 = 0xffff;
+// I have no idea why 0xffff_ffff does not work. Just use u16 value for now.
+pub const FUNCION_START_INSN_OFFSET: u16 = 0xffff;
 
 pub fn create_debug_info_builder<'a>(
     module: &inkwell::module::Module<'a>,
@@ -82,4 +83,26 @@ pub fn create_function_lexical_scope<'a, 'b>(
         function_index,
         0,
     )
+}
+
+pub fn create_patchpoint_metavalues<'a, 'b>(ctx: &Context<'a, 'b>) -> MetadataValue<'a> {
+    let mut array: Vec<BasicMetadataValueEnum> = vec![];
+
+    for (func, insn, num_locals) in &ctx.patchpoint_metavalues {
+        // create tuple (function_index, insn_offset, num_locals)
+        let meta_value = ctx.ictx.metadata_node(&[
+            //ctx.ictx.const_string(b"func", true).into(),
+            ctx.inkwell_types.i32_type.const_int(*func, false).into(),
+            //ctx.ictx.const_string(b"insn", true).into(),
+            ctx.inkwell_types.i32_type.const_int(*insn, false).into(),
+            //ctx.ictx.const_string(b"num_locals", true).into(),
+            ctx.inkwell_types
+                .i32_type
+                .const_int(*num_locals, false)
+                .into(),
+        ]);
+        array.push(meta_value.into());
+    }
+
+    ctx.ictx.metadata_node(&array)
 }

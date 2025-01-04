@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <libdwarf/libdwarf.h>
 #include <libelf.h>
-#include <map>
 #include <optional>
 #include <span>
 #include <string>

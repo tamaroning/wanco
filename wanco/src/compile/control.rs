@@ -9,7 +9,7 @@ use wasmparser::{BlockType, BrTable};
 
 use super::{
     compile_type::wasmty_to_llvmty,
-    cr::{checkpoint::gen_checkpoint_unwind, gen_migration_point, gen_restore_non_leaf},
+    cr::{self, checkpoint::gen_checkpoint_unwind, gen_migration_point, gen_restore_non_leaf},
 };
 
 /// Holds the state of if-else.
@@ -164,6 +164,11 @@ pub fn gen_loop<'a>(
     if ctx.config.enable_cr && !ctx.config.disable_loop_cr {
         gen_migration_point(ctx, exec_env_ptr, locals).expect("fail to gen_migration_point");
         ctx.num_migration_points += 1;
+    }
+
+    // Now that we use stackmap to checkpoint.
+    if ctx.config.enable_cr && !ctx.config.disable_loop_cr {
+        cr::stackmap::gen_stackmap(ctx, locals)?;
     }
 
     Ok(())
@@ -576,7 +581,13 @@ pub fn gen_call<'a>(
         .build_call(fn_called, &args, "")
         .expect("should build call");
 
+    // Now that we use stackmap to checkpoint.
+    if ctx.config.enable_cr {
+        cr::stackmap::gen_stackmap(ctx, locals)?;
+    }
+
     // Generate unwinding code for checkpoint
+    // TODO: should remove this
     if ctx.config.enable_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");

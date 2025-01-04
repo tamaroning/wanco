@@ -431,8 +431,8 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
 
   auto trace = wanco::get_stack_trace(elf);
 
-  Info() << " Killed" << std::endl;
-  std::exit(0);
+  //Info() << " Killed" << std::endl;
+  //std::exit(0);
 }
 
 /*
