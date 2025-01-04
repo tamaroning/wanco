@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <libdwarf/libdwarf.h>
 #include <libelf.h>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -11,6 +12,17 @@ namespace wanco {
 
 void do_stacktrace();
 
+struct WasmLocation {
+  // function index
+  uint32_t function;
+  // instruction offset
+  uint32_t insn_offset;
+  // whether the location is a begininng of function
+  bool is_function;
+};
+
+using address_t = uint64_t;
+
 class ElfFile {
 public:
   ElfFile(const std::string &path);
@@ -18,7 +30,9 @@ public:
 
   std::span<uint8_t> get_section_data(const std::string &section_name);
 
-  void print_dwarf_line_table();
+  void init_wasm_location();
+
+  std::optional<std::pair<address_t, WasmLocation>> get_wasm_location(address_t address);
 
 private:
   int fd;
@@ -30,7 +44,11 @@ private:
   bool initialize_elf();
 
   bool initialize_dwarf();
+
+  std::vector<std::pair<address_t, WasmLocation>> locations;
 };
+
+std::vector<WasmLocation> get_stack_trace(ElfFile& elf);
 
 std::span<const uint8_t> get_stackmap_section();
 

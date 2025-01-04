@@ -5,6 +5,8 @@ use inkwell::{
 
 use crate::context::Context;
 
+pub const FUNCION_START_INSN_OFFSET: u32 = 0xffff;
+
 pub fn create_debug_info_builder<'a>(
     module: &inkwell::module::Module<'a>,
 ) -> (

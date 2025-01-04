@@ -411,7 +411,7 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
          "Invalid migration state");
 
   // Show the stack trace
-  wanco::do_stacktrace();
+  //wanco::do_stacktrace();
 
   // Dump stackmap
   std::optional<std::vector<uint8_t>> stackmap_section_opt =
@@ -425,10 +425,11 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
       wanco::stackmap::parse_stackmap(stackmap_section);
   std::cerr << wanco::stackmap::stackmap_to_string(stackmap);
 
-
   // Dump Line table
   wanco::ElfFile elf("/proc/self/exe");
-  elf.print_dwarf_line_table();
+  elf.init_wasm_location();
+
+  auto trace = wanco::get_stack_trace(elf);
 
   Info() << " Killed" << std::endl;
   std::exit(0);

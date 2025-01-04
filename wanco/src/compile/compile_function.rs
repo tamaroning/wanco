@@ -32,14 +32,23 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         ctx.current_function_idx.unwrap()
     );
 
-    let current_fn = ctx.function_values[ctx.current_function_idx.unwrap() as usize];
-    let subprogram = debug::create_subprogram_info(ctx, ctx.current_function_idx.unwrap());
+    let function_idx = ctx.current_function_idx.unwrap();
+    let current_fn = ctx.function_values[function_idx as usize];
+    let subprogram = debug::create_subprogram_info(ctx, function_idx);
     current_fn.set_subprogram(subprogram);
-    let lexical_scope =
-        debug::create_function_lexical_scope(ctx, ctx.current_function_idx.unwrap(), &subprogram);
+    let lexical_scope = debug::create_function_lexical_scope(ctx, function_idx, &subprogram);
     ctx.current_fn = Some(current_fn);
     ctx.current_fn_subprogram = Some(subprogram);
     ctx.current_fn_lexical_scope = Some(lexical_scope);
+
+    // We use special debug location for the start of the function.
+    let start_loc = debug::create_source_location(
+        ctx,
+        function_idx,
+        debug::FUNCION_START_INSN_OFFSET,
+        ctx.current_fn_lexical_scope.as_ref().unwrap(),
+    );
+    ctx.builder.set_current_debug_location(start_loc);
 
     let entry_bb = ctx.ictx.append_basic_block(current_fn, "entry");
     let ret_bb = ctx.ictx.append_basic_block(current_fn, "ret");
@@ -130,9 +139,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     while !op_reader.eof() {
         let op = op_reader.read_operator()?;
         log::trace!("- op[{}]: {:?}", num_op, &op);
-
         ctx.current_op = Some(num_op);
-
         let location = debug::create_source_location(
             ctx,
             ctx.current_function_idx.unwrap(),
@@ -141,7 +148,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         );
         ctx.builder.set_current_debug_location(location);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
-
+        ctx.current_op = None;
         num_op += 1;
     }
 
@@ -157,6 +164,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     ctx.current_fn = None;
     ctx.current_fn_lexical_scope = None;
     ctx.current_fn_subprogram = None;
+    ctx.current_op = None;
     Ok(())
 }
 
