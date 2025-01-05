@@ -1,3 +1,4 @@
+#include "api.h"
 #include "aot.h"
 #include "checkpoint/checkpoint.h"
 #include "stackmap/elf.h"
@@ -9,7 +10,6 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <sys/mman.h>
 #include <thread>
 #include <ucontext.h>
@@ -177,6 +177,54 @@ extern "C" void push_table_index(ExecEnv *exec_env, int32_t index) {
          "Invalid migration state");
   DEBUG_LOG << "call to push_table_index -> " << index << std::endl;
   wanco::chkpt.table.push_back(index);
+}
+
+extern "C" void start_checkpoint(ExecEnv *exec_env) {
+  Info() << " Intercepted" << std::endl;
+  ASSERT(exec_env->migration_state ==
+             wanco::MigrationState::STATE_CHECKPOINT_START &&
+         "Invalid migration state");
+  exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_CONTINUE;
+
+  wanco::ElfFile elf("/proc/self/exe");
+
+  std::span<uint8_t> stackmap_section = elf.get_section_data(".llvm_stackmaps");
+  wanco::stackmap::Stackmap stackmap =
+      wanco::stackmap::parse_stackmap(stackmap_section);
+
+  std::span<uint8_t> wanco_metadata_section =
+      elf.get_section_data(".wanco.metadata");
+  auto wanco_metadata = wanco::parse_wanco_metadata(wanco_metadata_section);
+
+  auto trace = wanco::get_stack_trace(elf);
+  // save callstack
+  wanco::checkpoint_callstack(elf, trace, wanco_metadata, stackmap);
+  // save globals
+  store_globals(exec_env);
+  // save table
+  store_table(exec_env);
+
+  // write snapshot
+  Debug() << "Memory size: " << exec_env->memory_size << std::endl;
+  wanco::chkpt.memory_size = exec_env->memory_size;
+  {
+    std::ofstream ofs("checkpoint.pb", std::ios::out | std::ios::binary);
+    encode_checkpoint_proto(ofs, wanco::chkpt, exec_env->memory_base);
+    Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
+    // ofs must be flushed here since this function does not return.
+  }
+
+  // Stop benchmark timer.
+  auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::system_clock::now().time_since_epoch())
+                  .count();
+  time = time - wanco::CHKPT_START_TIME;
+  // TODO(tamaron): remove this (research purpose)
+  std::ofstream chktime("chkpt-time.txt");
+  chktime << time << '\n';
+
+  Info() << "Killed" << std::endl;
+  std::exit(0);
 }
 
 namespace wanco {
@@ -404,30 +452,6 @@ extern "C" int32_t pop_front_table_index(ExecEnv *exec_env) {
   DEBUG_LOG << "call to pop_front_table_index -> " << idx << std::endl;
   wanco::chkpt.table.pop_front();
   return idx;
-}
-
-extern "C" void start_checkpoint(ExecEnv *exec_env) {
-  Info() << " Intercepted" << std::endl;
-  ASSERT(exec_env->migration_state ==
-             wanco::MigrationState::STATE_CHECKPOINT_START &&
-         "Invalid migration state");
-  exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_CONTINUE;
-
-  wanco::ElfFile elf("/proc/self/exe");
-
-  std::span<uint8_t> stackmap_section = elf.get_section_data(".llvm_stackmaps");
-  wanco::stackmap::Stackmap stackmap =
-      wanco::stackmap::parse_stackmap(stackmap_section);
-
-  std::span<uint8_t> wanco_metadata_section =
-      elf.get_section_data(".wanco.metadata");
-  auto wanco_metadata = wanco::parse_wanco_metadata(wanco_metadata_section);
-
-  auto trace = wanco::get_stack_trace(elf);
-  wanco::checkpoint_callstack(elf, trace, wanco_metadata, stackmap);
-
-  Info() << " Killed" << std::endl;
-  std::exit(0);
 }
 
 /*

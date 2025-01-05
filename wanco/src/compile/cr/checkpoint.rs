@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use inkwell::{
+    module::Linkage,
     types::{BasicType, BasicTypeEnum},
     values::{BasicValue, BasicValueEnum, PointerValue},
+    AddressSpace,
 };
 
 use crate::context::{Context, Global};
@@ -11,21 +13,32 @@ use super::{
     MIGRATION_STATE_CHECKPOINT_CONTINUE,
 };
 
-pub(crate) fn gen_store_globals<'a>(
-    ctx: &mut Context<'a, '_>,
-    exec_env_ptr: &PointerValue<'a>,
-) -> Result<()> {
-    let current_fn = ctx.current_fn.unwrap();
-    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
-    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
-    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
-        .expect("fail to gen_compare_migration_state");
-    ctx.builder
-        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
-        .expect("should build conditional branch");
-    ctx.builder.position_at_end(then_bb);
+pub(crate) fn add_fn_store_globals_api<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
+    let fn_type = ctx.inkwell_types.void_type.fn_type(
+        &[ctx
+            .exec_env_type
+            .unwrap()
+            .ptr_type(AddressSpace::default())
+            .into()],
+        false,
+    );
+    let fn_store_globals =
+        ctx.module
+            .add_function("store_globals", fn_type, Some(Linkage::External));
+    let entry_bb = ctx.ictx.append_basic_block(fn_store_globals, "entry");
+    ctx.builder.position_at_end(entry_bb);
+    let exec_env_ptr = fn_store_globals
+        .get_nth_param(0)
+        .unwrap()
+        .into_pointer_value();
+    gen_store_globals(ctx, &exec_env_ptr)?;
 
-    // add globals
+    ctx.builder.build_return(None).expect("should build return");
+
+    Ok(())
+}
+
+fn gen_store_globals<'a>(ctx: &mut Context<'a, '_>, exec_env_ptr: &PointerValue<'a>) -> Result<()> {
     let mut globals = Vec::new();
     for global in &ctx.globals {
         let value = match global {
@@ -44,11 +57,6 @@ pub(crate) fn gen_store_globals<'a>(
         gen_push_global_value(ctx, exec_env_ptr, value)
             .expect("should build push_global for const global");
     }
-    ctx.builder
-        .build_unconditional_branch(else_bb)
-        .expect("should build unconditonal branch");
-    // Move back to else bb
-    ctx.builder.position_at_end(else_bb);
     Ok(())
 }
 
@@ -103,23 +111,35 @@ fn gen_push_global_value<'a>(
     Ok(())
 }
 
-pub(crate) fn gen_store_table<'a>(
-    ctx: &mut Context<'a, '_>,
-    exec_env_ptr: &PointerValue<'a>,
-) -> Result<()> {
+pub(crate) fn add_fn_store_table_api<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
+    let fn_type = ctx.inkwell_types.void_type.fn_type(
+        &[ctx
+            .exec_env_type
+            .unwrap()
+            .ptr_type(AddressSpace::default())
+            .into()],
+        false,
+    );
+    let fn_store_table = ctx
+        .module
+        .add_function("store_table", fn_type, Some(Linkage::External));
+    let entry_bb = ctx.ictx.append_basic_block(fn_store_table, "entry");
+    ctx.builder.position_at_end(entry_bb);
+    let exec_env_ptr = fn_store_table
+        .get_nth_param(0)
+        .unwrap()
+        .into_pointer_value();
+    gen_store_table(ctx, &exec_env_ptr)?;
+
+    ctx.builder.build_return(None).expect("should build return");
+
+    Ok(())
+}
+
+fn gen_store_table<'a>(ctx: &mut Context<'a, '_>, exec_env_ptr: &PointerValue<'a>) -> Result<()> {
     let Some(global_table) = ctx.global_table else {
         return Ok(());
     };
-    let current_fn = ctx.current_fn.unwrap();
-    let then_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.then");
-    let else_bb = ctx.ictx.append_basic_block(current_fn, "chkpt.else");
-    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
-        .expect("fail to gen_compare_migration_state");
-    ctx.builder
-        .build_conditional_branch(cond.into_int_value(), then_bb, else_bb)
-        .expect("should build conditional branch");
-    ctx.builder.position_at_end(then_bb);
-
     for i in 0..ctx.global_table_size.unwrap() {
         let elem_ptr = unsafe {
             ctx.builder.build_gep(
@@ -142,12 +162,6 @@ pub(crate) fn gen_store_table<'a>(
             )
             .expect("should build call");
     }
-
-    ctx.builder
-        .build_unconditional_branch(else_bb)
-        .expect("should build unconditonal branch");
-    // Move back to else bb
-    ctx.builder.position_at_end(else_bb);
     Ok(())
 }
 

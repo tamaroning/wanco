@@ -21,3 +21,8 @@ extern "C" void push_i64(ExecEnv *exec_env, int64_t i64);
 extern "C" void push_f32(ExecEnv *exec_env, float f32);
 
 extern "C" void push_f64(ExecEnv *exec_env, double f64);
+
+// Provided by the AOT module.
+extern "C" void store_globals(ExecEnv *exec_env);
+// Provided by the AOT module.
+extern "C" void store_table(ExecEnv *exec_env);

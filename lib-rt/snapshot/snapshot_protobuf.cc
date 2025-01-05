@@ -1,5 +1,5 @@
-#include "snapshot.h"
 #include "lz4/lz4.h"
+#include "snapshot.h"
 #include "snapshot.pb.h"
 #include "wanco.h"
 #include <fstream>
@@ -51,10 +51,22 @@ static wanco::Frame decode_frame_proto(const chkpt::Frame &f) {
 
 std::pair<wanco::Checkpoint, int8_t *>
 decode_checkpoint_proto(std::ifstream &f) {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
   Checkpoint ret;
   chkpt::Checkpoint buf;
   if (!buf.ParseFromIstream(&f)) {
     Fatal() << "Failed to parse checkpoint file (protobuf)" << std::endl;
+    if (f.eof()) {
+      Fatal() << "Error: Reached end of file unexpectedly." << std::endl;
+    }
+    if (f.fail()) {
+      Fatal() << "Error: Logical error on input stream." << std::endl;
+    }
+    if (f.bad()) {
+      Fatal() << "Error: Read/write error on input stream." << std::endl;
+    }
+    Info() << "Debug information for the checkpoint buffer:" << std::endl;
+    Info() << buf.DebugString() << std::endl;
     exit(1);
   }
 
@@ -142,6 +154,7 @@ static chkpt::Frame encode_frame_proto(const wanco::Frame &f) {
 
 void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
                              int8_t *memory_base) {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
   chkpt::Checkpoint buf;
   for (const auto &fr : chkpt.frames) {
     chkpt::Frame f = encode_frame_proto(fr);
@@ -158,7 +171,7 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
   }
 
   buf.set_memory_size(chkpt.memory_size);
-  if (USE_LZ4) {
+  if constexpr (USE_LZ4) {
     uint64_t time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                            std::chrono::system_clock::now().time_since_epoch())
                            .count();
@@ -186,10 +199,15 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
     buf.set_memory(memory_base, chkpt.memory_size * PAGE_SIZE);
   }
 
+  if (!ofs.is_open()) {
+    Fatal() << "Failed to open checkpoint file" << std::endl;
+    exit(1);
+  }
   if (!buf.SerializeToOstream(&ofs)) {
     Fatal() << "Failed to write checkpoint file" << std::endl;
     exit(1);
   }
+
   // write out pb.json for debugging
   if constexpr (DEBUG_ENABLED) {
     google::protobuf::util::JsonPrintOptions options;

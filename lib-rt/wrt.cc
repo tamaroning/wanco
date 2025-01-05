@@ -169,7 +169,7 @@ static auto wanco_main(int argc, char **argv) -> int {
   signal(SIGSEGV, signal_segv_handler);
 
   // Parse CLI arguments
-  Config const config = parse_from_args(argc, argv);
+  const Config config = parse_from_args(argc, argv);
 
   if (config.restore_file.empty()) {
     // Allocate memory
@@ -225,23 +225,6 @@ static auto wanco_main(int argc, char **argv) -> int {
   signal(SIGCHKPT, signal_chkpt_handler);
 
   aot_main(&exec_env);
-
-  if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE) {
-    chkpt.memory_size = exec_env.memory_size;
-
-    // write snapshot
-    std::ofstream ofs("checkpoint.pb");
-    encode_checkpoint_proto(ofs, chkpt, exec_env.memory_base);
-    Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
-
-    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::system_clock::now().time_since_epoch())
-                    .count();
-    time = time - wanco::CHKPT_START_TIME;
-    // TODO(tamaron): remove this (research purpose)
-    std::ofstream chktime("chkpt-time.txt");
-    chktime << time << '\n';
-  }
 
   // cleanup
   munmap(exec_env.memory_base, exec_env.memory_size * PAGE_SIZE);

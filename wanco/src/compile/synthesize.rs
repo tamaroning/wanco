@@ -7,7 +7,7 @@ use crate::context::Context;
 
 use super::{
     cr::{
-        checkpoint::{gen_store_globals, gen_store_table},
+        checkpoint::{add_fn_store_globals_api, add_fn_store_table_api},
         restore::{gen_restore_globals, gen_restore_table},
     },
     debug,
@@ -419,13 +419,13 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .build_call(start_fn, &[exec_env_ptr.as_basic_value_enum().into()], "")
         .expect("should build call");
 
-    // checkpoint globals (v1)
-    if ctx.config.enable_cr {
-        gen_store_globals(ctx, &exec_env_ptr).expect("should gen store globals");
-        gen_store_table(ctx, &exec_env_ptr).expect("should gen store table");
-    }
-
     ctx.builder.build_return(None).expect("should build return");
+
+    // Expose API to checkpoint globals and a table (v1)
+    if ctx.config.enable_cr {
+        add_fn_store_globals_api(ctx).expect("should gen store globals");
+        add_fn_store_table_api(ctx).expect("should gen store table");
+    }
 
     let contents = debug::create_patchpoint_metadata_json(ctx);
     let metadata_section = ctx.module.add_global(
