@@ -1,6 +1,7 @@
 #include "api.h"
 #include "aot.h"
 #include "checkpoint/checkpoint.h"
+#include "checkpoint/stacktrace.h"
 #include "stackmap/elf.h"
 #include "stackmap/metadata.h"
 #include "stackmap/stackmap.h"
@@ -191,6 +192,8 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   std::span<uint8_t> stackmap_section = elf.get_section_data(".llvm_stackmaps");
   wanco::stackmap::Stackmap stackmap =
       wanco::stackmap::parse_stackmap(stackmap_section);
+  Debug() << "Stackmap: " << wanco::stackmap::stackmap_to_string(stackmap)
+          << std::endl;
 
   std::span<uint8_t> wanco_metadata_section =
       elf.get_section_data(".wanco.metadata");

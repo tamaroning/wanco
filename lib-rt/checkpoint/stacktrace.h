@@ -1,6 +1,5 @@
 #pragma once
 #include "stackmap/elf.h"
-#include <vector>
 
 namespace wanco {
 

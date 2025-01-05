@@ -1,60 +1,66 @@
 #include "stackmap/elf.h"
 #include "wanco.h"
-#include <iostream>
+#include <cstdlib>
+#include <cstdint>
+#include <vector>
+#include <libunwind-x86_64.h>
+#include <string>
+#include <optional>
+#include <utility>
 // libunwind
 #define UNW_LOCAL_ONLY
-#include <libunwind.h>
 
 namespace wanco {
 
-std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf) {
+auto get_stack_trace(ElfFile &elf) -> std::vector<WasmCallStackEntry> {
   std::vector<WasmCallStackEntry> trace;
-  Debug() << "--- call stack top ---" << std::endl;
+  Debug() << "--- call stack top ---" << '\n';
 
   // initialize libunwind
   unw_context_t context;
   if (unw_getcontext(&context) != 0) {
-    Fatal() << "Failed to get context" << std::endl;
+    Fatal() << "Failed to get context" << '\n';
     exit(EXIT_FAILURE);
   }
   unw_cursor_t cursor;
   if (unw_init_local(&cursor, &context) != 0) {
-    Fatal() << "Failed to initialize cursor" << std::endl;
+    Fatal() << "Failed to initialize cursor" << '\n';
     exit(EXIT_FAILURE);
   }
 
   do {
-    unw_word_t offset;
+    unw_word_t offset = 0;
     char fname[64];
     fname[0] = '\0';
     (void)unw_get_proc_name(&cursor, fname, sizeof(fname), &offset);
-    std::string function_name = {fname};
+    std::string const function_name = {fname};
 
     // We are only interested in wasm functions
-    if (!function_name.starts_with("func_"))
+    if (!function_name.starts_with("func_")) {
       continue;
+}
 
     // Get pc.
-    unw_word_t pc;
+    unw_word_t pc = 0;
     unw_get_reg(&cursor, UNW_REG_IP, &pc);
 
     // Get sp.
-    unw_word_t sp;
+    unw_word_t sp = 0;
     unw_get_reg(&cursor, UNW_REG_SP, &sp);
 
     // Get frame size
-    unw_word_t bp;
+    unw_word_t bp = 0;
     unw_get_reg(&cursor, UNW_TDEP_BP, &bp);
 
     // HACK: Since the return address is the address of the next instruction,
     // we need to subtract 1 to get the address of the current instruction.
     std::optional<std::pair<address_t, WasmLocation>> opt =
-        elf.get_wasm_location((address_t)(pc - 1));
+        elf.get_wasm_location(static_cast<address_t>(pc - 1));
     if (!opt.has_value()) {
-      Fatal() << "Failed to get wasm location" << std::endl;
+      Fatal() << "Failed to get wasm location" << '\n';
       exit(EXIT_FAILURE);
     }
-    WasmLocation loc = opt.value().second;
+    WasmLocation const loc = opt.value().second;
 
     trace.push_back(WasmCallStackEntry{
         .function_name = function_name,
@@ -66,12 +72,12 @@ std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf) {
     // Dump the frame
     Debug() << "backtrace[" << trace.size() << "] (" << function_name
             << "): wasm-func=" << loc.function
-            << ", wasm-insn=" << loc.insn_offset << std::endl;
+            << ", wasm-insn=" << loc.insn_offset << '\n';
     Debug() << "\t pc: " << std::hex << pc << std::dec << ", bp: " << std::hex
             << bp << std::dec << ", sp: " << std::hex << sp << std::dec
-            << std::endl;
+            << '\n';
   } while (unw_step(&cursor) > 0);
-  Debug() << "--- call stack bottom ---" << std::endl;
+  Debug() << "--- call stack bottom ---" << '\n';
   return trace;
 }
 

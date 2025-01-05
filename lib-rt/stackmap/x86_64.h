@@ -1,8 +1,6 @@
 #pragma once
 #include <string>
-
-namespace wanco {
-namespace stackmap {
+namespace wanco::stackmap {
 
 enum class Register {
   // General purpose registers.
@@ -65,7 +63,7 @@ enum class Register {
   MM7 = 48,
 };
 
-inline std::string reg_to_string(Register &reg) {
+inline auto reg_to_string(Register &reg) -> std::string {
   switch (reg) {
   case Register::RAX:
     return "RAX";
@@ -170,5 +168,4 @@ inline std::string reg_to_string(Register &reg) {
   }
 }
 
-} // namespace stackmap
-} // namespace wanco
+} // namespace wanco::stackmap

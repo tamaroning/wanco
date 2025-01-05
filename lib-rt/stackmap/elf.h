@@ -44,7 +44,7 @@ private:
   // The Elf object from libelf
   Elf *elf;
   // The Dwarf object from libdwarf
-  Dwarf_Debug dbg;
+  Dwarf_Debug dbg{};
 
   std::vector<std::pair<address_t, WasmLocation>> locations;
 
@@ -54,8 +54,6 @@ private:
 
   void initialize_wasm_location();
 };
-
-std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf);
 
 std::span<const uint8_t> get_stackmap_section();
 

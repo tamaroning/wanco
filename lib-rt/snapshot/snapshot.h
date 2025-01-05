@@ -59,8 +59,7 @@ public:
   std::vector<Value> stack;
 };
 
-class Checkpoint {
-public:
+struct Checkpoint {
   std::deque<Frame> frames;
   std::deque<Value> globals;
   std::deque<int32_t> table;
@@ -91,6 +90,7 @@ public:
 std::pair<wanco::Checkpoint, int8_t *>
 decode_checkpoint_proto(std::ifstream &f);
 
-void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt, int8_t *memory_base);
+void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
+                             int8_t *memory_base);
 
 } // namespace wanco
