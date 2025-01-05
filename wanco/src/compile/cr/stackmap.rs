@@ -45,12 +45,26 @@ pub fn gen_stackmap<'a>(
         .expect("should build call");
 
     // Embed number of locals into debug info.
-    let func = ctx.current_function_idx.unwrap() as u64;
+    let func = ctx.current_function_idx.unwrap();
     let insn = ctx
         .current_op
-        .unwrap_or(debug::FUNCION_START_INSN_OFFSET as u32) as u64;
-    let num_locals = locals.len() as u64;
-    ctx.patchpoint_metavalues.push((func, insn, num_locals));
+        .unwrap_or(debug::FUNCION_START_INSN_OFFSET as u32);
+    let local_types = locals
+        .iter()
+        .map(|(_, ty)| debug::metadata::convert_type_name(ctx, ty))
+        .collect::<Vec<_>>();
+    let stack_types = stack
+        .stack
+        .iter()
+        .map(|v| debug::metadata::convert_type_name(ctx, &v.get_type()))
+        .collect::<Vec<_>>();
+    ctx.patchpoint_metavalues
+        .push(debug::PatchpointMetadataEntry {
+            func: func as u32,
+            insn: insn as u32,
+            locals: local_types,
+            stack: stack_types,
+        });
 
     Ok(())
 }

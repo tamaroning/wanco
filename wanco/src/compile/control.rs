@@ -9,7 +9,7 @@ use wasmparser::{BlockType, BrTable};
 
 use super::{
     compile_type::wasmty_to_llvmty,
-    cr::{self, checkpoint::gen_checkpoint_unwind, gen_migration_point, gen_restore_non_leaf},
+    cr::{self, gen_migration_point, gen_restore_non_leaf},
 };
 
 /// Holds the state of if-else.

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <libdwarf/libdwarf.h>
 #include <libelf.h>
+#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -19,6 +20,14 @@ struct WasmLocation {
   uint32_t insn_offset;
   // whether the location is a begininng of function
   bool is_function;
+};
+
+// Corresponding to a frame in the native stack trace.
+struct WasmCallStackEntry {
+  std::string function_name;
+  WasmLocation location;
+  uint64_t sp;
+  uint64_t bp;
 };
 
 using address_t = uint64_t;
@@ -50,15 +59,27 @@ private:
   bool initialize_dwarf();
 
   void initialize_wasm_location();
-
-  void initialize_patchpoint_metadata();
 };
 
-std::vector<WasmLocation> get_stack_trace(ElfFile &elf);
+std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf);
 
 std::span<const uint8_t> get_stackmap_section();
 
-std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>
-parse_wanco_metadata(std::span<const uint8_t> data);
+struct MetadataEntry {
+  uint32_t func;
+  uint32_t insn;
+  std::vector<std::string> locals;
+  std::vector<std::string> stack;
+};
+
+std::vector<MetadataEntry> parse_wanco_metadata(std::span<const uint8_t> data);
+
+// Translate native stack trace to wasm state.
+class CheckpointContext {
+public:
+private:
+  // Mapping from wasm location to LLVM stackmap record
+  std::map<WasmLocation, stackmap::StkMapRecord> loc_to_stackmap;
+};
 
 } // namespace wanco

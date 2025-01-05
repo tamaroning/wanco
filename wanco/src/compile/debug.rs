@@ -3,9 +3,57 @@ use inkwell::{
     debug_info::{AsDIScope, DILexicalBlock, DISubprogram},
     llvm_sys::debuginfo::{LLVMDIFlagPublic, LLVMDIFlagZero},
 };
+use serde::Serialize;
 
 // I have no idea why 0xffff_ffff does not work. Just use u16 value for now.
 pub const FUNCION_START_INSN_OFFSET: u16 = 0xffff;
+
+pub mod metadata {
+    use inkwell::types::BasicTypeEnum;
+
+    use crate::context::Context;
+
+    const I32_TYPE: &str = "i32";
+    const I64_TYPE: &str = "i64";
+    const F32_TYPE: &str = "f32";
+    const F64_TYPE: &str = "f64";
+
+    pub fn convert_type_name(ctx: &Context, ty: &BasicTypeEnum) -> &'static str {
+        if ty.is_int_type() {
+            let int_ty = ty.into_int_type();
+            if int_ty == ctx.inkwell_types.i32_type {
+                I32_TYPE
+            } else if int_ty == ctx.inkwell_types.i64_type {
+                I64_TYPE
+            } else {
+                panic!("unsupported int type");
+            }
+        } else if ty.is_float_type() {
+            let float_ty = ty.into_float_type();
+            if float_ty == ctx.inkwell_types.f32_type {
+                F32_TYPE
+            } else if float_ty == ctx.inkwell_types.f64_type {
+                F64_TYPE
+            } else {
+                panic!("unsupported float type");
+            }
+        } else {
+            panic!("unsupported type");
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct PatchpointMetadataEntry {
+    // wasm function index
+    pub func: u32,
+    // wasm instruction offset from the start of the function
+    pub insn: u32,
+    // types of local variables
+    pub locals: Vec<&'static str>,
+    // types of stack values
+    pub stack: Vec<&'static str>,
+}
 
 pub fn create_debug_info_builder<'a>(
     module: &inkwell::module::Module<'a>,
@@ -84,40 +132,7 @@ pub fn create_function_lexical_scope<'a, 'b>(
     )
 }
 
-/*
-pub fn create_patchpoint_metavalues<'a, 'b>(ctx: &Context<'a, 'b>) -> MetadataValue<'a> {
-    let mut array: Vec<BasicMetadataValueEnum> = vec![];
-
-    for (func, insn, num_locals) in &ctx.patchpoint_metavalues {
-        // create tuple (function_index, insn_offset, num_locals)
-        let meta_value = ctx.ictx.metadata_node(&[
-            //ctx.ictx.const_string(b"func", true).into(),
-            ctx.inkwell_types.i32_type.const_int(*func, false).into(),
-            //ctx.ictx.const_string(b"insn", true).into(),
-            ctx.inkwell_types.i32_type.const_int(*insn, false).into(),
-            //ctx.ictx.const_string(b"num_locals", true).into(),
-            ctx.inkwell_types
-                .i32_type
-                .const_int(*num_locals, false)
-                .into(),
-        ]);
-        array.push(meta_value.into());
-    }
-
-    ctx.ictx.metadata_node(&array)
-}
-*/
-
 /// Create a content of .wanco.metadata section.
 pub fn create_patchpoint_metadata_json<'a, 'b>(ctx: &Context<'a, 'b>) -> String {
-    let mut ss = String::with_capacity(ctx.patchpoint_metavalues.len() * 13);
-    ss.push_str("[");
-    for (i, (func, insn, num_locals)) in ctx.patchpoint_metavalues.iter().enumerate() {
-        ss.push_str(&format!("[{func}, {insn}, {num_locals}]",));
-        if i < ctx.patchpoint_metavalues.len() - 1 {
-            ss.push_str(",");
-        }
-    }
-    ss.push_str("]");
-    ss
+    serde_json::to_string(&ctx.patchpoint_metavalues).unwrap()
 }

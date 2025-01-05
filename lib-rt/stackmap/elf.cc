@@ -8,6 +8,7 @@
 #include <gelf.h>
 #include <iostream>
 #include <libdwarf/dwarf.h>
+#include <libunwind-x86_64.h>
 #include <link.h>
 #include <map>
 #include <optional>
@@ -46,7 +47,6 @@ ElfFile::ElfFile(const std::string &path) : fd(-1), elf(nullptr) {
   }
 
   initialize_wasm_location();
-  initialize_patchpoint_metadata();
 }
 
 ElfFile::~ElfFile() {
@@ -162,7 +162,7 @@ void ElfFile::initialize_wasm_location() {
       continue;
     }
 
-    for (Dwarf_Unsigned i = 0; i < line_count; ++i) {
+    for (Dwarf_Signed i = 0; i < line_count; ++i) {
       Dwarf_Line line = line_buffer[i];
       Dwarf_Addr line_addr;
       dwarf_lineaddr(line, &line_addr, &error);
@@ -255,75 +255,6 @@ ElfFile::get_wasm_location(address_t address) {
   return binary_search(locations, address);
 }
 
-void ElfFile::initialize_patchpoint_metadata() {
-  std::map<address_t, WasmLocation> location_map;
-
-  Dwarf_Error error;
-  std::cout << "Patchpoint metadata:" << std::endl;
-
-  Dwarf_Sig8 sig8;
-  Dwarf_Unsigned typeoff;
-  int res;
-  while ((res = dwarf_next_cu_header_c(dbg, false, NULL, NULL, NULL, NULL, NULL,
-                                       NULL, &sig8, &typeoff, NULL, &error)) ==
-         DW_DLV_OK) {
-    Dwarf_Die cu_die;
-    if (dwarf_siblingof(dbg, NULL, &cu_die, &error) != DW_DLV_OK) {
-      std::cerr << "Failed to get CU DIE: " << dwarf_errmsg(error) << std::endl;
-      continue;
-    }
-    // Get producer
-    Dwarf_Attribute attr;
-    if (dwarf_attr(cu_die, DW_AT_producer, &attr, &error) != DW_DLV_OK) {
-      std::cerr << "Failed to get producer: " << dwarf_errmsg(error)
-                << std::endl;
-      continue;
-    }
-    // We are only interested in the line table of the AOT module compiled with
-    // wanco
-    char *producer;
-    if (dwarf_formstring(attr, &producer, &error) != DW_DLV_OK) {
-      std::cerr << "Failed to get producer: " << dwarf_errmsg(error)
-                << std::endl;
-      continue;
-    }
-    if (std::string(producer) != "wanco") {
-      continue;
-    }
-
-    // Iterate over llvm.module.flags
-    Dwarf_Die child;
-    int res = dwarf_child(cu_die, &child, &error);
-    if (res == DW_DLV_OK) {
-      do {
-        // name
-        Dwarf_Attribute name_attr;
-        if (dwarf_attr(child, DW_AT_name, &name_attr, &error) != DW_DLV_OK) {
-          std::cerr << "Failed to get name attribute: " << dwarf_errmsg(error)
-                    << std::endl;
-          continue;
-        }
-        char *name;
-        if (dwarf_formstring(name_attr, &name, &error) != DW_DLV_OK) {
-          std::cerr << "Failed to get name: " << dwarf_errmsg(error)
-                    << std::endl;
-          continue;
-        }
-        std::cout << "name: " << name << std::endl;
-      } while (dwarf_siblingof(dbg, child, &child, &error) == DW_DLV_OK);
-    } else {
-      std::cerr << "Failed to get child DIE: " << dwarf_errmsg(error)
-                << std::endl;
-    }
-
-    //  TODO: we should free DIE here.
-  }
-  if (res == DW_DLV_ERROR) {
-    printf("Error in dwarf_next_cu_header\n");
-    exit(1);
-  }
-}
-
 void do_stacktrace() {
   unw_cursor_t cursor;
   unw_context_t context;
@@ -344,51 +275,70 @@ void do_stacktrace() {
   } while (unw_step(&cursor) > 0);
 }
 
-std::vector<WasmLocation> get_stack_trace(ElfFile &elf) {
-  std::vector<WasmLocation> trace;
+std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf) {
+  std::vector<WasmCallStackEntry> trace;
   std::cout << "--- call stack top ---" << std::endl;
 
-  unw_cursor_t cursor;
+  // initialize libunwind
   unw_context_t context;
-  unw_getcontext(&context);
-  unw_init_local(&cursor, &context);
+  if (unw_getcontext(&context) != 0) {
+    fprintf(stderr, "Failed to get context\n");
+    exit(EXIT_FAILURE);
+  }
+  unw_cursor_t cursor;
+  if (unw_init_local(&cursor, &context) != 0) {
+    fprintf(stderr, "Failed to initialize cursor\n");
+    exit(EXIT_FAILURE);
+  }
+
   do {
-    unw_word_t offset, pc;
-    unw_get_reg(&cursor, UNW_REG_IP, &pc);
-
-    Dl_info info;
-    dladdr((void *)pc, &info);
-    std::optional<std::pair<address_t, WasmLocation>> loc =
-        elf.get_wasm_location((address_t)pc);
-    if (loc.has_value()) {
-      trace.push_back(loc.value().second);
-    }
-
+    unw_word_t offset;
     char fname[64];
     fname[0] = '\0';
     (void)unw_get_proc_name(&cursor, fname, sizeof(fname), &offset);
-
     std::string function_name = {fname};
-    if (function_name.starts_with("func_")) {
-      auto opt = elf.get_wasm_location(static_cast<address_t>(pc));
-      if (opt.has_value()) {
-        auto [addr, loc] = opt.value();
-        trace.push_back(loc);
 
-        // e.g. backtrace[2] func_3 [0x406b0] wasm-func=3, wasm-insn=10
-        std::cout << "backtrace[" << trace.size() << "] " << function_name
-                  << " [0x" << std::hex << addr << std::dec
-                  << "] wasm-func=" << loc.function
-                  << ", wasm-insn=" << loc.insn_offset;
-        if (loc.is_function) {
-          std::cout << " (function start)";
-        }
-        std::cout << std::endl;
-      } else {
-        std::cerr << "Failed to get wasm location" << std::endl;
-      }
+    // We are only interested in wasm functions
+    if (!function_name.starts_with("func_"))
+      continue;
+
+    // Get pc.
+    unw_word_t pc;
+    unw_get_reg(&cursor, UNW_REG_IP, &pc);
+
+    // Get sp.
+    unw_word_t sp;
+    unw_get_reg(&cursor, UNW_REG_SP, &sp);
+
+    // Get frame size
+    unw_word_t bp;
+    unw_get_reg(&cursor, UNW_TDEP_BP, &bp);
+
+    std::optional<std::pair<address_t, WasmLocation>> opt =
+        elf.get_wasm_location((address_t)pc);
+    if (!opt.has_value()) {
+      std::cerr << "Failed to get wasm location" << std::endl;
+      exit(EXIT_FAILURE);
     }
+    WasmLocation loc = opt.value().second;
 
+    trace.push_back(WasmCallStackEntry{
+        .location = loc,
+        .sp = sp,
+        .bp = bp,
+    });
+
+    // Dump the frame
+    std::cout << "backtrace[" << trace.size() << "] (" << function_name
+              << "): wasm-func=" << loc.function
+              << ", wasm-insn=" << loc.insn_offset;
+    if (loc.is_function) {
+      std::cout << " (function start)";
+    }
+    std::cout << std::endl;
+    std::cout << "\t pc: " << std::hex << pc << std::dec << ", bp: " << std::hex
+              << bp << std::dec << ", sp: " << std::hex << sp << std::dec
+              << std::endl;
   } while (unw_step(&cursor) > 0);
   std::cout << "--- call stack bottom ---" << std::endl;
   return trace;
@@ -404,18 +354,20 @@ struct SectionInfo {
   }
 };
 
-std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>
-parse_wanco_metadata(std::span<const uint8_t> data) {
-  std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> metadata;
+std::vector<MetadataEntry> parse_wanco_metadata(std::span<const uint8_t> data) {
+  std::vector<MetadataEntry> metadata;
 
   nlohmann::json j = nlohmann::json::parse(data.begin(), data.end());
   for (const auto &entry : j) {
-    uint32_t wasm_func = entry[0];
-    uint32_t wasm_insn = entry[1];
-    uint32_t num_locals = entry[2];
-    metadata.push_back({wasm_func, wasm_insn, num_locals});
+    uint32_t wasm_func = entry["func"];
+    uint32_t wasm_insn = entry["insn"];
+    std::vector<std::string> locals = entry["locals"];
+    std::vector<std::string> params = entry["stack"];
+    metadata.push_back(MetadataEntry{.func = wasm_func,
+                                     .insn = wasm_insn,
+                                     .locals = locals,
+                                     .stack = params});
   }
-
   return metadata;
 }
 

@@ -11,7 +11,10 @@ use inkwell::{
 };
 
 use crate::{
-    compile::control::{ControlFrame, UnreachableReason},
+    compile::{
+        control::{ControlFrame, UnreachableReason},
+        debug,
+    },
     driver::Args,
     inkwell::{init_inkwell, InkwellIntrinsics, InkwellTypes},
 };
@@ -116,8 +119,7 @@ pub struct Context<'a, 'b> {
     pub fn_push_table_index: Option<FunctionValue<'a>>,
     pub fn_start_checkpoint: Option<FunctionValue<'a>>,
 
-    // (func, insn_offset, num_locals)
-    pub patchpoint_metavalues: Vec<(u64, u64, u64)>,
+    pub patchpoint_metavalues: Vec<debug::PatchpointMetadataEntry>,
 
     // restore related
     pub fn_pop_front_frame: Option<FunctionValue<'a>>,
