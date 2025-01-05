@@ -30,7 +30,10 @@ pub(crate) fn add_fn_store_globals_api(ctx: &mut Context<'_, '_>) -> Result<()> 
         .get_nth_param(0)
         .unwrap()
         .into_pointer_value();
-    gen_store_globals(ctx, &exec_env_ptr)?;
+
+    if ctx.config.enable_cr {
+        gen_store_globals(ctx, &exec_env_ptr)?;
+    }
 
     ctx.builder.build_return(None).expect("should build return");
 
@@ -128,7 +131,10 @@ pub(crate) fn add_fn_store_table_api(ctx: &mut Context<'_, '_>) -> Result<()> {
         .get_nth_param(0)
         .unwrap()
         .into_pointer_value();
-    gen_store_table(ctx, &exec_env_ptr)?;
+
+    if ctx.config.enable_cr {
+        gen_store_table(ctx, &exec_env_ptr)?;
+    }
 
     ctx.builder.build_return(None).expect("should build return");
 

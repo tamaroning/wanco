@@ -422,10 +422,8 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     ctx.builder.build_return(None).expect("should build return");
 
     // Expose API to checkpoint globals and a table (v1)
-    if ctx.config.enable_cr {
-        add_fn_store_globals_api(ctx).expect("should gen store globals");
-        add_fn_store_table_api(ctx).expect("should gen store table");
-    }
+    add_fn_store_globals_api(ctx).expect("should gen store globals");
+    add_fn_store_table_api(ctx).expect("should gen store table");
 
     let contents = debug::create_patchpoint_metadata_json(ctx);
     let metadata_section = ctx.module.add_global(
