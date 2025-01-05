@@ -133,7 +133,7 @@ Stackmap parse_stackmap(std::span<const uint8_t> data) {
                   .stkmap_records = stkmap_records};
 }
 
-static std::string location_kind_to_string(LocationKind kind) {
+std::string location_kind_to_string(LocationKind kind) {
   switch (kind) {
   case LocationKind::REGISTER:
     return "Register";
@@ -153,7 +153,7 @@ static std::string location_kind_to_string(LocationKind kind) {
 std::string stackmap_to_string(const Stackmap &stackmap) {
   std::stringstream ss;
 
-  ss << "Version: " << stackmap.header.version << std::endl;
+  ss << "Version: " << (int)stackmap.header.version << std::endl;
   ss << "Num functions: " << stackmap.num_functions << std::endl;
   ss << "Num constants: " << stackmap.num_constants << std::endl;
   ss << "Num records: " << stackmap.num_records << std::endl;
@@ -178,14 +178,11 @@ std::string stackmap_to_string(const Stackmap &stackmap) {
   for (size_t i = 0; i < stackmap.stkmap_records.size(); i++) {
     const StkMapRecord &record = stackmap.stkmap_records[i];
     ss << "StkMapRecord[" << i << "]" << std::endl;
-    ss << "  Patchpoint ID: " << record.patchpoint_id << std::endl;
+    ss << "  Patchpoint ID: 0x" << std::hex << record.patchpoint_id << std::dec
+       << std::endl;
     ss << "  Instruction offset: " << record.instruction_offset << std::endl;
     ss << "  Record flags: " << record.record_flags << std::endl;
     ss << "  Num locations: " << record.num_locations << std::endl;
-
-    uint32_t func = (record.patchpoint_id >> 32) & 0xFFFFFFFF;
-    uint32_t insn = record.patchpoint_id & 0xFFFFFFFF;
-    ss << "  Wasm Function: " << func << ", Insn: " << insn << std::endl;
 
     for (size_t j = 0; j < record.locations.size(); j++) {
       const Location &location = record.locations[j];

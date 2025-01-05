@@ -66,5 +66,11 @@ pub fn gen_stackmap<'a>(
             stack: stack_types,
         });
 
+    log::info!(
+        "generated stackmap and metadata for func={} insn={}",
+        func,
+        insn
+    );
+
     Ok(())
 }

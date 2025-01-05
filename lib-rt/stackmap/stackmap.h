@@ -121,5 +121,7 @@ stackmap::Stackmap parse_stackmap(std::span<const uint8_t> data);
 
 std::string stackmap_to_string(const stackmap::Stackmap &stackmap);
 
+std::string location_kind_to_string(LocationKind kind);
+
 } // namespace stackmap
 } // namespace wanco

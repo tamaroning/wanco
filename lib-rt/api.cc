@@ -418,12 +418,18 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   // Dump stackmap
   std::cerr << wanco::stackmap::stackmap_to_string(stackmap);
 
-  std::span<uint8_t> wanco_metadata_section = elf.get_section_data(".wanco.metadata");
+  std::span<uint8_t> wanco_metadata_section =
+      elf.get_section_data(".wanco.metadata");
   // parse as json
-  std::cerr << "wanco metadata: " << std::string(wanco_metadata_section.begin(), wanco_metadata_section.end()) << std::endl;
+  std::cerr << "wanco metadata: "
+            << std::string(wanco_metadata_section.begin(),
+                           wanco_metadata_section.end())
+            << std::endl;
   auto wanco_metadata = wanco::parse_wanco_metadata(wanco_metadata_section);
 
   auto trace = wanco::get_stack_trace(elf);
+
+  wanco::callstack_to_interpreter(elf, trace, wanco_metadata, stackmap);
 
   // Info() << " Killed" << std::endl;
   // std::exit(0);
