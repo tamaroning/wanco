@@ -1,5 +1,6 @@
 #include "stackmap/elf.h"
 #include "nlohmann/json.hpp"
+#include "wanco.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -61,12 +62,12 @@ ElfFile::~ElfFile() {
 
 bool ElfFile::initialize_elf() {
   if (elf_version(EV_CURRENT) == EV_NONE) {
-    std::cerr << "libelf init failed" << std::endl;
+    Fatal() << "libelf init failed" << std::endl;
   }
 
   elf = elf_begin(fd, ELF_C_READ, nullptr);
   if (!elf) {
-    std::cerr << "elf_begin failed: " << elf_errmsg(0) << std::endl;
+    Fatal() << "elf_begin failed: " << elf_errmsg(0) << std::endl;
     return false;
   }
   return true;
@@ -76,8 +77,8 @@ bool ElfFile::initialize_dwarf() {
   Dwarf_Error error;
   if (dwarf_init(fd, DW_DLC_READ, nullptr, nullptr, &dbg, &error) !=
       DW_DLV_OK) {
-    std::cerr << "Failed to initialize DWARF: " << dwarf_errmsg(error)
-              << std::endl;
+    Fatal() << "Failed to initialize DWARF: " << dwarf_errmsg(error)
+            << std::endl;
     return false;
   }
 
@@ -91,7 +92,7 @@ std::span<uint8_t> ElfFile::get_section_data(const std::string &section_name) {
   // get index of strtab section
   size_t shstrndx;
   if (elf_getshdrstrndx(elf, &shstrndx) != 0) {
-    std::cerr << "elf_getshdrstrndx failed: " << elf_errmsg(0) << std::endl;
+    Fatal() << "elf_getshdrstrndx failed: " << elf_errmsg(0) << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -104,13 +105,13 @@ std::span<uint8_t> ElfFile::get_section_data(const std::string &section_name) {
     if (name && section_name == name) {
       Elf_Data *data = elf_getdata(scn, nullptr);
       if (!data) {
-        std::cerr << "elf_getdata failed: " << elf_errmsg(0) << std::endl;
+        Fatal() << "elf_getdata failed: " << elf_errmsg(0) << std::endl;
         exit(EXIT_FAILURE);
       }
       return {reinterpret_cast<uint8_t *>(data->d_buf), data->d_size};
     }
   }
-  std::cerr << "Section '" << section_name << "' not found." << std::endl;
+  Fatal() << "Section '" << section_name << "' not found." << std::endl;
   exit(EXIT_FAILURE);
 }
 
@@ -118,32 +119,26 @@ void ElfFile::initialize_wasm_location() {
   std::map<address_t, WasmLocation> location_map;
 
   Dwarf_Error error;
-  std::cout << "DWARF Line Table:" << std::endl;
-
-  Dwarf_Sig8 sig8;
-  Dwarf_Unsigned typeoff;
   int res;
   while ((res = dwarf_next_cu_header_c(dbg, true, NULL, NULL, NULL, NULL, NULL,
-                                       NULL, &sig8, &typeoff, NULL, &error)) ==
+                                       NULL, NULL, NULL, NULL, &error)) ==
          DW_DLV_OK) {
     Dwarf_Die cu_die;
     if (dwarf_siblingof(dbg, NULL, &cu_die, &error) != DW_DLV_OK) {
-      std::cerr << "Failed to get CU DIE: " << dwarf_errmsg(error) << std::endl;
+      Fatal() << "Failed to get CU DIE: " << dwarf_errmsg(error) << std::endl;
       continue;
     }
     // Get producer
     Dwarf_Attribute attr;
     if (dwarf_attr(cu_die, DW_AT_producer, &attr, &error) != DW_DLV_OK) {
-      std::cerr << "Failed to get producer: " << dwarf_errmsg(error)
-                << std::endl;
+      Fatal() << "Failed to get producer: " << dwarf_errmsg(error) << std::endl;
       continue;
     }
     // We are only interested in the line table of the AOT module compiled with
     // wanco
     char *producer;
     if (dwarf_formstring(attr, &producer, &error) != DW_DLV_OK) {
-      std::cerr << "Failed to get producer: " << dwarf_errmsg(error)
-                << std::endl;
+      Fatal() << "Failed to get producer: " << dwarf_errmsg(error) << std::endl;
       continue;
     }
     if (std::string(producer) != "wanco") {
@@ -155,8 +150,10 @@ void ElfFile::initialize_wasm_location() {
     Dwarf_Signed line_count;
     if (dwarf_srclines(cu_die, &line_buffer, &line_count, &error) !=
         DW_DLV_OK) {
-      std::cerr << "Failed to get line table: " << dwarf_errmsg(error)
+      /*
+      Debug() << "Failed to get line table: " << dwarf_errmsg(error)
                 << std::endl;
+      */
       continue;
     }
 
@@ -165,16 +162,16 @@ void ElfFile::initialize_wasm_location() {
       Dwarf_Addr line_addr;
       dwarf_lineaddr(line, &line_addr, &error);
       if (error != DW_DLV_OK) {
-        std::cerr << "Failed to get line address: " << dwarf_errmsg(error)
-                  << std::endl;
+        Fatal() << "Failed to get line address: " << dwarf_errmsg(error)
+                << std::endl;
         continue;
       }
       // Get line number
       Dwarf_Unsigned lineno;
       dwarf_lineno(line, &lineno, &error);
       if (error != DW_DLV_OK) {
-        std::cerr << "Failed to get line number: " << dwarf_errmsg(error)
-                  << std::endl;
+        Fatal() << "Failed to get line number: " << dwarf_errmsg(error)
+                << std::endl;
         continue;
       }
 
@@ -182,8 +179,8 @@ void ElfFile::initialize_wasm_location() {
       Dwarf_Unsigned colno;
       dwarf_lineoff_b(line, &colno, &error);
       if (error != DW_DLV_OK) {
-        std::cerr << "Failed to get column number: " << dwarf_errmsg(error)
-                  << std::endl;
+        Fatal() << "Failed to get column number: " << dwarf_errmsg(error)
+                << std::endl;
         continue;
       }
 
@@ -198,9 +195,10 @@ void ElfFile::initialize_wasm_location() {
         location_map[addr] = loc;
       }
 
+      /*
       std::cout << "0x" << std::hex << line_addr << std::dec << ": "
                 << "Function: " << lineno << ", Offset: " << colno << std::endl;
-
+      */
       //  TODO: we should free DIE here.
     }
   }

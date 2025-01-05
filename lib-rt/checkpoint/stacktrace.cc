@@ -1,6 +1,7 @@
-// libunwind
 #include "stackmap/elf.h"
+#include "wanco.h"
 #include <iostream>
+// libunwind
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 
@@ -8,17 +9,17 @@ namespace wanco {
 
 std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf) {
   std::vector<WasmCallStackEntry> trace;
-  std::cout << "--- call stack top ---" << std::endl;
+  Debug() << "--- call stack top ---" << std::endl;
 
   // initialize libunwind
   unw_context_t context;
   if (unw_getcontext(&context) != 0) {
-    fprintf(stderr, "Failed to get context\n");
+    Fatal() << "Failed to get context" << std::endl;
     exit(EXIT_FAILURE);
   }
   unw_cursor_t cursor;
   if (unw_init_local(&cursor, &context) != 0) {
-    fprintf(stderr, "Failed to initialize cursor\n");
+    Fatal() << "Failed to initialize cursor" << std::endl;
     exit(EXIT_FAILURE);
   }
 
@@ -50,7 +51,7 @@ std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf) {
     std::optional<std::pair<address_t, WasmLocation>> opt =
         elf.get_wasm_location((address_t)(pc - 1));
     if (!opt.has_value()) {
-      std::cerr << "Failed to get wasm location" << std::endl;
+      Fatal() << "Failed to get wasm location" << std::endl;
       exit(EXIT_FAILURE);
     }
     WasmLocation loc = opt.value().second;
@@ -63,14 +64,14 @@ std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf) {
     });
 
     // Dump the frame
-    std::cout << "backtrace[" << trace.size() << "] (" << function_name
-              << "): wasm-func=" << loc.function
-              << ", wasm-insn=" << loc.insn_offset << std::endl;
-    std::cout << "\t pc: " << std::hex << pc << std::dec << ", bp: " << std::hex
-              << bp << std::dec << ", sp: " << std::hex << sp << std::dec
-              << std::endl;
+    Debug() << "backtrace[" << trace.size() << "] (" << function_name
+            << "): wasm-func=" << loc.function
+            << ", wasm-insn=" << loc.insn_offset << std::endl;
+    Debug() << "\t pc: " << std::hex << pc << std::dec << ", bp: " << std::hex
+            << bp << std::dec << ", sp: " << std::hex << sp << std::dec
+            << std::endl;
   } while (unw_step(&cursor) > 0);
-  std::cout << "--- call stack bottom ---" << std::endl;
+  Debug() << "--- call stack bottom ---" << std::endl;
   return trace;
 }
 

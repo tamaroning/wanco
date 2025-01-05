@@ -61,14 +61,14 @@ extern "C" void push_frame(ExecEnv *exec_env) {
 }
 
 extern "C" void set_pc_to_frame(ExecEnv *exec_env, int32_t fn_index,
-                                int32_t pc) {
+                                int32_t insn) {
   ASSERT(exec_env->migration_state ==
              wanco::MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   DEBUG_LOG << "call to set_pc_to_frame -> Fn[" << std::dec << fn_index
-            << "] at Op[" << pc << "]" << std::endl;
+            << "] at Op[" << insn << "]" << std::endl;
   wanco::chkpt.frames.back().fn_index = fn_index;
-  wanco::chkpt.frames.back().pc = pc;
+  wanco::chkpt.frames.back().pc = insn;
 }
 
 extern "C" void push_local_i32(ExecEnv *exec_env, int32_t i32) {
@@ -411,30 +411,23 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   ASSERT(exec_env->migration_state ==
              wanco::MigrationState::STATE_CHECKPOINT_START &&
          "Invalid migration state");
+  exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_CONTINUE;
 
   wanco::ElfFile elf("/proc/self/exe");
 
   std::span<uint8_t> stackmap_section = elf.get_section_data(".llvm_stackmaps");
   wanco::stackmap::Stackmap stackmap =
       wanco::stackmap::parse_stackmap(stackmap_section);
-  // Dump stackmap
-  std::cerr << wanco::stackmap::stackmap_to_string(stackmap);
 
   std::span<uint8_t> wanco_metadata_section =
       elf.get_section_data(".wanco.metadata");
-  // parse as json
-  std::cerr << "wanco metadata: "
-            << std::string(wanco_metadata_section.begin(),
-                           wanco_metadata_section.end())
-            << std::endl;
   auto wanco_metadata = wanco::parse_wanco_metadata(wanco_metadata_section);
 
   auto trace = wanco::get_stack_trace(elf);
-
   wanco::checkpoint_callstack(elf, trace, wanco_metadata, stackmap);
 
-  // Info() << " Killed" << std::endl;
-  // std::exit(0);
+  Info() << " Killed" << std::endl;
+  std::exit(0);
 }
 
 /*

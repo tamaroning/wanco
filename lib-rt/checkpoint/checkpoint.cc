@@ -1,4 +1,6 @@
 #include "checkpoint.h"
+#include "aot.h"
+#include "api.h"
 #include "snapshot/snapshot.h"
 #include <iostream>
 #include <map>
@@ -16,7 +18,7 @@ static Value load_from_address(const uint8_t *address,
   } else if (type == "f64") {
     return Value{*reinterpret_cast<const double *>(address)};
   } else {
-    std::cerr << "Unsupported type: " << type << std::endl;
+    Fatal() << "Unsupported type: " << type << std::endl;
     exit(EXIT_FAILURE);
   }
 }
@@ -51,14 +53,14 @@ static Value get_wasm_value(const uint8_t *address, const std::string &type,
     } else if (type == "f64") {
       return Value{static_cast<double>(value)};
     } else {
-      std::cerr << "Unsupported type: " << type << std::endl;
+      Fatal() << "Unsupported type: " << type << std::endl;
       exit(EXIT_FAILURE);
     }
   } break;
   default:
-    std::cerr << "Unsupported location kind: "
-              << stackmap::location_kind_to_string(stackmap_loc.kind)
-              << std::endl;
+    Fatal() << "Unsupported location kind: "
+            << stackmap::location_kind_to_string(stackmap_loc.kind)
+            << std::endl;
     exit(EXIT_FAILURE);
     break;
   }
@@ -85,8 +87,8 @@ void checkpoint_callstack(ElfFile &elf, std::vector<WasmCallStackEntry> &trace,
   }
 
   for (const WasmCallStackEntry &frame : trace) {
-    std::cout << "Frame: wasm-func=" << frame.function_name
-              << ", wasm-insn=" << frame.location.insn_offset << std::endl;
+    Debug() << "Wasm Frame: func=\"" << frame.function_name
+            << "\", insn=" << frame.location.insn_offset << std::endl;
 
     std::pair<uint32_t, uint32_t> wasm_loc =
         std::make_pair(frame.location.function, frame.location.insn_offset);
@@ -94,7 +96,7 @@ void checkpoint_callstack(ElfFile &elf, std::vector<WasmCallStackEntry> &trace,
     // Find patchpoint entry
     auto it = loc_to_metadata.find(wasm_loc);
     if (it == loc_to_metadata.end()) {
-      std::cerr << "Failed to find metadata entry" << std::endl;
+      Fatal() << "Failed to find metadata entry" << std::endl;
       exit(EXIT_FAILURE);
     }
     MetadataEntry &entry = it->second;
@@ -102,30 +104,35 @@ void checkpoint_callstack(ElfFile &elf, std::vector<WasmCallStackEntry> &trace,
     // Find LLVM stackmap record
     auto it2 = loc_to_record.find(wasm_loc);
     if (it2 == loc_to_record.end()) {
-      std::cerr << "Failed to find stackmap record" << std::endl;
+      Fatal() << "Failed to find stackmap record" << std::endl;
       exit(EXIT_FAILURE);
     }
     stackmap::StkMapRecord &record = it2->second;
 
+    push_frame(&exec_env);
+    set_pc_to_frame(&exec_env, frame.location.function,
+                    frame.location.insn_offset);
+
     // Save locals
     size_t loc_count = 0;
+    Debug() << "Locals: " << std::endl;
     for (const std::string &local_ty : entry.locals) {
-      std::cout << "  Local: " << local_ty << std::endl;
-
       stackmap::Location stackmap_loc = record.locations.at(loc_count);
       Value value = get_wasm_value(frame.bp, local_ty, frame.bp, stackmap_loc);
-      std::cout << "    Value: " << value.to_string() << std::endl;
+
+      Debug() << "  Value: " << value.to_string() << std::endl;
+      chkpt.frames.back().locals.push_back(value);
       loc_count++;
     }
 
     // Save a value stack
+    Debug() << "  Stack: " << std::endl;
     for (const std::string &stack_value_ty : entry.stack) {
-      std::cout << "  Stack: " << stack_value_ty << std::endl;
       stackmap::Location stackmap_loc = record.locations.at(loc_count);
       Value value =
           get_wasm_value(frame.bp, stack_value_ty, frame.bp, stackmap_loc);
-      std::cout << "    Value: " << value.to_string() << std::endl;
-
+      Debug() << "  Value: " << value.to_string() << std::endl;
+      chkpt.frames.back().stack.push_back(value);
       loc_count++;
     }
   }

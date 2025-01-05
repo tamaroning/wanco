@@ -9,8 +9,6 @@
 
 namespace wanco {
 
-void do_stacktrace();
-
 struct WasmLocation {
   // function index
   uint32_t function;
