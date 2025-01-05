@@ -421,6 +421,7 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   std::span<uint8_t> wanco_metadata_section = elf.get_section_data(".wanco.metadata");
   // parse as json
   std::cerr << "wanco metadata: " << std::string(wanco_metadata_section.begin(), wanco_metadata_section.end()) << std::endl;
+  auto wanco_metadata = wanco::parse_wanco_metadata(wanco_metadata_section);
 
   auto trace = wanco::get_stack_trace(elf);
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "stackmap/stackmap.h"
 #include <cstdint>
 #include <libdwarf/libdwarf.h>
 #include <libelf.h>
@@ -22,37 +23,42 @@ struct WasmLocation {
 
 using address_t = uint64_t;
 
+// RAII class for ELF file. We extract section data and DWARF from this.
 class ElfFile {
 public:
   ElfFile(const std::string &path);
   ~ElfFile();
 
+  // Get section data by section name.
   std::span<uint8_t> get_section_data(const std::string &section_name);
 
-  void initialize_wasm_location();
-
-  void initialize_patchpoint_metadata();
-
-  std::optional<std::pair<address_t, WasmLocation>> get_wasm_location(address_t address);
+  // Get wasm location from pc address (low pc).
+  std::optional<std::pair<address_t, WasmLocation>>
+  get_wasm_location(address_t address);
 
 private:
   int fd;
-  // Elf object from libelf
+  // The Elf object from libelf
   Elf *elf;
-  // Dwarf object from libdwarf
+  // The Dwarf object from libdwarf
   Dwarf_Debug dbg;
+
+  std::vector<std::pair<address_t, WasmLocation>> locations;
 
   bool initialize_elf();
 
   bool initialize_dwarf();
 
-  std::vector<std::pair<address_t, WasmLocation>> locations;
+  void initialize_wasm_location();
+
+  void initialize_patchpoint_metadata();
 };
 
-std::vector<WasmLocation> get_stack_trace(ElfFile& elf);
+std::vector<WasmLocation> get_stack_trace(ElfFile &elf);
 
 std::span<const uint8_t> get_stackmap_section();
 
-std::optional<std::vector<uint8_t>> get_section_data(const char *section_name);
+std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>
+parse_wanco_metadata(std::span<const uint8_t> data);
 
 } // namespace wanco

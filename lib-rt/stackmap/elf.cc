@@ -1,10 +1,10 @@
 #include "stackmap/elf.h"
+#include "nlohmann/json.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <elf.h>
 #include <fcntl.h>
-#include <fstream>
 #include <gelf.h>
 #include <iostream>
 #include <libdwarf/dwarf.h>
@@ -403,5 +403,20 @@ struct SectionInfo {
     return std::span<const uint8_t>{address, size};
   }
 };
+
+std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>
+parse_wanco_metadata(std::span<const uint8_t> data) {
+  std::vector<std::tuple<uint32_t, uint32_t, uint32_t>> metadata;
+
+  nlohmann::json j = nlohmann::json::parse(data.begin(), data.end());
+  for (const auto &entry : j) {
+    uint32_t wasm_func = entry[0];
+    uint32_t wasm_insn = entry[1];
+    uint32_t num_locals = entry[2];
+    metadata.push_back({wasm_func, wasm_insn, num_locals});
+  }
+
+  return metadata;
+}
 
 } // namespace wanco
