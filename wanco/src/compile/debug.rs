@@ -2,7 +2,6 @@ use crate::context::Context;
 use inkwell::{
     debug_info::{AsDIScope, DILexicalBlock, DISubprogram},
     llvm_sys::debuginfo::{LLVMDIFlagPublic, LLVMDIFlagZero},
-    values::{BasicMetadataValueEnum, MetadataValue},
 };
 
 // I have no idea why 0xffff_ffff does not work. Just use u16 value for now.
@@ -50,8 +49,8 @@ pub fn create_source_location<'a, 'b>(
 }
 
 pub fn create_subprogram_info<'a, 'b>(ctx: &Context<'a, 'b>, func_index: u32) -> DISubprogram<'a> {
-    let file = ctx.debug_unit.get_file();
-    let scope = ctx.debug_unit.as_debug_info_scope();
+    let file = ctx.debug_cu.get_file();
+    let scope = ctx.debug_cu.as_debug_info_scope();
     let fn_name = format!("func_{}", func_index);
     // Use the function type () -> () for now.
     let subprogram_type = ctx
@@ -79,12 +78,13 @@ pub fn create_function_lexical_scope<'a, 'b>(
 ) -> DILexicalBlock<'a> {
     ctx.debug_builder.create_lexical_block(
         subprogram.as_debug_info_scope(),
-        ctx.debug_unit.get_file(),
+        ctx.debug_cu.get_file(),
         function_index,
         0,
     )
 }
 
+/*
 pub fn create_patchpoint_metavalues<'a, 'b>(ctx: &Context<'a, 'b>) -> MetadataValue<'a> {
     let mut array: Vec<BasicMetadataValueEnum> = vec![];
 
@@ -105,4 +105,19 @@ pub fn create_patchpoint_metavalues<'a, 'b>(ctx: &Context<'a, 'b>) -> MetadataVa
     }
 
     ctx.ictx.metadata_node(&array)
+}
+*/
+
+/// Create a content of .wanco.metadata section.
+pub fn create_patchpoint_metadata_json<'a, 'b>(ctx: &Context<'a, 'b>) -> String {
+    let mut ss = String::with_capacity(ctx.patchpoint_metavalues.len() * 13);
+    ss.push_str("[");
+    for (i, (func, insn, num_locals)) in ctx.patchpoint_metavalues.iter().enumerate() {
+        ss.push_str(&format!("[{func}, {insn}, {num_locals}]",));
+        if i < ctx.patchpoint_metavalues.len() - 1 {
+            ss.push_str(",");
+        }
+    }
+    ss.push_str("]");
+    ss
 }

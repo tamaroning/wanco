@@ -1,12 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use inkwell::{
-    module::{FlagBehavior, Linkage},
-    types::BasicType,
-    values::BasicValue,
-    AddressSpace,
-};
+use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpace};
 
 use crate::context::Context;
 
@@ -432,13 +427,28 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
 
     ctx.builder.build_return(None).expect("should build return");
 
-    // Embed patchpoint metadata values.
-    let patchpoint_metadata = debug::create_patchpoint_metavalues(ctx);
-    ctx.module.add_metadata_flag(
-        "wasm_locaction_metadata",
-        FlagBehavior::AppendUnique,
-        patchpoint_metadata,
+    let contents = debug::create_patchpoint_metadata_json(ctx);
+    let metadata_section = ctx.module.add_global(
+        ctx.inkwell_types.i8_type.array_type(contents.len() as u32),
+        None,
+        "wasm_location_metadata",
     );
+    metadata_section.set_section(Some(".wanco.metadata"));
+    metadata_section.set_initializer(&ctx.ictx.const_string(contents.as_bytes(), false));
+
+    // Append it to llvm.used
+    let llvm_used = ctx.module.add_global(
+        ctx.inkwell_types.i8_ptr_type.array_type(1),
+        None,
+        "llvm.used",
+    );
+    llvm_used.set_linkage(Linkage::Appending);
+    llvm_used.set_initializer(
+        &ctx.inkwell_types
+            .i8_ptr_type
+            .const_array(&[metadata_section.as_pointer_value()]),
+    );
+    llvm_used.set_section(Some("llvm.metadata"));
 
     ctx.debug_builder.finalize();
 

@@ -54,7 +54,7 @@ pub struct Context<'a, 'b> {
     pub module: &'b Module<'a>,
     pub builder: Builder<'a>,
     pub debug_builder: DebugInfoBuilder<'a>,
-    pub debug_unit: DICompileUnit<'a>,
+    pub debug_cu: DICompileUnit<'a>,
     pub inkwell_types: InkwellTypes<'a>,
     pub inkwell_intrs: InkwellIntrinsics<'a>,
 
@@ -151,7 +151,7 @@ impl<'a> Context<'a, '_> {
         module: &'b Module<'a>,
         builder: Builder<'a>,
         debug_builder: DebugInfoBuilder<'a>,
-        debug_unit: DICompileUnit<'a>,
+        debug_cu: DICompileUnit<'a>,
     ) -> Context<'a, 'b> {
         let (inkwell_types, inkwell_intrs) = init_inkwell(ictx, module);
 
@@ -161,7 +161,7 @@ impl<'a> Context<'a, '_> {
             module,
             builder,
             debug_builder,
-            debug_unit,
+            debug_cu,
             inkwell_types,
             inkwell_intrs,
 

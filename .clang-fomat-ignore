@@ -1,2 +1,3 @@
 lib-rt/protobuf/
 lib-rt/lz4/
+lib-rt/nlohmann/

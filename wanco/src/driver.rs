@@ -237,6 +237,9 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     // link libdwarf
     cmd.arg("-ldwarf");
 
+    // Keep metadata section
+    //cmd.arg("-Xlinker").arg("--keep-sections=.wasm_metadata");
+
     // link libunwind
     let triple = get_target_machine(args).unwrap().get_triple();
     let triple = triple.as_str().to_str().unwrap();

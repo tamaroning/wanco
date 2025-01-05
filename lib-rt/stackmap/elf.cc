@@ -44,6 +44,9 @@ ElfFile::ElfFile(const std::string &path) : fd(-1), elf(nullptr) {
     close(fd);
     exit(EXIT_FAILURE);
   }
+
+  initialize_wasm_location();
+  initialize_patchpoint_metadata();
 }
 
 ElfFile::~ElfFile() {
@@ -79,6 +82,7 @@ bool ElfFile::initialize_dwarf() {
               << std::endl;
     return false;
   }
+
   return true;
 }
 
@@ -86,12 +90,19 @@ std::span<uint8_t> ElfFile::get_section_data(const std::string &section_name) {
   Elf_Scn *scn = nullptr;
   GElf_Shdr shdr;
 
+  // get index of strtab section
+  size_t shstrndx;
+  if (elf_getshdrstrndx(elf, &shstrndx) != 0) {
+    std::cerr << "elf_getshdrstrndx failed: " << elf_errmsg(0) << std::endl;
+    exit(EXIT_FAILURE);
+  }
+
   while ((scn = elf_nextscn(elf, scn)) != nullptr) {
     if (gelf_getshdr(scn, &shdr) == nullptr) {
       continue;
     }
 
-    const char *name = elf_strptr(elf, shdr.sh_link, shdr.sh_name);
+    const char *name = elf_strptr(elf, shstrndx, shdr.sh_name);
     if (name && section_name == name) {
       Elf_Data *data = elf_getdata(scn, nullptr);
       if (!data) {
@@ -105,7 +116,7 @@ std::span<uint8_t> ElfFile::get_section_data(const std::string &section_name) {
   exit(EXIT_FAILURE);
 }
 
-void ElfFile::init_wasm_location() {
+void ElfFile::initialize_wasm_location() {
   std::map<address_t, WasmLocation> location_map;
 
   Dwarf_Error error;
@@ -140,60 +151,6 @@ void ElfFile::init_wasm_location() {
     if (std::string(producer) != "wanco") {
       continue;
     }
-
-    // iterate subprogram
-    /*
-    Dwarf_Die child_die;
-    int res = dwarf_child(cu_die, &child_die, &error);
-    if (res != DW_DLV_OK) {
-      std::cerr << "Failed to get child DIE: " << dwarf_errmsg(error)
-                << std::endl;
-      continue;
-    }
-    if (res != DW_DLV_NO_ENTRY) {
-      do {
-        Dwarf_Half tag;
-        if (dwarf_tag(child_die, &tag, &error) != DW_DLV_OK) {
-          std::cerr << "Failed to get tag: " << dwarf_errmsg(error)
-                    << std::endl;
-          continue;
-        }
-        if (tag != DW_TAG_subprogram) {
-          continue;
-        }
-        // Get name
-        char *name;
-        if (dwarf_diename(child_die, &name, &error) != DW_DLV_OK) {
-          std::cerr << "Failed to get name: " << dwarf_errmsg(error)
-                    << std::endl;
-          continue;
-        }
-
-        // Get address
-        Dwarf_Addr low_pc;
-        if (dwarf_lowpc(child_die, &low_pc, &error) != DW_DLV_OK) {
-          std::cerr << "Failed to get low_pc: " << dwarf_errmsg(error)
-                    << std::endl;
-          continue;
-        }
-
-        // Get line
-        Dwarf_Unsigned lineno;
-        if (dwarf_lineno(child_die, &lineno, &error) != DW_DLV_OK) {
-          std::cerr << "Failed to get lineno: " << dwarf_errmsg(error)
-                    << std::endl;
-          continue;
-        }
-
-        address_t addr = static_cast<address_t>(low_pc);
-        location_map[addr] = {0, 0, true};
-
-        std::cout << "Subprogram: " << name << " at 0x" << std::hex << addr
-                  << std::dec << std::endl;
-      } while (dwarf_siblingof(dbg, child_die, &child_die, &error) ==
-               DW_DLV_OK);
-    }
-    */
 
     // Access line table
     Dwarf_Line *line_buffer;
@@ -231,10 +188,6 @@ void ElfFile::init_wasm_location() {
                   << std::endl;
         continue;
       }
-      /*
-      std::cout << "Line: " << std::hex << "0x" << line_addr << "(" << std::dec
-                << lineno << ":" << colno << ")" << std::endl;
-      */
 
       // Insert a location to the map if we have not seen the same address
       WasmLocation loc;
@@ -300,6 +253,75 @@ binary_search(const std::vector<std::pair<address_t, WasmLocation>> &vec,
 std::optional<std::pair<address_t, WasmLocation>>
 ElfFile::get_wasm_location(address_t address) {
   return binary_search(locations, address);
+}
+
+void ElfFile::initialize_patchpoint_metadata() {
+  std::map<address_t, WasmLocation> location_map;
+
+  Dwarf_Error error;
+  std::cout << "Patchpoint metadata:" << std::endl;
+
+  Dwarf_Sig8 sig8;
+  Dwarf_Unsigned typeoff;
+  int res;
+  while ((res = dwarf_next_cu_header_c(dbg, false, NULL, NULL, NULL, NULL, NULL,
+                                       NULL, &sig8, &typeoff, NULL, &error)) ==
+         DW_DLV_OK) {
+    Dwarf_Die cu_die;
+    if (dwarf_siblingof(dbg, NULL, &cu_die, &error) != DW_DLV_OK) {
+      std::cerr << "Failed to get CU DIE: " << dwarf_errmsg(error) << std::endl;
+      continue;
+    }
+    // Get producer
+    Dwarf_Attribute attr;
+    if (dwarf_attr(cu_die, DW_AT_producer, &attr, &error) != DW_DLV_OK) {
+      std::cerr << "Failed to get producer: " << dwarf_errmsg(error)
+                << std::endl;
+      continue;
+    }
+    // We are only interested in the line table of the AOT module compiled with
+    // wanco
+    char *producer;
+    if (dwarf_formstring(attr, &producer, &error) != DW_DLV_OK) {
+      std::cerr << "Failed to get producer: " << dwarf_errmsg(error)
+                << std::endl;
+      continue;
+    }
+    if (std::string(producer) != "wanco") {
+      continue;
+    }
+
+    // Iterate over llvm.module.flags
+    Dwarf_Die child;
+    int res = dwarf_child(cu_die, &child, &error);
+    if (res == DW_DLV_OK) {
+      do {
+        // name
+        Dwarf_Attribute name_attr;
+        if (dwarf_attr(child, DW_AT_name, &name_attr, &error) != DW_DLV_OK) {
+          std::cerr << "Failed to get name attribute: " << dwarf_errmsg(error)
+                    << std::endl;
+          continue;
+        }
+        char *name;
+        if (dwarf_formstring(name_attr, &name, &error) != DW_DLV_OK) {
+          std::cerr << "Failed to get name: " << dwarf_errmsg(error)
+                    << std::endl;
+          continue;
+        }
+        std::cout << "name: " << name << std::endl;
+      } while (dwarf_siblingof(dbg, child, &child, &error) == DW_DLV_OK);
+    } else {
+      std::cerr << "Failed to get child DIE: " << dwarf_errmsg(error)
+                << std::endl;
+    }
+
+    //  TODO: we should free DIE here.
+  }
+  if (res == DW_DLV_ERROR) {
+    printf("Error in dwarf_next_cu_header\n");
+    exit(1);
+  }
 }
 
 void do_stacktrace() {
@@ -381,107 +403,5 @@ struct SectionInfo {
     return std::span<const uint8_t>{address, size};
   }
 };
-
-// コールバック関数: 各プログラムヘッダーに対して呼び出される
-static int find_elf_section(struct dl_phdr_info *info, size_t size,
-                            void *data) {
-  SectionInfo *targetSection = reinterpret_cast<SectionInfo *>(data);
-
-  // ELFファイルのベースアドレス
-  std::cerr << "name: " << info->dlpi_name << std::endl;
-  std::cerr << std::hex << "Info: " << info << std::endl;
-  // Base address of the ELF file
-  std::cerr << "Base address: " << info->dlpi_addr << std::endl;
-  const uint8_t *base = reinterpret_cast<const uint8_t *>(info->dlpi_addr);
-  if (base == nullptr) {
-  }
-
-  for (int i = 0; i < info->dlpi_phnum; ++i) {
-    const ElfW(Phdr) &phdr = info->dlpi_phdr[i];
-
-    // PT_LOADセグメントを探す
-    if (phdr.p_type == PT_LOAD) {
-      const uint8_t *segment_start = base + phdr.p_vaddr;
-      const uint8_t *segment_end = segment_start + phdr.p_memsz;
-
-      // セクションヘッダーテーブルを探す
-      if (phdr.p_flags & PF_X) { // 実行可能なセグメントを探索
-        const ElfW(Ehdr) *ehdr =
-            reinterpret_cast<const ElfW(Ehdr) *>(segment_start);
-        const ElfW(Shdr) *shdr =
-            reinterpret_cast<const ElfW(Shdr) *>(segment_start + ehdr->e_shoff);
-
-        for (int j = 0; j < ehdr->e_shnum; ++j) {
-          const char *sectionName = reinterpret_cast<const char *>(
-              segment_start + shdr[ehdr->e_shstrndx].sh_offset +
-              shdr[j].sh_name);
-          std::cerr << "Section name: " << sectionName << std::endl;
-
-          if (std::string(sectionName) == targetSection->name) {
-            targetSection->address = segment_start + shdr[j].sh_offset;
-            targetSection->size = shdr[j].sh_size;
-            return 1; // セクションが見つかった場合は探索終了
-          }
-        }
-      }
-    }
-  }
-
-  // continue to search
-  return 0;
-}
-
-std::optional<std::vector<uint8_t>> get_section_data(const char *section_name) {
-  // Get full path of the executable
-  char exe_path[512];
-  ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
-  if (len == -1) {
-    // Failed to get executable path
-    std::cerr << "Error: Failed to get executable path\n";
-    return std::nullopt;
-  }
-  exe_path[len] = '\0';
-
-  std::ifstream elf_file(exe_path, std::ios::binary);
-  if (!elf_file) {
-    // Failed to open executable file
-    std::cerr << "Error: Failed to open executable file\n";
-    return std::nullopt;
-  }
-
-  Elf64_Ehdr ehdr;
-  elf_file.read(reinterpret_cast<char *>(&ehdr), sizeof(ehdr));
-
-  // Check if the file is an ELF file
-  if (memcmp(ehdr.e_ident, ELFMAG, SELFMAG) != 0) {
-    // Invalid ELF header
-    std::cerr << "Error: Invalid ELF header\n";
-    return std::nullopt;
-  }
-
-  elf_file.seekg(ehdr.e_shoff, std::ios::beg);
-
-  std::vector<Elf64_Shdr> shdrs(ehdr.e_shnum);
-  elf_file.read(reinterpret_cast<char *>(shdrs.data()),
-                ehdr.e_shnum * sizeof(Elf64_Shdr));
-
-  Elf64_Shdr shstrtab = shdrs[ehdr.e_shstrndx];
-  std::vector<char> shstrtab_data(shstrtab.sh_size);
-  elf_file.seekg(shstrtab.sh_offset, std::ios::beg);
-  elf_file.read(shstrtab_data.data(), shstrtab.sh_size);
-
-  for (const auto &shdr : shdrs) {
-    const char *name = shstrtab_data.data() + shdr.sh_name;
-    if (strcmp(name, section_name) == 0) {
-      std::vector<uint8_t> section_data(shdr.sh_size);
-      elf_file.seekg(shdr.sh_offset, std::ios::beg);
-      elf_file.read(reinterpret_cast<char *>(section_data.data()),
-                    shdr.sh_size);
-      return section_data;
-    }
-  }
-
-  return std::nullopt;
-}
 
 } // namespace wanco

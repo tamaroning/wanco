@@ -588,10 +588,12 @@ pub fn gen_call<'a>(
 
     // Generate unwinding code for checkpoint
     // TODO: should remove this
+    /*
     if ctx.config.enable_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
+    */
 
     if call_site.try_as_basic_value().is_left() {
         ctx.push(
@@ -687,10 +689,12 @@ pub fn gen_call_indirect<'a>(
     }
 
     // Generate unwinding code for checkpoint
+    /*
     if ctx.config.enable_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
+    */
 
     Ok(())
 }

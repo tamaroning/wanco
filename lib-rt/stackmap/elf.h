@@ -29,7 +29,9 @@ public:
 
   std::span<uint8_t> get_section_data(const std::string &section_name);
 
-  void init_wasm_location();
+  void initialize_wasm_location();
+
+  void initialize_patchpoint_metadata();
 
   std::optional<std::pair<address_t, WasmLocation>> get_wasm_location(address_t address);
 

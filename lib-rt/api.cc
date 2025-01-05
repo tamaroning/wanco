@@ -410,29 +410,22 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
              wanco::MigrationState::STATE_CHECKPOINT_START &&
          "Invalid migration state");
 
-  // Show the stack trace
-  //wanco::do_stacktrace();
+  wanco::ElfFile elf("/proc/self/exe");
 
-  // Dump stackmap
-  std::optional<std::vector<uint8_t>> stackmap_section_opt =
-      wanco::get_section_data(".llvm_stackmaps");
-  if (!stackmap_section_opt.has_value()) {
-    std::cerr << "Error: unable to obtain stackmap section" << std::endl;
-    std::exit(1);
-  }
-  std::vector<uint8_t> stackmap_section = stackmap_section_opt.value();
+  std::span<uint8_t> stackmap_section = elf.get_section_data(".llvm_stackmaps");
   wanco::stackmap::Stackmap stackmap =
       wanco::stackmap::parse_stackmap(stackmap_section);
+  // Dump stackmap
   std::cerr << wanco::stackmap::stackmap_to_string(stackmap);
 
-  // Dump Line table
-  wanco::ElfFile elf("/proc/self/exe");
-  elf.init_wasm_location();
+  std::span<uint8_t> wanco_metadata_section = elf.get_section_data(".wanco.metadata");
+  // parse as json
+  std::cerr << "wanco metadata: " << std::string(wanco_metadata_section.begin(), wanco_metadata_section.end()) << std::endl;
 
   auto trace = wanco::get_stack_trace(elf);
 
-  //Info() << " Killed" << std::endl;
-  //std::exit(0);
+  // Info() << " Killed" << std::endl;
+  // std::exit(0);
 }
 
 /*
