@@ -179,7 +179,7 @@ fn compile_import_section(ctx: &mut Context<'_, '_>, imports: ImportSectionReade
                 ctx.functions.push(Function {
                     name,
                     type_idx: ty,
-                    orig_name: Some((import.module.to_string(), import.name.to_string())),
+                    _orig_name: Some((import.module.to_string(), import.name.to_string())),
                 });
             }
             TypeRef::Memory(MemoryType {
@@ -319,7 +319,7 @@ fn compile_function_section(
         ctx.functions.push(Function {
             name: fname,
             type_idx: sig,
-            orig_name: None,
+            _orig_name: None,
         });
     }
     ctx.num_functions = ctx.functions.len() as u32;

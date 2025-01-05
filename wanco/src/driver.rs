@@ -11,9 +11,10 @@ use crate::{
     context::Context,
 };
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone, Default)]
 pub enum OptimizationLevel {
     #[clap(name = "0")]
+    #[default]
     O0,
     #[clap(name = "1")]
     O1,
@@ -21,12 +22,6 @@ pub enum OptimizationLevel {
     O2,
     #[clap(name = "3")]
     O3,
-}
-
-impl Default for OptimizationLevel {
-    fn default() -> Self {
-        OptimizationLevel::O1
-    }
 }
 
 impl std::fmt::Display for OptimizationLevel {
@@ -205,7 +200,7 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
         log::info!("Compiling AOT momdule to ELF object instead of LLVM bitcode");
         let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
         target
-            .write_to_file(&ctx.module, FileType::Object, tmp_obj_path)
+            .write_to_file(ctx.module, FileType::Object, tmp_obj_path)
             .expect("error write to file");
         log::info!("wrote to {}", tmp_obj_path.display());
         tmp_obj_path

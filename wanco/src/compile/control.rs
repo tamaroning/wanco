@@ -55,7 +55,7 @@ pub enum ControlFrame<'a> {
         stack_size: usize,
     },
     IfElse {
-        if_then: BasicBlock<'a>,
+        _if_then: BasicBlock<'a>,
         if_else: BasicBlock<'a>,
         if_end: BasicBlock<'a>,
         ifelse_state: IfElseState,
@@ -215,7 +215,7 @@ pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     // Reserve blocks
     ctx.builder.position_at_end(current_block);
     ctx.control_frames.push(ControlFrame::IfElse {
-        if_then: then_block,
+        _if_then: then_block,
         if_else: else_block,
         if_end: end_block,
         ifelse_state: IfElseState::If,

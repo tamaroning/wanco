@@ -46,7 +46,7 @@ pub struct Function {
     pub name: String,
     pub type_idx: u32,
     // (module, name)
-    pub orig_name: Option<(String, String)>,
+    pub _orig_name: Option<(String, String)>,
 }
 
 pub struct Context<'a, 'b> {

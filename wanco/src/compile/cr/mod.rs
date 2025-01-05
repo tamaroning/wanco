@@ -72,7 +72,7 @@ pub(super) fn gen_compare_migration_state<'a>(
     Ok(cmp.as_basic_value_enum())
 }
 
-pub(self) fn gen_set_migration_state<'a>(
+fn gen_set_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     migration_state: i32,

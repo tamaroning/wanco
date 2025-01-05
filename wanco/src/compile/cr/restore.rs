@@ -102,8 +102,8 @@ pub(crate) fn gen_restore_point<'a>(
         locals,
         skip_stack_top,
         &restore_start_bb,
-        &phi_bb,
-        &original_bb,
+        phi_bb,
+        original_bb,
     );
 }
 

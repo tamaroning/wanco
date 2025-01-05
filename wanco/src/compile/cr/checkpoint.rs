@@ -9,11 +9,10 @@ use inkwell::{
 use crate::context::{Context, Global};
 
 use super::{
-    gen_compare_migration_state, gen_set_migration_state, MAX_LOCALS_STORE, MAX_STACK_STORE,
-    MIGRATION_STATE_CHECKPOINT_CONTINUE,
+    gen_set_migration_state, MAX_LOCALS_STORE, MAX_STACK_STORE, MIGRATION_STATE_CHECKPOINT_CONTINUE,
 };
 
-pub(crate) fn add_fn_store_globals_api<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
+pub(crate) fn add_fn_store_globals_api(ctx: &mut Context<'_, '_>) -> Result<()> {
     let fn_type = ctx.inkwell_types.void_type.fn_type(
         &[ctx
             .exec_env_type
@@ -111,7 +110,7 @@ fn gen_push_global_value<'a>(
     Ok(())
 }
 
-pub(crate) fn add_fn_store_table_api<'a>(ctx: &mut Context<'a, '_>) -> Result<()> {
+pub(crate) fn add_fn_store_table_api(ctx: &mut Context<'_, '_>) -> Result<()> {
     let fn_type = ctx.inkwell_types.void_type.fn_type(
         &[ctx
             .exec_env_type

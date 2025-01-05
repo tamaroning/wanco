@@ -10,8 +10,7 @@ pub fn get_stackmap_id(ctx: &Context) -> u64 {
         .current_op
         .unwrap_or(debug::FUNCION_START_INSN_OFFSET as u32);
     let func = ctx.current_function_idx.expect("function index not set");
-    let id = (func as u64) << 32 | insn as u64;
-    id
+    (func as u64) << 32 | insn as u64
 }
 
 // locals: wasm params and locals
@@ -60,8 +59,8 @@ pub fn gen_stackmap<'a>(
         .collect::<Vec<_>>();
     ctx.patchpoint_metavalues
         .push(debug::PatchpointMetadataEntry {
-            func: func as u32,
-            insn: insn as u32,
+            func,
+            insn,
             locals: local_types,
             stack: stack_types,
         });

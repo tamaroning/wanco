@@ -80,8 +80,8 @@ pub fn create_debug_info_builder<'a>(
     )
 }
 
-pub fn create_source_location<'a, 'b>(
-    ctx: &Context<'a, 'b>,
+pub fn create_source_location<'a>(
+    ctx: &Context<'a, '_>,
     func_index: u32,
     insn_offset: u32,
     function_lexical_scope: &DILexicalBlock<'a>,
@@ -96,7 +96,7 @@ pub fn create_source_location<'a, 'b>(
     )
 }
 
-pub fn create_subprogram_info<'a, 'b>(ctx: &Context<'a, 'b>, func_index: u32) -> DISubprogram<'a> {
+pub fn create_subprogram_info<'a>(ctx: &Context<'a, '_>, func_index: u32) -> DISubprogram<'a> {
     let file = ctx.debug_cu.get_file();
     let scope = ctx.debug_cu.as_debug_info_scope();
     let fn_name = format!("func_{}", func_index);
@@ -119,8 +119,8 @@ pub fn create_subprogram_info<'a, 'b>(ctx: &Context<'a, 'b>, func_index: u32) ->
     )
 }
 
-pub fn create_function_lexical_scope<'a, 'b>(
-    ctx: &Context<'a, 'b>,
+pub fn create_function_lexical_scope<'a>(
+    ctx: &Context<'a, '_>,
     function_index: u32,
     subprogram: &DISubprogram<'a>,
 ) -> DILexicalBlock<'a> {
@@ -133,6 +133,6 @@ pub fn create_function_lexical_scope<'a, 'b>(
 }
 
 /// Create a content of .wanco.metadata section.
-pub fn create_patchpoint_metadata_json<'a, 'b>(ctx: &Context<'a, 'b>) -> String {
+pub fn create_patchpoint_metadata_json(ctx: &Context<'_, '_>) -> String {
     serde_json::to_string(&ctx.patchpoint_metavalues).unwrap()
 }
