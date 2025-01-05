@@ -18,13 +18,16 @@ Prerequisites:
     - `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`
     - `chmod +x llvm.sh`
     - `./llvm.sh 17`
-- protocol buffer
-    - Run `apt install libprotobuf-dev protobuf-compiler`
+- Protocol Buffer
 - Libunwind
-    - Run `apt install libunwind-dev`
 - Libdwarf
-    - Run `apt install libdwarf-dev`
-<!-- - libunwind-dev (Run `apt install libunwind-dev`) -->
+- Libelf
+
+Install the required dependencies:
+
+```sh
+$ sudo apt install libprotobuf-dev protobuf-compiler libunwind-dev libdwarf-dev libelf-dev
+```
 
 
 First clone the project:
