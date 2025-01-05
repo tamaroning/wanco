@@ -1,5 +1,7 @@
 #include "aot.h"
+#include "checkpoint/checkpoint.h"
 #include "stackmap/elf.h"
+#include "stackmap/metadata.h"
 #include "stackmap/stackmap.h"
 #include "wanco.h"
 #include <chrono>
@@ -429,7 +431,7 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
 
   auto trace = wanco::get_stack_trace(elf);
 
-  wanco::callstack_to_interpreter(elf, trace, wanco_metadata, stackmap);
+  wanco::checkpoint_callstack(elf, trace, wanco_metadata, stackmap);
 
   // Info() << " Killed" << std::endl;
   // std::exit(0);

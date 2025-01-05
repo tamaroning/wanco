@@ -1,6 +1,6 @@
-#include "chkpt.h"
+#include "snapshot.h"
 #include "lz4/lz4.h"
-#include "chkpt.pb.h"
+#include "snapshot.pb.h"
 #include "wanco.h"
 #include <fstream>
 #include <google/protobuf/util/json_util.h>

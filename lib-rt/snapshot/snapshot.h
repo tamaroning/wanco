@@ -1,5 +1,4 @@
 #pragma once
-#include "wanco.h"
 #include <deque>
 #include <fstream>
 #include <string>

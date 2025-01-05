@@ -40,3 +40,4 @@ compile_commands.json
 
 # CRIU
 checkpoint/
+!lib-rt/checkpoint/

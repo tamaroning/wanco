@@ -1,9 +1,7 @@
 #pragma once
-#include "stackmap/stackmap.h"
 #include <cstdint>
 #include <libdwarf/libdwarf.h>
 #include <libelf.h>
-#include <map>
 #include <optional>
 #include <span>
 #include <string>
@@ -62,29 +60,5 @@ private:
 std::vector<WasmCallStackEntry> get_stack_trace(ElfFile &elf);
 
 std::span<const uint8_t> get_stackmap_section();
-
-struct MetadataEntry {
-  uint32_t func;
-  uint32_t insn;
-  std::vector<std::string> locals;
-  std::vector<std::string> stack;
-};
-
-std::vector<MetadataEntry> parse_wanco_metadata(std::span<const uint8_t> data);
-
-/*
-// Translate native stack trace to wasm state.
-class CheckpointContext {
-public:
-private:
-  // Mapping from wasm location to LLVM stackmap record
-  std::map<WasmLocation, stackmap::StkMapRecord> loc_to_stackmap;
-};
-*/
-
-void callstack_to_interpreter(ElfFile &elf,
-                              std::vector<WasmCallStackEntry> &trace,
-                              std::vector<MetadataEntry> &metadata,
-                              stackmap::Stackmap llvm_stackmap);
 
 } // namespace wanco

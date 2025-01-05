@@ -1,5 +1,5 @@
 #include "aot.h"
-#include "chkpt/chkpt.h"
+#include "snapshot/snapshot.h"
 #include "wanco.h"
 #include <chrono>
 #include <csignal>
