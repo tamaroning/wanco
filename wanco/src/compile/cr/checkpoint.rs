@@ -238,7 +238,7 @@ fn gen_store_stack<'a>(ctx: &mut Context<'a, '_>, exec_env_ptr: &PointerValue<'a
     Ok(())
 }
 
-fn gen_return_default_value(ctx: &mut Context<'_, '_>) -> Result<()> {
+pub(crate) fn gen_return_default_value(ctx: &mut Context<'_, '_>) -> Result<()> {
     let ret_type = ctx.current_fn.unwrap().get_type().get_return_type();
     let Some(ty) = ret_type else {
         ctx.builder.build_return(None).expect("should build return");

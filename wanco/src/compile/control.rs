@@ -45,9 +45,11 @@ pub enum ControlFrame<'a> {
     Loop {
         loop_body: BasicBlock<'a>,
         loop_next: BasicBlock<'a>,
-        body_phis: Vec<PhiValue<'a>>,
         end_phis: Vec<PhiValue<'a>>,
         stack_size: usize,
+        // Since the control flows are merged at br_if, we need to make phi
+        // for each value in the value stack at the head of loop body.
+        body_head_phis: Vec<PhiValue<'a>>,
     },
     Block {
         next: BasicBlock<'a>,
@@ -59,8 +61,8 @@ pub enum ControlFrame<'a> {
         if_else: BasicBlock<'a>,
         if_end: BasicBlock<'a>,
         ifelse_state: IfElseState,
-        end_phis: Vec<PhiValue<'a>>,
         stack_size: usize,
+        end_phis: Vec<PhiValue<'a>>,
     },
 }
 
@@ -70,6 +72,14 @@ impl<'a> ControlFrame<'a> {
             ControlFrame::Loop { ref loop_body, .. } => loop_body,
             ControlFrame::Block { ref next, .. } => next,
             ControlFrame::IfElse { ref if_end, .. } => if_end,
+        }
+    }
+
+    fn br_dest_phis(&self) -> &Vec<PhiValue<'a>> {
+        match self {
+            ControlFrame::Loop { body_head_phis, .. } => body_head_phis,
+            ControlFrame::Block { end_phis, .. } => end_phis,
+            ControlFrame::IfElse { end_phis, .. } => end_phis,
         }
     }
 }
@@ -128,8 +138,22 @@ pub fn gen_loop<'a>(
 
     // Phi
     ctx.builder.position_at_end(next_block);
-    let body_phis: Vec<PhiValue> = Vec::new();
     let mut phis: Vec<PhiValue> = Vec::new();
+
+    // Prepare phis for the value stack at the end of the loop
+    if ctx.config.enable_cr {
+        // We need to create phi for each value in the value stack.
+        let frame = ctx.stack_frames.last().expect("frame empty");
+        for v in &frame.stack {
+            let ty = v.get_type();
+            let phi = ctx
+                .builder
+                .build_phi(ty, "if.end_phi.stack")
+                .expect("should build phi");
+            phis.push(phi);
+        }
+    }
+
     match blockty {
         BlockType::Empty => {}
         BlockType::Type(valty) => {
@@ -145,20 +169,33 @@ pub fn gen_loop<'a>(
         }
     }
 
-    ctx.control_frames.push(ControlFrame::Loop {
-        loop_body: body_block,
-        loop_next: next_block,
-        body_phis,
-        end_phis: phis,
-        stack_size: ctx.current_frame_size(),
-    });
-
     // Move to loop_body
     ctx.builder.position_at_end(current_block);
     ctx.builder
         .build_unconditional_branch(body_block)
         .expect("should build unconditional branch");
     ctx.builder.position_at_end(body_block);
+
+    // Prepare phis for the value stack at the head of the loop body
+    let mut body_head_phis = vec![];
+    if ctx.config.enable_cr {
+        let frame = ctx.stack_frames.last().unwrap();
+        for val in &frame.stack {
+            let ty = val.get_type();
+            let phi = ctx.builder.build_phi(ty, "loop_head.stack").unwrap();
+            // incoming edges for the loop entry
+            phi.add_incoming(&[(val, current_block)]);
+            body_head_phis.push(phi);
+        }
+    }
+
+    ctx.control_frames.push(ControlFrame::Loop {
+        loop_body: body_block,
+        loop_next: next_block,
+        end_phis: phis,
+        stack_size: ctx.current_frame_size(),
+        body_head_phis,
+    });
 
     // Generate migration point for loop (v1)
     if ctx.config.enable_cr && !ctx.config.disable_loop_cr {
@@ -197,13 +234,32 @@ pub fn gen_if(ctx: &mut Context<'_, '_>, blockty: &BlockType) -> Result<()> {
     // Phi
     ctx.builder.position_at_end(end_block);
     let mut end_phis: Vec<PhiValue> = Vec::new();
+
+    // Prepare phis for the value stack at the end of the if-else
+    if ctx.config.enable_cr {
+        // We need to create phi for each value in the value stack.
+        let frame = ctx.stack_frames.last().expect("frame empty");
+        for (i, v) in frame.stack.iter().enumerate() {
+            // skip the last because it is the condition value consumed at first
+            if i == frame.stack.len() - 1 {
+                continue;
+            }
+
+            let ty = v.get_type();
+            let phi = ctx
+                .builder
+                .build_phi(ty, "if.end_phi.stack")
+                .expect("should build phi");
+            end_phis.push(phi);
+        }
+    }
+
     match blockty {
         BlockType::Empty => {}
         BlockType::Type(valty) => {
-            ctx.builder.position_at_end(end_block);
             let phi = ctx
                 .builder
-                .build_phi(wasmty_to_llvmty(ctx, valty).unwrap(), "if.end_phi")
+                .build_phi(wasmty_to_llvmty(ctx, valty).unwrap(), "if.end_phi.result")
                 .expect("should build phi");
             end_phis.push(phi);
         }
@@ -263,17 +319,23 @@ pub fn gen_else(ctx: &mut Context<'_, '_>) -> Result<()> {
             *ifelse_state = IfElseState::Else;
 
             // Phi
+            log::debug!("phis = {}", end_phis.len());
             if ctx.unreachable_depth == 0 {
-                // Phi
-                for phi in end_phis {
-                    let value = ctx
-                        .stack_frames
-                        .last_mut()
-                        .expect("frame empty")
-                        .stack
-                        .pop()
-                        .expect("stack empty");
-                    phi.add_incoming(&[(&value, current_block)]);
+                let frame = ctx.stack_frames.last_mut().expect("frame empty");
+                if ctx.config.enable_cr {
+                    // incoming edges from the end of the then branch
+                    assert!(frame.stack.len() == end_phis.len());
+                    for (stack_value, phi) in frame.stack.iter().zip(end_phis.iter()) {
+                        phi.add_incoming(&[(stack_value, current_block)]);
+                    }
+                } else {
+                    // We only take care of the result of the then branch
+                    // FIXME: broken when multiple phis
+                    //log::warn!("end_phis = {}", end_phis.len());
+                    if let Some(phi) = end_phis.pop() {
+                        let value = frame.stack.pop().expect("stack empty");
+                        phi.add_incoming(&[(&value, current_block)]);
+                    }
                 }
             }
 
@@ -293,28 +355,11 @@ pub fn gen_else(ctx: &mut Context<'_, '_>) -> Result<()> {
     }
     Ok(())
 }
+
 pub fn gen_br(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
-    let current_block = ctx
-        .builder
-        .get_insert_block()
-        .expect("error get_insert_block");
     let frame = &ctx.control_frames[ctx.control_frames.len() - 1 - relative_depth as usize];
 
-    let phis = match frame {
-        ControlFrame::Block { end_phis, .. } => end_phis,
-        ControlFrame::IfElse { end_phis, .. } => end_phis,
-        ControlFrame::Loop { body_phis, .. } => body_phis,
-    };
-    for phi in phis {
-        let value = ctx
-            .stack_frames
-            .last_mut()
-            .expect("frame empty")
-            .stack
-            .pop()
-            .expect("stack empty");
-        phi.add_incoming(&[(&value, current_block)]);
-    }
+    gen_merge_phis_from_br_to_dest(ctx, frame);
 
     ctx.builder
         .build_unconditional_branch(*frame.br_dest())
@@ -325,11 +370,8 @@ pub fn gen_br(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
 }
 
 pub fn gen_brif(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
-    let current_block = ctx
-        .builder
-        .get_insert_block()
-        .expect("error get_insert_block");
-    let frame = &ctx.control_frames[ctx.control_frames.len() - 1 - relative_depth as usize];
+    let num_frames = ctx.control_frames.len();
+    let frame = &ctx.control_frames[num_frames - 1 - relative_depth as usize];
 
     // Branch condition: whether the top value of stack is not zero
     let cond = ctx
@@ -350,16 +392,7 @@ pub fn gen_brif(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
         .expect("should build int compare");
 
     // Phi
-    let phis = match frame {
-        ControlFrame::Block { end_phis, .. } => end_phis,
-        ControlFrame::IfElse { end_phis, .. } => end_phis,
-        ControlFrame::Loop { body_phis, .. } => body_phis,
-    };
-    let values = ctx.peekn(phis.len()).expect("fail stack peekn");
-    for (i, phi) in phis.iter().enumerate().rev() {
-        let value = values[i];
-        phi.add_incoming(&[(&value, current_block)]);
-    }
+    gen_merge_phis_from_br_to_dest(ctx, frame);
 
     // Create else block
     let else_block = ctx.ictx.append_basic_block(
@@ -376,10 +409,6 @@ pub fn gen_brif(ctx: &mut Context<'_, '_>, relative_depth: u32) -> Result<()> {
 }
 
 pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> {
-    let current_block = ctx
-        .builder
-        .get_insert_block()
-        .expect("error get_insert_block");
     let idx = ctx.pop().expect("stack empty");
 
     // default frame
@@ -387,17 +416,7 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
     let default_frame = &ctx.control_frames[ctx.control_frames.len() - 1 - default as usize];
 
     // Phi
-    let phis = match default_frame {
-        ControlFrame::Block { end_phis, .. } => end_phis,
-        ControlFrame::IfElse { end_phis, .. } => end_phis,
-        ControlFrame::Loop { body_phis, .. } => body_phis,
-    };
-    let values = ctx.peekn(phis.len()).expect("fail stack peekn");
-    for (i, phi) in phis.iter().enumerate().rev() {
-        let value = values[i];
-        log::debug!("- add_incoming to {:?}", phi);
-        phi.add_incoming(&[(&value, current_block)]);
-    }
+    gen_merge_phis_from_br_to_dest(ctx, default_frame);
 
     // cases
     let mut cases: Vec<_> = Vec::new();
@@ -406,17 +425,7 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
         let dest = &ctx.control_frames[ctx.control_frames.len() - 1 - depth as usize];
         let intv = ctx.inkwell_types.i32_type.const_int(i as u64, false);
         cases.push((intv, *dest.br_dest()));
-        let phis = match dest {
-            ControlFrame::Block { end_phis, .. } => end_phis,
-            ControlFrame::IfElse { end_phis, .. } => end_phis,
-            ControlFrame::Loop { body_phis, .. } => body_phis,
-        };
-        let values = ctx.peekn(phis.len()).expect("fail stack peekn");
-        for (i, phi) in phis.iter().enumerate().rev() {
-            let value = values[i];
-            phi.add_incoming(&[(&value, current_block)]);
-            log::debug!("- add_incoming to {:?}", phi);
-        }
+        gen_merge_phis_from_br_to_dest(ctx, dest);
     }
     // switch
     ctx.builder
@@ -427,7 +436,36 @@ pub fn gen_br_table(ctx: &mut Context<'_, '_>, targets: &BrTable) -> Result<()> 
     Ok(())
 }
 
-pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
+pub fn gen_merge_phis_from_br_to_dest<'a>(ctx: &Context<'a, '_>, frame: &ControlFrame<'a>) {
+    let stack_frame = ctx.stack_frames.last().unwrap();
+    let stack = &stack_frame.stack;
+
+    let current_block = ctx.builder.get_insert_block().unwrap();
+    let phis = frame.br_dest_phis();
+
+    /*if ctx.config.enable_cr {
+    assert!(phis.len() == stack.len());
+    log::debug!("phis: {}, stack: {}", phis.len(), stack.len());
+    for (stack_val, phi) in stack.iter().zip(phis.iter()) {
+        phi.add_incoming(&[(stack_val, current_block)]);
+        log::debug!("- add_incominig to {:?}", phi);
+        }
+    } else*/
+    {
+        let values = ctx.peekn(phis.len()).expect("fail stack peekn");
+        for (i, phi) in phis.iter().enumerate().rev() {
+            let value = values[i];
+            phi.add_incoming(&[(&value, current_block)]);
+            log::debug!("- add_incominig to {:?}", phi);
+        }
+    }
+}
+
+pub fn gen_end<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+) -> Result<()> {
     let current_block = ctx
         .builder
         .get_insert_block()
@@ -488,7 +526,7 @@ pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
         }
     } else {
         // End of Block/IfElse/Loop
-        let (next, end_phis, stack_size) = match frame {
+        let (next, mut end_phis, stack_size) = match frame {
             ControlFrame::Loop {
                 loop_next,
                 end_phis,
@@ -515,14 +553,25 @@ pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
                         .build_unconditional_branch(if_end)
                         .expect("should build unconditional branch");
                 }
-                (if_end, end_phis, stack_size)
+                // TODO: we need to collect phis for value stack if migration points are inserted in then or else block.
+
+                // Stack size - 1 since the stack top was already consumed as a condition.
+                (if_end, end_phis, stack_size - 1)
             }
         };
         if ctx.unreachable_reason == UnreachableReason::Reachable {
             // Collect Phi
-            for phi in &end_phis {
-                let value = ctx.pop().expect("stack empty");
-                phi.add_incoming(&[(&value, current_block)]);
+            if ctx.config.enable_cr {
+                let frame = ctx.stack_frames.last().unwrap();
+                //assert!(frame.stack.len() == end_phis.len());
+                for (stack_value, phi) in frame.stack.iter().zip(end_phis.iter()) {
+                    phi.add_incoming(&[(stack_value, current_block)]);
+                }
+            } else {
+                for phi in &end_phis {
+                    let value = ctx.pop().expect("stack empty");
+                    phi.add_incoming(&[(&value, current_block)]);
+                }
             }
             // Jump
             ctx.builder.position_at_end(current_block);
@@ -532,20 +581,29 @@ pub fn gen_end(ctx: &mut Context<'_, '_>) -> Result<()> {
         }
 
         ctx.builder.position_at_end(next);
-        ctx.reset_stack(stack_size);
 
         // Phi
-        for phi in &end_phis {
-            if phi.count_incoming() == 0 {
-                log::debug!("- no phi");
-                let basic_ty = phi.as_basic_value().get_type();
-                let placeholder_value = basic_ty.const_zero();
-                ctx.push(placeholder_value);
-                phi.as_instruction().erase_from_basic_block();
-            } else {
-                log::debug!("- phi.incoming = {}", phi.count_incoming());
-                let value = phi.as_basic_value();
-                ctx.push(value);
+        ctx.reset_stack(stack_size);
+        log::warn!("stack_size: {}, phis: {}", stack_size, end_phis.len());
+        if ctx.config.enable_cr {
+            // FIXME: I am not sure how the stack is.
+            //ctx.reset_stack(0);
+            for phi in &end_phis {
+                ctx.push(phi.as_basic_value());
+            }
+        } else {
+            for phi in &end_phis {
+                if phi.count_incoming() == 0 {
+                    log::debug!("- no phi");
+                    let basic_ty = phi.as_basic_value().get_type();
+                    let placeholder_value = basic_ty.const_zero();
+                    ctx.push(placeholder_value);
+                    phi.as_instruction().erase_from_basic_block();
+                } else {
+                    log::debug!("- phi.incoming = {}", phi.count_incoming());
+                    let value = phi.as_basic_value();
+                    ctx.push(value);
+                }
             }
         }
     }

@@ -32,6 +32,7 @@ pub enum Global<'a> {
     },
 }
 
+#[derive(Debug, Clone)]
 pub struct StackFrame<'a> {
     pub stack: Vec<BasicValueEnum<'a>>,
 }

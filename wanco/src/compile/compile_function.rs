@@ -143,7 +143,8 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     let mut num_op = 0;
     while !op_reader.eof() {
         let op = op_reader.read_operator()?;
-        log::trace!("- op[{}]: {:?}", num_op, &op);
+        let stack_size = ctx.stack_frames.last().unwrap().stack.len();
+        log::trace!("- op[{}]: {:?}, stack_len: {}", num_op, &op, stack_size);
         ctx.current_op = Some(num_op);
         let location = debug::create_source_location(
             ctx,
@@ -204,7 +205,7 @@ fn compile_op<'a>(
                     unreachable!("Unexpected depth 0");
                 }
                 1 => {
-                    gen_end(ctx).context("error gen End")?;
+                    gen_end(ctx, exec_env_ptr, locals).context("error gen End")?;
                     ctx.unreachable_depth -= 1;
                     ctx.unreachable_reason = UnreachableReason::Reachable;
                     log::trace!("- end of unreachable");
@@ -252,7 +253,7 @@ fn compile_op<'a>(
                 ctx.current_fn.unwrap().get_name(),
                 ctx.current_fn.unwrap().get_type().get_return_type()
             );
-            gen_end(ctx).context("error gen End")?;
+            gen_end(ctx, exec_env_ptr, locals).context("error gen End")?;
         }
         Operator::Call { function_index } => {
             gen_call(ctx, exec_env_ptr, locals, *function_index).context("error gen Call")?;

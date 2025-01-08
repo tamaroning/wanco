@@ -1,5 +1,5 @@
 use anyhow::Result;
-use checkpoint::gen_checkpoint_start;
+use checkpoint::gen_return_default_value;
 use inkwell::{
     types::BasicTypeEnum,
     values::{BasicValue, BasicValueEnum, PointerValue},
@@ -139,8 +139,10 @@ pub(crate) fn gen_migration_point<'a>(
             "",
         )
         .expect("fail to build_call fn_start_checkpoint");
+    // return dummy
+    gen_return_default_value(ctx).expect("fail to gen_return_default_value");
 
-    gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
+    //gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
 
     // restore (create new bb)
     let phi_bb = ctx.ictx.append_basic_block(
