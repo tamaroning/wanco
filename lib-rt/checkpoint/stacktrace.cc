@@ -1,12 +1,12 @@
 #include "stackmap/elf.h"
 #include "wanco.h"
-#include <cstdlib>
 #include <cstdint>
-#include <vector>
+#include <cstdlib>
 #include <libunwind-x86_64.h>
-#include <string>
 #include <optional>
+#include <string>
 #include <utility>
+#include <vector>
 // libunwind
 #define UNW_LOCAL_ONLY
 
@@ -37,8 +37,9 @@ auto get_stack_trace(ElfFile &elf) -> std::vector<WasmCallStackEntry> {
 
     // We are only interested in wasm functions
     if (!function_name.starts_with("func_")) {
+      Debug() << "Skipping frame: " << function_name << '\n';
       continue;
-}
+    }
 
     // Get pc.
     unw_word_t pc = 0;
@@ -74,8 +75,7 @@ auto get_stack_trace(ElfFile &elf) -> std::vector<WasmCallStackEntry> {
             << "): wasm-func=" << loc.function
             << ", wasm-insn=" << loc.insn_offset << '\n';
     Debug() << "\t pc: " << std::hex << pc << std::dec << ", bp: " << std::hex
-            << bp << std::dec << ", sp: " << std::hex << sp << std::dec
-            << '\n';
+            << bp << std::dec << ", sp: " << std::hex << sp << std::dec << '\n';
   } while (unw_step(&cursor) > 0);
   Debug() << "--- call stack bottom ---" << '\n';
   return trace;

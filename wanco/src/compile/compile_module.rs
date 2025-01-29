@@ -342,8 +342,12 @@ fn declare_functions(ctx: &mut Context<'_, '_>) -> Result<()> {
             let attr_noredzone = ctx
                 .ictx
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("noredzone"), 0);
-
+            // We need to have the correct call stack when making a checkpoint.
+            let attr_noinline = ctx
+                .ictx
+                .create_enum_attribute(Attribute::get_named_enum_kind_id("noinline"), 0);
             f.add_attribute(inkwell::attributes::AttributeLoc::Function, attr_noredzone);
+            f.add_attribute(inkwell::attributes::AttributeLoc::Function, attr_noinline);
             f
         });
         ctx.function_values.push(fn_value);

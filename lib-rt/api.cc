@@ -192,8 +192,9 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   std::span<uint8_t> stackmap_section = elf.get_section_data(".llvm_stackmaps");
   wanco::stackmap::Stackmap stackmap =
       wanco::stackmap::parse_stackmap(stackmap_section);
-  Debug() << "Stackmap: " << wanco::stackmap::stackmap_to_string(stackmap)
-          << std::endl;
+  
+  //Debug() << "Stackmap: " << wanco::stackmap::stackmap_to_string(stackmap)
+  //        << std::endl;
 
   std::span<uint8_t> wanco_metadata_section =
       elf.get_section_data(".wanco.metadata");
@@ -216,16 +217,16 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
     // ofs must be flushed here since this function does not return.
   }
-
-  // Stop benchmark timer.
-  auto time = std::chrono::duration_cast<std::chrono::microseconds>(
-                  std::chrono::system_clock::now().time_since_epoch())
-                  .count();
-  time = time - wanco::CHKPT_START_TIME;
-  // TODO(tamaron): remove this (research purpose)
-  std::ofstream chktime("chkpt-time.txt");
-  chktime << time << '\n';
-
+  {
+    // Stop benchmark timer.
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+    time = time - wanco::CHKPT_START_TIME;
+    // TODO(tamaron): remove this (research purpose)
+    std::ofstream chktime("chkpt-time.txt");
+    chktime << time << '\n';
+  }
   Info() << "Killed" << std::endl;
   std::exit(0);
 }

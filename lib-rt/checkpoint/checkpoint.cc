@@ -107,6 +107,8 @@ void checkpoint_callstack(ElfFile & /*elf*/,
     auto it = loc_to_metadata.find(wasm_loc);
     if (it == loc_to_metadata.end()) {
       Fatal() << "Failed to find metadata entry" << '\n';
+      Fatal() << "  func: " << frame.location.function
+              << ", insn: " << frame.location.insn_offset << '\n';
       exit(EXIT_FAILURE);
     }
     MetadataEntry const &entry = it->second;
