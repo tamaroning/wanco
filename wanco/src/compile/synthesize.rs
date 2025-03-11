@@ -12,6 +12,7 @@ use super::cr::{
 
 pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     // Define ExecEnv struct
+    // See lib-rt/aot.h for the type definition
     let mut exec_env_fields = HashMap::new();
     exec_env_fields.insert("memory_base", 0);
     exec_env_fields.insert("memory_size", 1);
