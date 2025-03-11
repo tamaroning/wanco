@@ -4,7 +4,10 @@ use inkwell::{
     values::{BasicValue, BasicValueEnum, PointerValue},
 };
 
-use crate::context::{Context, Global};
+use crate::{
+    compile::stackmap,
+    context::{Context, Global},
+};
 
 use super::{
     gen_compare_migration_state, gen_set_migration_state, MAX_LOCALS_STORE, MAX_STACK_STORE,
@@ -156,6 +159,14 @@ pub(crate) fn gen_checkpoint_start<'a>(
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    ctx.builder.build_call(
+        ctx.fn_start_checkpoint.unwrap(),
+        &[exec_env_ptr.as_basic_value_enum().into()],
+        "",
+    )?;
+    generate_stackmap(ctx, exec_env_ptr, locals)?;
+
+    // TODO: remove all the following code
     gen_set_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_CONTINUE)
         .expect("fail to gen_set_migration_state");
     gen_store_frame(ctx, exec_env_ptr, locals).expect("fail to gen_store_frame");
@@ -367,5 +378,34 @@ fn gen_push_stack<'a>(
     } else {
         bail!("Unsupported type {:?}", val);
     }
+    Ok(())
+}
+
+pub(crate) fn generate_stackmap<'a>(
+    ctx: &mut Context<'a, '_>,
+    exec_env_ptr: &PointerValue<'a>,
+    locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
+) -> Result<()> {
+    let func_idx = ctx.current_function_idx.unwrap();
+    let insn_offset = ctx.current_op.unwrap();
+    let stackmap_id = stackmap::stackmap_id(func_idx, insn_offset);
+
+    let mut args = vec![
+        ctx.inkwell_types
+            .i64_type
+            .const_int(stackmap_id, false)
+            .into(),
+        ctx.inkwell_types.i32_type.const_zero().into(),
+    ];
+
+    for (local, _) in locals {
+        args.push(local.as_basic_value_enum().into());
+    }
+
+    // TODO: add stack values
+
+    ctx.builder
+        .build_call(ctx.inkwell_intrs.experimental_stackmap, &args, "")?;
+
     Ok(())
 }

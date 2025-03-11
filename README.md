@@ -25,7 +25,7 @@ sudo ./llvm.sh 17
 sudo apt install libpolly-17-dev
 
 # Install all other deps
-sudo apt install build-essential cmake libprotobuf-dev protobuf-compiler libunwind-dev libzstd-dev
+sudo apt install build-essential cmake libprotobuf-dev protobuf-compiler libunwind-dev libelf-dev libzstd-dev
 ```
 
 First, clone the repository:

@@ -78,6 +78,16 @@ pub fn load_api(ctx: &mut Context<'_, '_>) {
     // Checkpoint related
     if ctx.config.enable_cr {
         // checkpoint api
+        let fn_type_start_checkpoint = ctx
+            .inkwell_types
+            .void_type
+            .fn_type(&[exec_env_ptr_type.into()], false);
+        ctx.fn_start_checkpoint = Some(ctx.module.add_function(
+            "start_checkpoint",
+            fn_type_start_checkpoint,
+            Some(Linkage::External),
+        ));
+
         let fn_type_push_frame = ctx
             .inkwell_types
             .void_type

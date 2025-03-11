@@ -92,8 +92,7 @@ pub struct Context<'a, 'b> {
     pub unreachable_reason: UnreachableReason,
 
     // checkpoint related
-    //pub exception_type: StructType<'a>,
-    //pub personality_function: FunctionValue<'a>,
+    pub fn_start_checkpoint: Option<FunctionValue<'a>>,
     pub fn_push_frame: Option<FunctionValue<'a>>,
     pub fn_set_pc_to_frame: Option<FunctionValue<'a>>,
     pub fn_push_local_i32: Option<FunctionValue<'a>>,
@@ -130,9 +129,6 @@ pub struct Context<'a, 'b> {
     // restore related builder state
     pub restore_dispatch_bb: Option<BasicBlock<'a>>,
     pub restore_dispatch_cases: Vec<(IntValue<'a>, BasicBlock<'a>)>,
-
-    // C/R v2
-    next_stackmap_id: AtomicU64,
 
     // common to both C/R v1 and v2
     pub num_migration_points: u32,
@@ -180,6 +176,7 @@ impl<'a> Context<'a, '_> {
             unreachable_depth: 0,
             unreachable_reason: UnreachableReason::Reachable,
 
+            fn_start_checkpoint: None,
             fn_push_frame: None,
             fn_set_pc_to_frame: None,
             fn_push_local_i32: None,
@@ -215,8 +212,6 @@ impl<'a> Context<'a, '_> {
 
             restore_dispatch_bb: None,
             restore_dispatch_cases: Vec::new(),
-
-            next_stackmap_id: AtomicU64::new(0),
 
             num_migration_points: 0,
         }
@@ -276,7 +271,7 @@ impl<'a> Context<'a, '_> {
         frame.stack.truncate(stack_size);
     }
 
-    /// Pop the stack and load the value if it is a pointer.
+    // Pop the stack and load the value if it is a pointer.
     /*
     pub fn pop_and_load(&mut self) -> BasicValueEnum<'a> {
         let frame = self.stack_frames.last_mut().expect("frame empty");
@@ -294,11 +289,4 @@ impl<'a> Context<'a, '_> {
         }
     }
     */
-
-    pub fn get_next_stackmap_id(&self) -> u64 {
-        let id = self
-            .next_stackmap_id
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        id
-    }
 }

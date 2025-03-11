@@ -1,6 +1,8 @@
 #include "aot.h"
-#include "stackmap/elf.h"
+#include "elf/elf.h"
+#include "elf/elf.h"
 #include "stackmap/stackmap.h"
+#include "stacktrace/stacktrace.h"
 #include "wanco.h"
 #include <chrono>
 #include <cstdint>
@@ -42,7 +44,31 @@ extern "C" void sleep_msec(ExecEnv *exec_env, int32_t ms) {
 ** checkpoint related functions
 */
 
-// locals
+extern "C" void start_checkpoint(ExecEnv *exec_env) {
+  Info() << "Checkpoint started" << std::endl;
+
+  wanco::ElfFile elf_file{"/proc/self/exe"};
+  auto stackmap_section = elf_file.get_section_data(".llvm_stackmaps");
+  if (!stackmap_section.has_value()) {
+    Fatal() << "Failed to get stackmap section" << std::endl;
+    exit(1);
+  }
+
+  wanco::stackmap::Stackmap stackmap = wanco::stackmap::parse_stackmap(stackmap_section.value());
+  std::cout << wanco::stackmap::stackmap_to_string(stackmap);
+  
+  const auto trace = wanco::get_stack_trace();
+  for (const auto &frame : trace) {
+    std::cout << "Function: " << frame.function_name << std::endl;
+    std::cout << "- PC: 0x" << std::hex << frame.pc << std::endl;
+    std::cout << "- SP: 0x" << std::hex << (void *)frame.sp << std::endl;
+    std::cout << "- BP: 0x" << std::hex << (void *)frame.bp << std::endl;
+  }
+
+  Info() << "TODO: Implement checkpoint" << std::endl;
+  exit(0);
+}
+
 extern "C" void push_frame(ExecEnv *exec_env) {
   ASSERT(exec_env->migration_state ==
              wanco::MigrationState::STATE_CHECKPOINT_CONTINUE &&
@@ -69,6 +95,7 @@ extern "C" void set_pc_to_frame(ExecEnv *exec_env, int32_t fn_index,
   wanco::chkpt.frames.back().pc = pc;
 }
 
+// locals
 extern "C" void push_local_i32(ExecEnv *exec_env, int32_t i32) {
   ASSERT(exec_env->migration_state ==
              wanco::MigrationState::STATE_CHECKPOINT_CONTINUE &&

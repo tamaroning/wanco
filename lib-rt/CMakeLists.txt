@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_CXX_STANDARD 20)
 find_package(Protobuf REQUIRED)
-find_package(Libdwarf REQUIRED)
-find_package(Libunwind REQUIRED)
+#find_package(Libunwind REQUIRED)
 
 protobuf_generate_cpp (PROTO_SRCS PROTO_HDRS protobuf/chkpt.proto)
 get_filename_component(PROTO_HDR_DIRS ${PROTO_HDRS} DIRECTORY)
@@ -16,7 +15,8 @@ target_sources(wanco_rt PRIVATE
     chkpt/chkpt_protobuf.cc
     lz4/lz4.c
     stackmap/stackmap.cc
-    stackmap/elf.cc
+    stacktrace/stacktrace.cc
+    elf/elf.cc
     ${PROTO_SRCS}
     )
 include_directories(wanco_rt PUBLIC

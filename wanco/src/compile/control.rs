@@ -9,7 +9,10 @@ use wasmparser::{BlockType, BrTable};
 
 use super::{
     compile_type::wasmty_to_llvmty,
-    cr::{checkpoint::gen_checkpoint_unwind, gen_migration_point, gen_restore_non_leaf},
+    cr::{
+        checkpoint::{gen_checkpoint_unwind, generate_stackmap},
+        gen_migration_point, gen_restore_non_leaf,
+    },
 };
 
 /// Holds the state of if-else.
@@ -575,6 +578,8 @@ pub fn gen_call<'a>(
         .builder
         .build_call(fn_called, &args, "")
         .expect("should build call");
+
+    generate_stackmap(ctx, exec_env_ptr, locals)?;
 
     // Generate unwinding code for checkpoint
     if ctx.config.enable_cr {

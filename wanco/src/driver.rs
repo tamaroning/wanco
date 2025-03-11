@@ -204,13 +204,16 @@ impl<'a> AotWasmModule<'a> {
         // link libunwind to the exe
         let triple = get_target_machine(args).unwrap().get_triple();
         let triple = triple.as_str().to_str().unwrap();
-        if triple == "x86_64-unknown-linux-gnu" {
+        if triple.contains("x86_64") {
             cmd.arg("-lunwind");
             cmd.arg("-lunwind-x86_64");
-        } else if triple == "aarch64-unknown-linux-gnu" {
+        } else if triple.contains("aarch64") {
             cmd.arg("-lunwind");
             cmd.arg("-lunwind-aarch64");
         }
+
+        // link libelf to the exe
+        cmd.arg("-lelf");
 
         if args.lto {
             cmd.arg("-flto");
