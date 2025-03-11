@@ -10,24 +10,25 @@ See [examples](./examples) for quick start.
 ## Build
 
 Prerequisites:
+
 - POSIX compliant OS (Linux, TODO: support macOS)
-- CMake and C++ compiler
-- Rust and Cargo
-- LLVM 17
-    - Easiest way to install LLVM 17 is to use llvm.sh (Ubuntu/Debian)
-    - `bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"`
-    - `chmod +x llvm.sh`
-    - `./llvm.sh 17`
-- protocol buffer
-    - Run `apt install libprotobuf-dev protobuf-compiler`
-- Libunwind
-    - Run `apt install libunwind-dev`
-- Libdwarf
-    - Run `apt install libdwarf-dev`
-<!-- - libunwind-dev (Run `apt install libunwind-dev`) -->
+- Cargo (Rust)
+    - Install from the [website](https://www.rust-lang.org/learn/get-started)
 
+To install dependencies in Linux/Debian, run the following commands:
 
-First clone the project:
+```bash
+# Install LLVM 17 and LibPolly
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 17
+sudo apt install libpolly-17-dev
+
+# Install all other deps
+sudo apt install build-essential cmake libprotobuf-dev protobuf-compiler libunwind-dev libzstd-dev
+```
+
+First, clone the repository:
 
 ```sh
 $ git clone git@github.com:tamaroning/wanco.git
