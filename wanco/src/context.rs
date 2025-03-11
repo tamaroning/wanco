@@ -46,7 +46,7 @@ pub struct Function {
 }
 
 pub struct Context<'a, 'b> {
-    pub config: &'a Args,
+    pub config: Args,
 
     // Inkwell related
     pub ictx: &'a InkwellContext,
@@ -135,8 +135,6 @@ pub struct Context<'a, 'b> {
 
     // C/R v2
     next_stackmap_id: AtomicU64,
-    // C/R v2 api
-    pub fn_start_checkpoint_v2: Option<FunctionValue<'a>>,
 
     // common to both C/R v1 and v2
     pub num_migration_points: u32,
@@ -144,7 +142,7 @@ pub struct Context<'a, 'b> {
 
 impl<'a> Context<'a, '_> {
     pub fn new<'b>(
-        args: &'a Args,
+        args: Args,
         ictx: &'a InkwellContext,
         module: &'b Module<'a>,
         builder: Builder<'a>,
@@ -223,7 +221,6 @@ impl<'a> Context<'a, '_> {
             analysis_v1: None,
 
             next_stackmap_id: AtomicU64::new(0),
-            fn_start_checkpoint_v2: None,
 
             num_migration_points: 0,
         }

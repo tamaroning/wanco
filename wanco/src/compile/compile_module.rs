@@ -159,7 +159,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
 
     finalize(ctx)?;
 
-    if ctx.config.enable_cr || ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
+    if ctx.config.enable_cr {
         log::info!("Inserted {} migration points", ctx.num_migration_points);
     }
 

@@ -15,6 +15,8 @@ target_sources(wanco_rt PRIVATE
     wrt.cc
     chkpt/chkpt_protobuf.cc
     lz4/lz4.c
+    stackmap/stackmap.cc
+    stackmap/elf.cc
     ${PROTO_SRCS}
     )
 include_directories(wanco_rt PUBLIC

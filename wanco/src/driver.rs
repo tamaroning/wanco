@@ -1,10 +1,13 @@
 use anyhow::{anyhow, Context as _, Result};
 use clap::Parser;
-use inkwell::targets::{self, FileType};
-use std::path;
+use inkwell::{
+    object_file::ObjectFile,
+    targets::{self, FileType},
+};
+use std::path::{self, Path, PathBuf};
 
 use crate::{
-    compile::{self, cr_v2},
+    compile::{self, stackmap},
     context::Context,
 };
 
@@ -37,7 +40,7 @@ impl std::fmt::Display for OptimizationLevel {
     }
 }
 
-#[derive(Parser, Debug, Default)]
+#[derive(Debug, Clone, Parser, Default)]
 pub struct Args {
     pub input_file: path::PathBuf,
 
@@ -81,14 +84,6 @@ pub struct Args {
     #[arg(long, default_value = "256")]
     pub migration_point_per_inst: u32,
 
-    /// TODO: Enable the checkpoint feature. (v2)
-    #[arg(long)]
-    pub checkpoint_v2: bool,
-
-    /// TODO: Enable the restore feature. (v2)
-    #[arg(long)]
-    pub restore_v2: bool,
-
     /// Optimization level.
     #[arg(short = 'O', value_enum, default_value = "1")]
     pub optimization: OptimizationLevel,
@@ -118,7 +113,7 @@ pub fn check_config(args: &Args) -> bool {
         return false;
     }
 
-    if args.enable_cr && (args.checkpoint_v2 || args.restore_v2) {
+    if args.enable_cr {
         log::error!("Cannot use both v1 and v2 checkpoint/restore features");
         return false;
     }
@@ -126,186 +121,187 @@ pub fn check_config(args: &Args) -> bool {
     true
 }
 
-pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
-    // Create a new LLVM context and module
-    let ictx = inkwell::context::Context::create();
-    let module = ictx.create_module("wanco_aot");
-    let builder = ictx.create_builder();
-    let mut ctx = Context::new(args, &ictx, &module, builder);
+struct AotWasmModule<'a> {
+    ictx: &'a inkwell::context::Context,
+    module: inkwell::module::Module<'a>,
+    //builder: inkwell::builder::Builder<'a>,
+}
 
-    compile::compile_module(wasm, &mut ctx)?;
+impl<'a> AotWasmModule<'a> {
+    fn compile(ictx: &'a inkwell::context::Context, wasm: &[u8], args: Args) -> Result<Self> {
+        let module = ictx.create_module("wanco_aot");
+        let builder = ictx.create_builder();
 
-    if ctx.config.checkpoint_v2 || ctx.config.restore_v2 {
-        log::info!("Writing module to memory buffer");
-        let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
-        // TODO: remove
-        {
-            ctx.module
-                .print_to_file("wasm.ll")
-                .map_err(|e| anyhow!(e.to_string()))
-                .context("Failed to write to the ll file")?;
-            log::info!("wrote to wasm.ll");
-        }
-        // write module to memory
-        let buf = target
-            .write_to_memory_buffer(ctx.module, targets::FileType::Object)
-            .map_err(|e| anyhow!(e.to_string()))?;
-        log::info!("Wrote module to memory buffer");
-        let obj = buf
-            .create_object_file()
-            .map_err(|()| anyhow!("Failed to create object file"))?;
+        let mut ctx = Context::new(args, &ictx, &module, builder);
+        compile::compile_module(wasm, &mut ctx)?;
 
-        log::info!("Searching stackmap");
-        let sections = obj.get_sections();
-        let mut stackmap = None;
-        for section in sections {
-            let Some(name) = section.get_name() else {
-                continue;
-            };
-            let name = name.to_str().expect("error get section name");
-            if name != ".llvm_stackmaps" && name != "__llvm_stackmaps" {
-                continue;
-            }
-            let data = section.get_contents();
-            log::info!("Parsing stackmap");
-            let res = cr_v2::stackmap::parse(data);
-            stackmap = Some(res.map_err(|e| anyhow!(e))?);
-        }
+        Ok(Self {
+            ictx: ictx,
+            module: module,
+            //builder,
+        })
+    }
 
-        if let Some(stkmap) = stackmap {
-            cr_v2::stackmap::prettyprint(&stkmap);
+    fn write_llvm_object(&self, args: &Args, out_tmpdir: bool) -> Result<PathBuf> {
+        let path = if out_tmpdir {
+            let random_suffix = rand::random::<u64>();
+            let path_str = format!("/tmp/wasm-{}.bc", random_suffix);
+            Path::new(&path_str).to_path_buf()
         } else {
-            log::error!("Failed to find .llvm_stackmap section");
+            Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned())).with_extension("bc")
+        };
+
+        log::info!("Writing LLVM bitcode to {}", path.display());
+        if self.module.write_bitcode_to_path(&path) {
+            Ok(path)
+        } else {
+            Err(anyhow!("Failed to write .bc file"))
         }
     }
 
-    //let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
-    //let triple = target.get_triple();
-    //log::debug!("target triple: {}", triple.as_str().to_str().unwrap());
+    fn write_llvm_asm(&self, args: &Args, out_tmpdir: bool) -> Result<PathBuf> {
+        let path = if out_tmpdir {
+            let random_suffix = rand::random::<u64>();
+            let path_str = format!("/tmp/wasm-{}.ll", random_suffix);
+            Path::new(&path_str).to_path_buf()
+        } else {
+            let path = Path::new(&args.output_file.clone().unwrap_or("wasm.ll".to_owned()))
+                .with_extension("ll");
+            path.to_path_buf()
+        };
 
-    // TODO: Linker should use .bc file instead of .ll file.
-    // Linker take .ll file for now since backward compatibility of the bc file is not guaranteed.
-    // It enables to use the different version of clang as a linker.
-    let llobj_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned()))
-        .with_extension("bc");
-    let asm_path = path::Path::new(&args.output_file.clone().unwrap_or("wasm.ll".to_owned()))
-        .with_extension("ll");
-    let random_suffix = rand::random::<u64>();
-    let tmp_asm_path = format!("/tmp/wasm-{}.ll", random_suffix);
-    let tmp_asm_path = path::Path::new(&tmp_asm_path);
-    let tmp_llobj_path = format!("/tmp/wasm-{}.bc", random_suffix);
-    let tmp_llobj_path = path::Path::new(&tmp_llobj_path);
-    let tmp_obj_path = format!("/tmp/wasm-{}.o", random_suffix);
-    let tmp_obj_path = path::Path::new(&tmp_obj_path);
-    let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
-    let exe_path = path::Path::new(&exe_path);
+        log::info!("Writing LLVM IR to {}", path.display());
+        match self.module.print_to_file(&path) {
+            Ok(()) => Ok(path),
+            Err(e) => Err(anyhow!(e.to_string())),
+        }
+    }
+
+    fn write_object_to_memory(&self, args: &Args) -> Result<ObjectFile> {
+        log::info!("Writing module to memory buffer");
+        let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
+        let buf = target
+            .write_to_memory_buffer(&self.module, targets::FileType::Object)
+            .map_err(|e| anyhow!(e.to_string()))?;
+        let obj = buf
+            .create_object_file()
+            .map_err(|()| anyhow!("Failed to create object file"))?;
+        Ok(obj)
+    }
+
+    fn link_with_runtime(&self, args: &Args) -> Result<PathBuf> {
+        let exe_path = args.output_file.clone().unwrap_or("a.out".to_owned());
+        let exe_path = Path::new(&exe_path).to_path_buf();
+
+        // write .bc file
+        let tmp_ll_path = self.write_llvm_asm(args, true)?;
+
+        // TODO: handle args.no_bc
+
+        // use clang++ as a linker
+        let clangxx = args.clang_path.clone().unwrap_or("clang++-17".to_owned());
+        let library_path = args
+            .library_path
+            .clone()
+            .unwrap_or("/usr/local/lib".to_owned());
+        let mut cmd = std::process::Command::new(clangxx);
+        let cmd = cmd
+            .arg(tmp_ll_path)
+            .arg(format!("{}/libwanco_rt.a", library_path))
+            .arg(format!("{}/libwanco_wasi.a", library_path))
+            .arg("-g")
+            .arg("-o")
+            .arg(&exe_path)
+            .arg("-no-pie")
+            .arg(format!("-{}", args.optimization));
+
+        // link protobuf to the exe
+        cmd.arg("-lprotobuf");
+
+        // link libunwind to the exe
+        let triple = get_target_machine(args).unwrap().get_triple();
+        let triple = triple.as_str().to_str().unwrap();
+        if triple == "x86_64-unknown-linux-gnu" {
+            cmd.arg("-lunwind");
+            cmd.arg("-lunwind-x86_64");
+        } else if triple == "aarch64-unknown-linux-gnu" {
+            cmd.arg("-lunwind");
+            cmd.arg("-lunwind-aarch64");
+        }
+
+        if args.lto {
+            cmd.arg("-flto");
+        }
+        /*
+        if args.cf_protection {
+            cmd.arg("-fcf-protection=full");
+            //cmd.arg("-Wl,--enable-cet");
+        }
+        */
+
+        if let Some(ref target) = args.target {
+            cmd.arg(format!("--target={}", target));
+        }
+        log::info!("{:?}", cmd);
+
+        let o = cmd
+            .output()
+            .map_err(|e| anyhow!(e.to_string()))
+            .context("Failed to link object files")?;
+        if !o.status.success() {
+            let cc_stderr = String::from_utf8(o.stderr).unwrap();
+            return Err(anyhow!("Failed to link object files: {}", cc_stderr));
+        }
+        log::info!("Linked to {}", exe_path.display());
+
+        Ok(exe_path)
+    }
+}
+
+fn dump_stackmap(obj: &ObjectFile) -> Result<()> {
+    log::info!("Searching stackmap");
+    let sections = obj.get_sections();
+    let mut stackmap = None;
+    for section in sections {
+        let Some(name) = section.get_name() else {
+            continue;
+        };
+        let name = name.to_str().expect("error get section name");
+        if name != ".llvm_stackmaps" && name != "__llvm_stackmaps" {
+            continue;
+        }
+        let data = section.get_contents();
+        log::info!("Parsing stackmap");
+        let res = stackmap::parse(data);
+        stackmap = Some(res.map_err(|e| anyhow!(e))?);
+    }
+
+    if let Some(stkmap) = stackmap {
+        stackmap::prettyprint(&stkmap);
+    } else {
+        log::error!("Failed to find .llvm_stackmap section");
+    }
+
+    Ok(())
+}
+
+pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
+    let ictx = inkwell::context::Context::create();
+    let aot_module = AotWasmModule::compile(&ictx, wasm, args.clone())?;
+
+    if false {
+        let obj = aot_module.write_object_to_memory(args)?;
+        dump_stackmap(&obj)?;
+    }
 
     if args.compile_only {
-        log::info!("Writing LLVM object");
-        ctx.module
-            .print_to_file(asm_path.to_str().expect("error ll_path"))
-            .map_err(|e| anyhow!(e.to_string()))
-            .context("Failed to write to the ll file")?;
-        log::info!("wrote to {}", asm_path.display());
-
-        if !ctx.module.write_bitcode_to_path(&llobj_path) {
-            return Err(anyhow!("Failed to write the LLVM object file"));
-        }
-        log::info!("wrote to {}", llobj_path.display());
-
+        aot_module.write_llvm_asm(args, false)?;
         return Ok(());
     }
 
     // Write and Link object files
-    log::info!("Writing object");
-
-    let aot_object = if !ctx.config.no_bc {
-        ctx.module
-            .print_to_file(tmp_asm_path.to_str().expect("error ll_path"))
-            .map_err(|e| anyhow!(e.to_string()))
-            .context("Failed to write to the ll file")?;
-        log::info!("wrote to {}", tmp_asm_path.display());
-        tmp_asm_path
-        /* 
-        // invoke llvm-as-17
-        let mut cmd = std::process::Command::new("llvm-as-17");
-        let cmd = cmd.arg(tmp_asm_path).arg("-o").arg(tmp_llobj_path);
-        log::info!("{:?}", cmd);
-        let o = cmd
-            .output()
-            .map_err(|e| anyhow!(e.to_string()))
-            .context("Failed to assemble the LLVM IR")?;
-        if !o.status.success() {
-            let cc_stderr = String::from_utf8(o.stderr).unwrap();
-            return Err(anyhow!("Failed to assemble the LLVM IR: {}", cc_stderr));
-        }
-        log::info!("Assembled to {}", tmp_llobj_path.display());
-        tmp_llobj_path
-        */
-    } else {
-        log::info!("Compiling AOT momdule to ELF object instead of LLVM bitcode");
-        let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
-        target
-            .write_to_file(&ctx.module, FileType::Object, tmp_obj_path)
-            .expect("error write to file");
-        log::info!("wrote to {}", tmp_obj_path.display());
-        tmp_obj_path
-    };
-
-    log::info!("Linking object files");
-    let clangxx = args.clang_path.clone().unwrap_or("clang++-17".to_owned());
-    let library_path = args
-        .library_path
-        .clone()
-        .unwrap_or("/usr/local/lib".to_owned());
-    let mut cmd = std::process::Command::new(clangxx);
-    let cmd = cmd
-        .arg(aot_object)
-        .arg(format!("{}/libwanco_rt.a", library_path))
-        .arg(format!("{}/libwanco_wasi.a", library_path))
-        .arg("-g")
-        .arg("-o")
-        .arg(exe_path)
-        .arg("-no-pie")
-        .arg(format!("-{}", args.optimization));
-
-    // link protobuf
-    cmd.arg("-lprotobuf");
-
-    // link libunwind
-    /*
-    let triple = get_target_machine(args).unwrap().get_triple();
-    let triple = triple.as_str().to_str().unwrap();
-    if triple == "x86_64-unknown-linux-gnu" {
-        cmd.arg("-lunwind");
-        cmd.arg("-lunwind-x86_64");
-    } else if triple == "aarch64-unknown-linux-gnu" {
-        cmd.arg("-lunwind");
-        cmd.arg("-lunwind-aarch64");
-    }
-    */
-
-    if args.lto {
-        cmd.arg("-flto");
-    }
-    if args.cf_protection {
-        cmd.arg("-fcf-protection=full");
-        //cmd.arg("-Wl,--enable-cet");
-    }
-
-    if let Some(ref target) = args.target {
-        cmd.arg(format!("--target={}", target));
-    }
-    log::info!("{:?}", cmd);
-
-    let o = cmd
-        .output()
-        .map_err(|e| anyhow!(e.to_string()))
-        .context("Failed to link object files")?;
-    if !o.status.success() {
-        let cc_stderr = String::from_utf8(o.stderr).unwrap();
-        return Err(anyhow!("Failed to link object files: {}", cc_stderr));
-    }
+    log::info!("Linking the object files");
+    let exe_path = aot_module.link_with_runtime(args)?;
     log::info!("Linked to {}", exe_path.display());
 
     Ok(())

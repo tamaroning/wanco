@@ -42,7 +42,7 @@ StkMapRecord[NumRecords] {
 }
 */
 
-use crate::compile::cr_v2::stackmap::regs::AsStr;
+use super::regs::AsStr;
 
 use super::regs::Reg;
 use anyhow::{anyhow, Result};
