@@ -144,10 +144,6 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
         }
     }
 
-    if ctx.config.enable_cr && ctx.config.optimize_cr {
-        cr::opt::run_analysis_pass(ctx, &function_bodies)?;
-    }
-
     ctx.current_function_idx = Some(ctx.num_imports);
     for body in function_bodies {
         compile_function(ctx, body)?;

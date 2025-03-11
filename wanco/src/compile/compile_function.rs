@@ -25,79 +25,6 @@ use anyhow::{anyhow, bail, Context as _, Result};
 
 use super::helper::{gen_memory_base, gen_memory_size};
 
-mod op_counter {
-    use wasmparser::Operator;
-
-    pub(super) struct OpCounter {
-        // if this reaches the threshold (args.migration_point_per_inst),
-        // migration point is inserted
-        inst_count: u32,
-        // track end instructions
-        scopes: Vec<EndKind>,
-    }
-
-    enum EndKind {
-        Block,
-        Loop,
-        If,
-    }
-
-    impl OpCounter {
-        pub(super) fn new() -> Self {
-            Self {
-                inst_count: 0,
-                scopes: Vec::new(),
-            }
-        }
-
-        pub(super) fn reset_inst_count(&mut self) {
-            self.inst_count = 0;
-        }
-
-        pub(super) fn get_inst_count(&self) -> u32 {
-            self.inst_count
-        }
-
-        pub(super) fn eat_inst(&mut self, op: &Operator) {
-            match op {
-                Operator::Block { .. } => {
-                    self.scopes.push(EndKind::Block);
-                }
-                Operator::Loop { .. } => {
-                    // Since migration points are inserted to every loop,
-                    // reset the instruction count
-                    self.inst_count = 0;
-                    self.scopes.push(EndKind::Loop);
-                }
-                Operator::If { .. } => {
-                    self.scopes.push(EndKind::If);
-                }
-                Operator::End => {
-                    if matches!(self.scopes.pop(), Some(EndKind::Loop)) {
-                        self.inst_count = 0;
-                    }
-                }
-                Operator::Call { .. } | Operator::CallIndirect { .. } => {
-                    self.inst_count = 0;
-                }
-                // Ignore other control flow instructions
-                Operator::Else { .. }
-                | Operator::Br { .. }
-                | Operator::BrIf { .. }
-                | Operator::BrTable { .. }
-                | Operator::Return
-                | Operator::Unreachable
-                | Operator::Nop => {
-                    self.inst_count += 0;
-                }
-                _ => {
-                    self.inst_count += 1;
-                }
-            }
-        }
-    }
-}
-
 pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Result<()> {
     log::debug!(
         "Compile function (idx = {})",
@@ -174,21 +101,14 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         }
     }
 
-    // entry dispatcher for restore (v1)
-    let should_gen_restore_dispatch_v1 = ctx.config.enable_cr
-        && (!ctx.config.optimize_cr
-            || ctx
-                .analysis_v1
-                .as_ref()
-                .unwrap()
-                .function_requires_restore_instrumentation(ctx.current_function_idx.unwrap()));
-    if should_gen_restore_dispatch_v1 {
+    // entry dispatcher for restore
+    if ctx.config.enable_cr {
         ctx.restore_dispatch_bb = None;
         ctx.restore_dispatch_cases = vec![];
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
     }
 
-    // Generate checkpoint (v1)
+    // Generate checkpoint
     if ctx.config.enable_cr {
         ctx.current_op = Some(i32::MAX as u32);
         gen_migration_point(ctx, &exec_env_ptr, &locals)
@@ -196,42 +116,20 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
         ctx.num_migration_points += 1;
     }
 
-    //let mut op_counter = op_counter::OpCounter::new();
-
     // compile instructions
     let mut op_reader = f.get_operators_reader()?.get_binary_reader();
     let mut num_op = 0;
     while !op_reader.eof() {
         let op = op_reader.read_operator()?;
         log::trace!("- op[{}]: {:?}", num_op, &op);
-
-        // Insert migration point if the current block big enough
-        /*
-        op_counter.eat_inst(&op);
-        if ctx.config.enable_cr
-            && op_counter.get_inst_count() >= ctx.config.migration_point_per_inst
-            // FIXME: LLVM Error: Instruction does not dominate all uses!
-            && false
-        {
-            log::info!(
-                "Insert migration point at {} in Fn[{}]",
-                num_op,
-                ctx.current_function_idx.unwrap()
-            );
-            gen_migration_point(ctx, &exec_env_ptr, &locals, 0)
-                .expect("fail to gen_migration_point");
-            op_counter.reset_inst_count();
-        }
-        */
-
         ctx.current_op = Some(num_op);
         compile_op(ctx, &op, &exec_env_ptr, &mut locals)?;
 
         num_op += 1;
     }
 
-    // finalize dispatcher for restore (v1)
-    if should_gen_restore_dispatch_v1 {
+    // finalize dispatcher for restore
+    if ctx.config.enable_cr {
         ctx.builder
             .position_at_end(ctx.restore_dispatch_bb.unwrap());
         gen_finalize_restore_dispatch(ctx, &exec_env_ptr)

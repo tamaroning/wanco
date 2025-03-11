@@ -1,8 +1,8 @@
 use anyhow::{bail, Result};
 use inkwell::{
     basic_block::BasicBlock,
-    types::{BasicTypeEnum, FunctionType},
-    values::{AnyValue, BasicValue, BasicValueEnum, CallSiteValue, PointerValue},
+    types::BasicTypeEnum,
+    values::{AnyValue, BasicValue, CallSiteValue, PointerValue},
 };
 
 use crate::context::{Context, Global};

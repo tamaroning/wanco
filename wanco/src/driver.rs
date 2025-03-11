@@ -1,9 +1,6 @@
 use anyhow::{anyhow, Context as _, Result};
 use clap::Parser;
-use inkwell::{
-    object_file::ObjectFile,
-    targets::{self, FileType},
-};
+use inkwell::{object_file::ObjectFile, targets};
 use std::path::{self, Path, PathBuf};
 
 use crate::{
@@ -68,21 +65,13 @@ pub struct Args {
     #[arg(long)]
     pub target: Option<String>,
 
-    /// Enable the checkpoint/restore feature. (v1)
+    /// Enable the checkpoint/restore feature.
     #[arg(long)]
     pub enable_cr: bool,
 
-    /// Optimized migration points. (v1)
-    #[arg(long)]
-    pub optimize_cr: bool,
-
-    /// Disable the loop checkpoint/restore feature. (v1)
+    /// Disable the loop checkpoint/restore feature.
     #[arg(long)]
     pub disable_loop_cr: bool,
-
-    /// Insert migration points per WASM instruction. (v1)
-    #[arg(long, default_value = "256")]
-    pub migration_point_per_inst: u32,
 
     /// Optimization level.
     #[arg(short = 'O', value_enum, default_value = "1")]
@@ -108,16 +97,10 @@ pub fn run_compiler(args: &Args) -> Result<()> {
 }
 
 pub fn check_config(args: &Args) -> bool {
-    if (args.optimize_cr || args.disable_loop_cr) && !args.enable_cr {
-        log::error!("Specify --enable-cr to enable checkpoint/restore feature (v1)");
+    if args.disable_loop_cr && !args.enable_cr {
+        log::error!("Specify --enable-cr to enable checkpoint/restore feature");
         return false;
     }
-
-    if args.enable_cr {
-        log::error!("Cannot use both v1 and v2 checkpoint/restore features");
-        return false;
-    }
-
     true
 }
 

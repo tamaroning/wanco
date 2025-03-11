@@ -131,8 +131,6 @@ pub struct Context<'a, 'b> {
     pub restore_dispatch_bb: Option<BasicBlock<'a>>,
     pub restore_dispatch_cases: Vec<(IntValue<'a>, BasicBlock<'a>)>,
 
-    pub analysis_v1: Option<crate::compile::cr::opt::Analysis>,
-
     // C/R v2
     next_stackmap_id: AtomicU64,
 
@@ -217,8 +215,6 @@ impl<'a> Context<'a, '_> {
 
             restore_dispatch_bb: None,
             restore_dispatch_cases: Vec::new(),
-
-            analysis_v1: None,
 
             next_stackmap_id: AtomicU64::new(0),
 
