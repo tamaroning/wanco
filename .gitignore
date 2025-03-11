@@ -34,6 +34,9 @@ compile_commands.json
 # rust
 **/target/
 
+# VSCode
+.vscode/
+
 # clion
 **/.idea/
 **/cmake-build-*/
