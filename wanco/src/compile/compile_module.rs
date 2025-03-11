@@ -342,13 +342,20 @@ fn declare_functions(ctx: &mut Context<'_, '_>) -> Result<()> {
             f.get_first_param()
                 .expect("should have &exec_env as the first param")
                 .set_name("exec_env_ptr");
-            // add attribute
-            // create noredzone attribute
+
+            // Add noredzone attribute to the function
             let attr_noredzone = ctx
                 .ictx
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("noredzone"), 0);
-
             f.add_attribute(inkwell::attributes::AttributeLoc::Function, attr_noredzone);
+
+            // Add noinline attribute to the function since we need correct call stack when making a checkpoint
+            if ctx.config.enable_cr {
+                let attr_noinline = ctx
+                    .ictx
+                    .create_enum_attribute(Attribute::get_named_enum_kind_id("noinline"), 0);
+                f.add_attribute(inkwell::attributes::AttributeLoc::Function, attr_noinline);
+            }
             f
         });
         ctx.function_values.push(fn_value);
