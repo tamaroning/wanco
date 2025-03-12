@@ -409,6 +409,7 @@ pub(crate) fn generate_stackmap<'a>(
             .into(),
     );
 
+    // locals
     for (local, local_ty) in locals {
         let encoded_local_ty = encode_llvm_type(ctx, local_ty);
         args.push(
@@ -421,7 +422,17 @@ pub(crate) fn generate_stackmap<'a>(
         args.push(load.into());
     }
 
-    // TODO: add stack values
+    // value stack
+    for value in &ctx.stack_frames.last().unwrap().stack {
+        let encoded_ty = encode_llvm_type(ctx, &value.get_type());
+        args.push(
+            ctx.inkwell_types
+                .i32_type
+                .const_int(encoded_ty as u64, false)
+                .into(),
+        );
+        args.push((*value).into());
+    }
 
     ctx.builder
         .build_call(ctx.inkwell_intrs.experimental_stackmap, &args, "")?;
@@ -429,7 +440,7 @@ pub(crate) fn generate_stackmap<'a>(
     Ok(())
 }
 
-fn encode_llvm_type<'a>(ctx: &mut Context<'a, '_>, ty: &BasicTypeEnum<'a>) -> i32 {
+fn encode_llvm_type<'a>(ctx: &Context<'a, '_>, ty: &BasicTypeEnum<'a>) -> i32 {
     match ty {
         BasicTypeEnum::IntType(ty) => {
             if *ty == ctx.inkwell_types.i32_type {
