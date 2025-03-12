@@ -158,7 +158,7 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
   }
 
   buf.set_memory_size(chkpt.memory_size);
-  if (USE_LZ4) {
+  if constexpr (USE_LZ4) {
     uint64_t time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                            std::chrono::system_clock::now().time_since_epoch())
                            .count();
