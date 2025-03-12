@@ -1,6 +1,6 @@
 #include "aot.h"
 #include "elf/elf.h"
-#include "elf/elf.h"
+#include "osr/wasm_stacktrace.h"
 #include "stackmap/stackmap.h"
 #include "stacktrace/stacktrace.h"
 #include "wanco.h"
@@ -54,16 +54,14 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     exit(1);
   }
 
-  wanco::stackmap::Stackmap stackmap = wanco::stackmap::parse_stackmap(stackmap_section.value());
+  wanco::stackmap::Stackmap stackmap =
+      wanco::stackmap::parse_stackmap(stackmap_section.value());
+
   std::cout << wanco::stackmap::stackmap_to_string(stackmap);
-  
-  const auto trace = wanco::get_stack_trace();
-  for (const auto &frame : trace) {
-    std::cout << "Function: " << frame.function_name << std::endl;
-    std::cout << "- PC: 0x" << std::hex << frame.pc << std::endl;
-    std::cout << "- SP: 0x" << std::hex << (void *)frame.sp << std::endl;
-    std::cout << "- BP: 0x" << std::hex << (void *)frame.bp << std::endl;
-  }
+
+  const auto native_trace = wanco::get_stack_trace();
+
+  const auto wasm_trace = wanco::asr_exit(native_trace, stackmap);
 
   Info() << "TODO: Implement checkpoint" << std::endl;
   exit(0);

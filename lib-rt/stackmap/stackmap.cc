@@ -3,6 +3,7 @@
 #include "x86_64.h"
 #include <elf.h>
 #include <link.h>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <sys/mman.h>
@@ -123,10 +124,11 @@ auto parse_stackmap(const std::span<const uint8_t> data) -> Stackmap {
     constants.push_back(parse_constant(ptr));
   }
 
-  std::vector<StkMapRecord> stkmap_records;
+  std::vector<std::shared_ptr<StkMapRecord>> stkmap_records;
   stkmap_records.reserve(num_records);
   for (uint32_t i = 0; i < num_records; i++) {
-    stkmap_records.push_back(parse_stk_map_record(ptr));
+    stkmap_records.push_back(
+        std::make_shared<StkMapRecord>(parse_stk_map_record(ptr)));
   }
 
   return Stackmap{.header = header,
@@ -155,6 +157,35 @@ auto location_kind_to_string(LocationKind kind) -> std::string {
   }
 }
 
+std::string location_to_string(const Stackmap &stackmap,
+                               const Location &location) {
+  std::stringstream ss;
+
+  Register reg{location.dwarf_regnum};
+  switch (location.kind) {
+  case LocationKind::REGISTER: {
+    ss << reg_to_string(reg);
+  } break;
+  case LocationKind::DIRECT: {
+    ss << reg_to_string(reg) << " + " << location.offset;
+  } break;
+  case LocationKind::INDIRECT: {
+    ss << "[" << reg_to_string(reg) << " + " << location.offset << "]";
+  } break;
+  case LocationKind::CONSTANT: {
+    ss << location.offset;
+  } break;
+  case LocationKind::CONSTANT_INDEX: {
+    ASSERT(location.offset < stackmap.constants.size() &&
+           "Invalid constant index");
+    ss << "Constants[" << location.offset
+       << "] = " << stackmap.constants[location.offset].large_constant << '\n';
+  } break;
+  }
+
+  return ss.str();
+}
+
 auto stackmap_to_string(const Stackmap &stackmap) -> std::string {
   std::stringstream ss;
 
@@ -181,43 +212,18 @@ auto stackmap_to_string(const Stackmap &stackmap) -> std::string {
     */
 
   for (size_t i = 0; i < stackmap.stkmap_records.size(); i++) {
-    const StkMapRecord &record = stackmap.stkmap_records[i];
+    auto &record = stackmap.stkmap_records[i];
     ss << "StkMapRecord[" << i << "]" << '\n';
-    ss << "  Patchpoint ID: 0x" << std::hex << record.patchpoint_id << std::dec
+    ss << "  Patchpoint ID: 0x" << std::hex << record->patchpoint_id << std::dec
        << '\n';
-    ss << "  Instruction offset: " << record.instruction_offset << '\n';
-    ss << "  Record flags: " << record.record_flags << '\n';
-    ss << "  Num locations: " << record.num_locations << '\n';
+    ss << "  Instruction offset: " << record->instruction_offset << '\n';
+    ss << "  Record flags: " << record->record_flags << '\n';
+    ss << "  Num locations: " << record->num_locations << '\n';
 
-    for (size_t j = 0; j < record.locations.size(); j++) {
-      const Location &location = record.locations[j];
-      ss << "  Location[" << j << "] = ";
-      Register reg{location.dwarf_regnum};
-      switch (location.kind) {
-      case LocationKind::REGISTER: {
-        ss << reg_to_string(reg) << '\n';
-      } break;
-      case LocationKind::DIRECT: {
-        ss << reg_to_string(reg) << " + " << location.offset << '\n';
-      } break;
-      case LocationKind::INDIRECT: {
-        ss << "[" << reg_to_string(reg) << " + " << location.offset << "]"
-           << '\n';
-      } break;
-      case LocationKind::CONSTANT: {
-        ss << location.offset << '\n';
-      } break;
-      case LocationKind::CONSTANT_INDEX: {
-        ASSERT(location.offset < stackmap.constants.size() &&
-               "Invalid constant index");
-        ss << "Constants[" << location.offset
-           << "] = " << stackmap.constants[location.offset].large_constant
-           << '\n';
-      } break;
-      default:
-        ss << "Unknown" << '\n';
-        break;
-      }
+    for (size_t j = 0; j < record->locations.size(); j++) {
+      const Location &location = record->locations[j];
+      ss << "  Location[" << j
+         << "] = " << location_to_string(stackmap, location) << '\n';
     }
   }
 

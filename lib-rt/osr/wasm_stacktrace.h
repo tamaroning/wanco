@@ -1,0 +1,50 @@
+#pragma once
+#include "chkpt/chkpt.h"
+#include "stackmap/stackmap.h"
+#include "stacktrace/stacktrace.h"
+#include <vector>
+
+namespace wanco {
+
+// A class representing a location in a WebAssembly program.
+class WasmLocation {
+public:
+  int32_t get_func() const { return func; }
+
+  // Returns the instruction offset from the beginning of the function.
+  int32_t get_insn() const {
+    ASSERT(!is_func_entry() && "Invalid insn");
+    return insn;
+  }
+
+  // Returns whether the location represents a function entry.
+  bool is_func_entry() const { return insn == -1; }
+
+  static WasmLocation from_stackmap_id(uint64_t id) {
+    int32_t func = (id & 0xFFFFFFFF00000000) >> 32;
+    int32_t insn = (int32_t)(id & 0xFFFFFFFF);
+    return WasmLocation(func, insn);
+  }
+
+private:
+  WasmLocation(int32_t func, int32_t insn) : func(func), insn(insn) {}
+
+  // Function index.
+  int32_t func;
+  // Instruction offset from the beginning of the function.
+  // -1 if the location represents a function entry.
+  int32_t insn;
+};
+
+// A struct representing a single WebAssembly stack frame.
+struct WasmStackFrame {
+  WasmLocation loc;
+  std::vector<Value> locals;
+  std::vector<Value> stack;
+};
+
+std::vector<WasmStackFrame>
+asr_exit(const std::deque<NativeStackFrame> &callstack,
+         const stackmap::Stackmap &stackmap);
+
+} // namespace wanco

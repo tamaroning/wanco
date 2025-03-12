@@ -18,6 +18,7 @@ target_sources(wanco_rt PRIVATE
     stackmap/stackmap.cc
     stacktrace/stacktrace.cc
     elf/elf.cc
+    osr/asr_exit.cc
     ${PROTO_SRCS}
     )
 include_directories(wanco_rt PUBLIC

@@ -1,8 +1,11 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <string>
 #include <vector>
+// switch this for other architectures
+#include "x86_64.h"
 
 namespace wanco::stackmap {
 
@@ -72,10 +75,13 @@ struct Stackmap {
   uint32_t num_records;
   std::vector<StkSizeRecord> stksize_records;
   std::vector<Constant> constants;
-  std::vector<StkMapRecord> stkmap_records;
+  std::vector<std::shared_ptr<StkMapRecord>> stkmap_records;
 };
 
 auto parse_stackmap(std::span<const uint8_t> data) -> stackmap::Stackmap;
+
+std::string location_to_string(const Stackmap &stackmap,
+                               const Location &location);
 
 auto stackmap_to_string(const stackmap::Stackmap &stackmap) -> std::string;
 
