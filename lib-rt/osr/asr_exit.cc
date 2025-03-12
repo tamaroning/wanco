@@ -36,6 +36,7 @@ populate_stackmap(const stackmap::Stackmap &stackmap) {
 }
 
 // Perform All-stack replacement exit.
+// The bottom frame is stored in the return value.
 std::vector<WasmStackFrame>
 asr_exit(const stackmap::CallerSavedRegisters &regs,
          const std::deque<NativeStackFrame> &callstack,
@@ -167,7 +168,7 @@ static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
   Debug() << "Num locals: " << num_locals << ", Num stack: " << num_stack
           << '\n';
 
-  std::vector<Value> locals;
+  std::deque<Value> locals;
   std::vector<Value> stack;
 
   size_t i = 1;

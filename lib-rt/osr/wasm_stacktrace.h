@@ -2,6 +2,7 @@
 #include "chkpt/chkpt.h"
 #include "stackmap/stackmap.h"
 #include "stacktrace/stacktrace.h"
+#include <deque>
 #include <vector>
 
 namespace wanco {
@@ -12,13 +13,7 @@ public:
   int32_t get_func() const { return func; }
 
   // Returns the instruction offset from the beginning of the function.
-  int32_t get_insn() const {
-    ASSERT(!is_func_entry() && "Invalid insn");
-    return insn;
-  }
-
-  // Returns whether the location represents a function entry.
-  bool is_func_entry() const { return insn == -1; }
+  int32_t get_insn() const { return insn; }
 
   static WasmLocation from_stackmap_id(uint64_t id) {
     int32_t func = (id & 0xFFFFFFFF00000000) >> 32;
@@ -40,14 +35,13 @@ private:
 class WasmStackFrame {
 public:
   WasmLocation loc;
-  std::vector<Value> locals;
+  std::deque<Value> locals;
   std::vector<Value> stack;
 
   std::string to_string() const {
     std::string s = "WasmStackFrame[";
     s += "func=" + std::to_string(loc.get_func());
-    if (!loc.is_func_entry())
-      s += ", insn=" + std::to_string(loc.get_insn());
+    s += ", insn=" + std::to_string(loc.get_insn());
     s += ", locals=[";
     for (const auto &v : locals)
       s += v.to_string() + ", ";

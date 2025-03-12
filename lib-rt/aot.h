@@ -33,3 +33,7 @@ extern "C" void aot_main(ExecEnv *);
 
 // defined in wrt.c
 extern "C" ExecEnv exec_env;
+
+namespace wanco {
+extern "C" Checkpoint chkpt;
+}

@@ -1,4 +1,5 @@
 #include "aot.h"
+#include "chkpt/chkpt.h"
 #include "elf/elf.h"
 #include "osr/wasm_stacktrace.h"
 #include "stackmap/arch.h"
@@ -75,7 +76,35 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     std::cout << frame.to_string() << std::endl;
   }
 
-  Info() << "TODO: Implement checkpoint" << std::endl;
+  // store the call stack
+  for (const auto &frame : wasm_trace) {
+    wanco::chkpt.frames.push_front(wanco::Frame{
+        .fn_index = frame.loc.get_func(),
+        .pc = frame.loc.get_insn(),
+        .locals = frame.locals,
+        .stack = frame.stack,
+    });
+  }
+
+  // TODO: store table and globals
+
+  // store the linear memory
+  wanco::chkpt.memory_size = exec_env->memory_size;
+
+  // write snapshot
+  {
+    std::ofstream ofs("checkpoint.pb");
+    encode_checkpoint_proto(ofs, wanco::chkpt, exec_env->memory_base);
+    Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
+
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+    time = time - wanco::CHKPT_START_TIME;
+    // TODO(tamaron): remove this (research purpose)
+    std::ofstream chktime("chkpt-time.txt");
+    chktime << time << '\n';
+  }
   exit(0);
 }
 
@@ -281,9 +310,9 @@ extern "C" void pop_front_frame(ExecEnv *exec_env) {
          "Invalid migration state");
   ASSERT(!wanco::chkpt.frames.empty() && "No frame to restore");
   wanco::Frame &frame = wanco::chkpt.frames.front();
-  ASSERT(frame.locals.empty() && "Locals not empty");
   DEBUG_LOG << "call to pop_front_frame -> Fn[" << frame.fn_index << "]"
             << std::endl;
+  ASSERT(frame.locals.empty() && "Locals not empty");
 
   if (!frame.locals.empty()) {
     Fatal() << "Locals not empty" << std::endl;
