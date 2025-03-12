@@ -110,7 +110,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
 
     // Generate checkpoint
     if ctx.config.enable_cr {
-        ctx.current_op = Some(i32::MAX as u32);
+        ctx.current_op = Some(u32::MAX);
         gen_migration_point(ctx, &exec_env_ptr, &locals)
             .expect("fail to gen_check_state_and_snapshot");
         ctx.num_migration_points += 1;
