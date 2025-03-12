@@ -37,14 +37,31 @@ private:
 };
 
 // A struct representing a single WebAssembly stack frame.
-struct WasmStackFrame {
+class WasmStackFrame {
+public:
   WasmLocation loc;
   std::vector<Value> locals;
   std::vector<Value> stack;
+
+  std::string to_string() const {
+    std::string s = "WasmStackFrame[";
+    s += "func=" + std::to_string(loc.get_func());
+    if (!loc.is_func_entry())
+      s += ", insn=" + std::to_string(loc.get_insn());
+    s += ", locals=[";
+    for (const auto &v : locals)
+      s += v.to_string() + ", ";
+    s += "], stack=[";
+    for (const auto &v : stack)
+      s += v.to_string() + ", ";
+    s += "]]";
+    return s;
+  }
 };
 
 std::vector<WasmStackFrame>
-asr_exit(const std::deque<NativeStackFrame> &callstack,
+asr_exit(const stackmap::CallerSavedRegisters &regs,
+         const std::deque<NativeStackFrame> &callstack,
          const stackmap::Stackmap &stackmap);
 
 } // namespace wanco

@@ -1,6 +1,5 @@
 #include "stackmap.h"
 #include "wanco.h"
-#include "x86_64.h"
 #include <elf.h>
 #include <link.h>
 #include <memory>

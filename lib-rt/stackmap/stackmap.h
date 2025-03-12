@@ -4,8 +4,7 @@
 #include <span>
 #include <string>
 #include <vector>
-// switch this for other architectures
-#include "x86_64.h"
+#include "arch.h"
 
 namespace wanco::stackmap {
 

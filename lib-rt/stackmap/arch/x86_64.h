@@ -1,5 +1,9 @@
+// Do not include this file directly. Include `arch.h` instead.
 #pragma once
+#include "wanco.h"
+#include <cstdint>
 #include <string>
+
 namespace wanco::stackmap {
 
 enum class Register {
@@ -167,5 +171,53 @@ inline auto reg_to_string(Register &reg) -> std::string {
     return "Unknown";
   }
 }
+
+// For System V ABI.
+struct CallerSavedRegisters {
+  uint64_t rbx;
+  // skip rbp because it is retrieved with libunwind.
+  uint64_t r12;
+  uint64_t r13;
+  uint64_t r14;
+  uint64_t r15;
+
+  uint64_t get_value(Register reg) const {
+    switch (reg) {
+    case Register::RBX:
+      return rbx;
+    case Register::R12:
+      return r12;
+    case Register::R13:
+      return r13;
+    case Register::R14:
+      return r14;
+    case Register::R15:
+      return r15;
+    default:
+      Fatal() << "Invalid register " << reg_to_string(reg) << '\n';
+      exit(1);
+    }
+  }
+};
+
+#define WANCO_SAVE_REGISTERS()                                                 \
+  asm volatile(".intel_syntax noprefix \n\t"                                   \
+               "push rbx \n\t"                                                 \
+               "push r12 \n\t"                                                 \
+               "push r13 \n\t"                                                 \
+               "push r14 \n\t"                                                 \
+               "push r15 \n\t"                                                 \
+               ".att_syntax \n\t");
+
+#define WANCO_RESTORE_REGISTERS(regs)                                          \
+  asm volatile(".intel_syntax noprefix \n\t"                                   \
+               "pop %0 \n\t"                                                   \
+               "pop %1 \n\t"                                                   \
+               "pop %2 \n\t"                                                   \
+               "pop %3 \n\t"                                                   \
+               "pop %4 \n\t"                                                   \
+               ".att_syntax \n\t"                                              \
+               : "=r"((regs).r15), "=r"((regs).r14), "=r"((regs).r13),         \
+                 "=r"((regs).r12), "=r"((regs).rbx));
 
 } // namespace wanco::stackmap

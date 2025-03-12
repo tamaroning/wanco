@@ -1,7 +1,6 @@
 #include "chkpt/chkpt.h"
 #include "osr/wasm_stacktrace.h"
 #include "stackmap/stackmap.h"
-#include "stackmap/x86_64.h"
 #include "stacktrace/stacktrace.h"
 #include "wanco.h"
 #include <deque>
@@ -12,6 +11,7 @@
 namespace wanco {
 
 static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
+                               const stackmap::CallerSavedRegisters &regs,
                                const stackmap::Stackmap &stackmap,
                                std::shared_ptr<stackmap::StkMapRecord> record);
 
@@ -37,7 +37,8 @@ populate_stackmap(const stackmap::Stackmap &stackmap) {
 
 // Perform All-stack replacement exit.
 std::vector<WasmStackFrame>
-asr_exit(const std::deque<NativeStackFrame> &callstack,
+asr_exit(const stackmap::CallerSavedRegisters &regs,
+         const std::deque<NativeStackFrame> &callstack,
          const stackmap::Stackmap &stackmap) {
   std::vector<WasmStackFrame> trace;
 
@@ -59,7 +60,9 @@ asr_exit(const std::deque<NativeStackFrame> &callstack,
     }
     auto &stackmap_record = it->second;
 
-    auto wasm_frame = osr_exit(native_frame, stackmap, stackmap_record);
+    auto wasm_frame = osr_exit(native_frame, regs, stackmap, stackmap_record);
+
+    trace.push_back(wasm_frame);
 
     Debug() << "Found stackmap record for " << func_name << ", pc_offset=0x"
             << std::hex << native_frame.pc_offset << '\n';
@@ -112,16 +115,25 @@ static Value value_from_memory(const uint8_t *addr, Value::Type ty) {
 static Value retrieve_value(const stackmap::Stackmap &stackmap,
                             const stackmap::Location loc,
                             const NativeStackFrame &native_frame,
+                            const stackmap::CallerSavedRegisters &regs,
                             Value::Type ty) {
   Debug() << stackmap::location_to_string(stackmap, loc) << '\n';
 
   switch (loc.kind) {
-  case stackmap::LocationKind::REGISTER:
-    Fatal() << "Register location kind not supported" << '\n';
-    exit(1);
+  case stackmap::LocationKind::REGISTER: {
+    stackmap::Register reg{loc.dwarf_regnum};
+    uint64_t value = regs.get_value(reg);
+    return value_from_memory(reinterpret_cast<const uint8_t *>(&value), ty);
+  } break;
   case stackmap::LocationKind::DIRECT: {
-    Fatal() << "Direct location kind not supported" << '\n';
-    exit(1);
+    stackmap::Register reg{loc.dwarf_regnum};
+    if (reg == stackmap::Register::RBP) {
+      ASSERT(false && "RBP not supported");
+      exit(1);
+    } else {
+      uint64_t value = regs.get_value(reg) + loc.offset;
+      return value_from_memory(reinterpret_cast<const uint8_t *>(&value), ty);
+    }
   } break;
   case stackmap::LocationKind::INDIRECT: {
     stackmap::Register reg{loc.dwarf_regnum};
@@ -129,8 +141,8 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
       uint8_t *address = native_frame.bp + loc.offset;
       return value_from_memory(address, ty);
     } else {
-      Fatal() << "Invalid register for indirect location" << '\n';
-      exit(1);
+      uint64_t address = regs.get_value(reg) + loc.offset;
+      return value_from_memory(reinterpret_cast<const uint8_t *>(address), ty);
     }
   } break;
   case stackmap::LocationKind::CONSTANT:
@@ -144,11 +156,12 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
 }
 
 static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
+                               const stackmap::CallerSavedRegisters &regs,
                                const stackmap::Stackmap &stackmap,
                                std::shared_ptr<stackmap::StkMapRecord> record) {
 
   // the first location represents the number of wasm locals
-  uint64_t num_locals = retrieve_constant_location(record->locations[0]);
+  uint64_t num_locals = retrieve_constant_location(record->locations.at(0));
   uint64_t num_stack = (record->locations.size() - 1) / 2 - num_locals;
 
   Debug() << "Num locals: " << num_locals << ", Num stack: " << num_stack
@@ -163,8 +176,8 @@ static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
     uint64_t value_ty = retrieve_constant_location(record->locations.at(i++));
     Value::Type ty = decode_value_type(value_ty);
     // decode value
-    Value value =
-        retrieve_value(stackmap, record->locations.at(i++), native_frame, ty);
+    Value value = retrieve_value(stackmap, record->locations.at(i++),
+                                 native_frame, regs, ty);
     locals.push_back(value);
   }
 
@@ -173,8 +186,8 @@ static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
     uint64_t value_ty = retrieve_constant_location(record->locations.at(i++));
     Value::Type ty = decode_value_type(value_ty);
     // decode value
-    Value value =
-        retrieve_value(stackmap, record->locations.at(i++), native_frame, ty);
+    Value value = retrieve_value(stackmap, record->locations.at(i++),
+                                 native_frame, regs, ty);
     stack.push_back(value);
   }
 

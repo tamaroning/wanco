@@ -1,6 +1,8 @@
 #include "aot.h"
 #include "elf/elf.h"
 #include "osr/wasm_stacktrace.h"
+#include "stackmap/arch.h"
+#include "stackmap/arch/x86_64.h"
 #include "stackmap/stackmap.h"
 #include "stacktrace/stacktrace.h"
 #include "wanco.h"
@@ -45,6 +47,11 @@ extern "C" void sleep_msec(ExecEnv *exec_env, int32_t ms) {
 */
 
 extern "C" void start_checkpoint(ExecEnv *exec_env) {
+  WANCO_SAVE_REGISTERS();
+  wanco::stackmap::CallerSavedRegisters regs{};
+  WANCO_RESTORE_REGISTERS(regs);
+
+  // auto regs = wanco::stackmap::CallerSavedRegisters{};
   Info() << "Checkpoint started" << std::endl;
 
   wanco::ElfFile elf_file{"/proc/self/exe"};
@@ -61,7 +68,12 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
 
   const auto native_trace = wanco::get_stack_trace();
 
-  const auto wasm_trace = wanco::asr_exit(native_trace, stackmap);
+  const auto wasm_trace = wanco::asr_exit(regs, native_trace, stackmap);
+
+  std::cout << "Wasm trace:" << std::endl;
+  for (const auto &frame : wasm_trace) {
+    std::cout << frame.to_string() << std::endl;
+  }
 
   Info() << "TODO: Implement checkpoint" << std::endl;
   exit(0);
