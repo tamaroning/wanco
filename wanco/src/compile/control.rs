@@ -9,7 +9,10 @@ use wasmparser::{BlockType, BrTable};
 
 use super::{
     compile_type::wasmty_to_llvmty,
-    cr::{checkpoint::gen_checkpoint_unwind, gen_migration_point, gen_restore_non_leaf},
+    cr::{
+        checkpoint::{gen_checkpoint_unwind, generate_stackmap},
+        gen_migration_point, gen_restore_non_leaf,
+    },
 };
 
 /// Holds the state of if-else.
@@ -161,7 +164,7 @@ pub fn gen_loop<'a>(
     ctx.builder.position_at_end(body_block);
 
     // Generate migration point for loop
-    if ctx.config.enable_cr && !ctx.config.disable_loop_cr {
+    if (ctx.config.enable_cr || ctx.config.legacy_cr) && !ctx.config.disable_loop_cr {
         gen_migration_point(ctx, exec_env_ptr, locals).expect("fail to gen_migration_point");
         ctx.num_migration_points += 1;
     }
@@ -555,7 +558,7 @@ pub fn gen_call<'a>(
 ) -> Result<()> {
     let fn_called = ctx.function_values[callee_function_index as usize];
 
-    if ctx.config.enable_cr {
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
         gen_restore_non_leaf(ctx, exec_env_ptr, locals, fn_called.get_params().len() - 1).unwrap();
     }
 
@@ -576,8 +579,12 @@ pub fn gen_call<'a>(
         .build_call(fn_called, &args, "")
         .expect("should build call");
 
-    // Generate unwinding code for checkpoint
     if ctx.config.enable_cr {
+        generate_stackmap(ctx, exec_env_ptr, locals)?;
+    }
+
+    // Generate unwinding code for checkpoint
+    if ctx.config.legacy_cr {
         gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
             .expect("fail to gen_check_state_and_snapshot");
     }
@@ -604,7 +611,7 @@ pub fn gen_call_indirect<'a>(
     assert_eq!(table_index, 0);
     let callee_type = ctx.signatures[type_index as usize];
 
-    if ctx.config.enable_cr {
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
         gen_restore_non_leaf(
             ctx,
             exec_env_ptr,
@@ -666,6 +673,17 @@ pub fn gen_call_indirect<'a>(
         .builder
         .build_indirect_call(callee_type, fptr.into_pointer_value(), &args, "call_site")
         .expect("should build indirect call");
+
+    if ctx.config.enable_cr {
+        generate_stackmap(ctx, exec_env_ptr, locals)?;
+    }
+
+    // Generate unwinding code for checkpoint
+    if ctx.config.legacy_cr {
+        gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
+    }
+
     if call_site.try_as_basic_value().is_left() {
         ctx.push(
             call_site
@@ -673,12 +691,6 @@ pub fn gen_call_indirect<'a>(
                 .left()
                 .expect("fail translate call_site"),
         );
-    }
-
-    // Generate unwinding code for checkpoint
-    if ctx.config.enable_cr {
-        gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
-            .expect("fail to gen_check_state_and_snapshot");
     }
 
     Ok(())

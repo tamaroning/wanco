@@ -69,6 +69,9 @@ pub struct Args {
     #[arg(long)]
     pub enable_cr: bool,
 
+    #[arg(long)]
+    pub legacy_cr: bool,
+
     /// Disable the loop checkpoint/restore feature.
     #[arg(long)]
     pub disable_loop_cr: bool,
@@ -99,6 +102,10 @@ pub fn run_compiler(args: &Args) -> Result<()> {
 pub fn check_config(args: &Args) -> bool {
     if args.disable_loop_cr && !args.enable_cr {
         log::error!("Specify --enable-cr to enable checkpoint/restore feature");
+        return false;
+    }
+    if args.legacy_cr && args.enable_cr {
+        log::error!("Cannot specify both --enable-cr and --legacy-cr");
         return false;
     }
     true
@@ -204,13 +211,16 @@ impl<'a> AotWasmModule<'a> {
         // link libunwind to the exe
         let triple = get_target_machine(args).unwrap().get_triple();
         let triple = triple.as_str().to_str().unwrap();
-        if triple == "x86_64-unknown-linux-gnu" {
+        if triple.contains("x86_64") {
             cmd.arg("-lunwind");
             cmd.arg("-lunwind-x86_64");
-        } else if triple == "aarch64-unknown-linux-gnu" {
+        } else if triple.contains("aarch64") {
             cmd.arg("-lunwind");
             cmd.arg("-lunwind-aarch64");
         }
+
+        // link libelf to the exe
+        cmd.arg("-lelf");
 
         if args.lto {
             cmd.arg("-flto");

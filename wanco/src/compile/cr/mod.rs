@@ -129,6 +129,8 @@ pub(crate) fn gen_migration_point<'a>(
 
     // checkpoint
     ctx.builder.position_at_end(chkpt_bb);
+
+    // start unwinding
     gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
 
     // restore (create new bb)

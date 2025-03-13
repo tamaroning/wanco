@@ -155,7 +155,7 @@ pub fn compile_module(mut data: &[u8], ctx: &mut Context) -> Result<()> {
 
     finalize(ctx)?;
 
-    if ctx.config.enable_cr {
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
         log::info!("Inserted {} migration points", ctx.num_migration_points);
     }
 
@@ -291,10 +291,6 @@ fn compile_element_section(
                             let initializer = ctx.inkwell_types.i32_type.const_array(&fn_indices);
                             global_table.set_initializer(&initializer);
                         }
-                        // TODO: support function table C/R
-                        if ctx.config.enable_cr {
-                            log::warn!("Checkpoint/Restore is not supported for function table. Note that the compiled program may not work correctly.");
-                        }
                     }
                     ElementItems::Expressions { .. } => {
                         bail!("ElementSection: Expressions item Unsupported");
@@ -342,13 +338,20 @@ fn declare_functions(ctx: &mut Context<'_, '_>) -> Result<()> {
             f.get_first_param()
                 .expect("should have &exec_env as the first param")
                 .set_name("exec_env_ptr");
-            // add attribute
-            // create noredzone attribute
+
+            // Add noredzone attribute to the function
             let attr_noredzone = ctx
                 .ictx
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("noredzone"), 0);
-
             f.add_attribute(inkwell::attributes::AttributeLoc::Function, attr_noredzone);
+
+            // Add noinline attribute to the function since we need correct call stack when making a checkpoint
+            if ctx.config.enable_cr || ctx.config.legacy_cr {
+                let attr_noinline = ctx
+                    .ictx
+                    .create_enum_attribute(Attribute::get_named_enum_kind_id("noinline"), 0);
+                f.add_attribute(inkwell::attributes::AttributeLoc::Function, attr_noinline);
+            }
             f
         });
         ctx.function_values.push(fn_value);

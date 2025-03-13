@@ -102,15 +102,15 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // entry dispatcher for restore
-    if ctx.config.enable_cr {
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
         ctx.restore_dispatch_bb = None;
         ctx.restore_dispatch_cases = vec![];
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
     }
 
     // Generate checkpoint
-    if ctx.config.enable_cr {
-        ctx.current_op = Some(i32::MAX as u32);
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
+        ctx.current_op = Some(u32::MAX);
         gen_migration_point(ctx, &exec_env_ptr, &locals)
             .expect("fail to gen_check_state_and_snapshot");
         ctx.num_migration_points += 1;
@@ -129,7 +129,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // finalize dispatcher for restore
-    if ctx.config.enable_cr {
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
         ctx.builder
             .position_at_end(ctx.restore_dispatch_bb.unwrap());
         gen_finalize_restore_dispatch(ctx, &exec_env_ptr)

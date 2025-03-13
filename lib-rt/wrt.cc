@@ -37,8 +37,8 @@ OPTIONS:
 )";
 
 // forward decl
-static void dump_exec_env(ExecEnv &exec_env);
-static void dump_checkpoint(Checkpoint &chkpt);
+//static void dump_exec_env(ExecEnv &exec_env);
+//static void dump_checkpoint(Checkpoint &chkpt);
 
 extern "C" auto memory_grow(ExecEnv *exec_env, int32_t inc_pages) -> int32_t;
 
