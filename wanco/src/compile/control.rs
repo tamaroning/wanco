@@ -673,6 +673,17 @@ pub fn gen_call_indirect<'a>(
         .builder
         .build_indirect_call(callee_type, fptr.into_pointer_value(), &args, "call_site")
         .expect("should build indirect call");
+
+    if ctx.config.enable_cr {
+        generate_stackmap(ctx, exec_env_ptr, locals)?;
+    }
+
+    // Generate unwinding code for checkpoint
+    if ctx.config.legacy_cr {
+        gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
+            .expect("fail to gen_check_state_and_snapshot");
+    }
+
     if call_site.try_as_basic_value().is_left() {
         ctx.push(
             call_site
@@ -680,12 +691,6 @@ pub fn gen_call_indirect<'a>(
                 .left()
                 .expect("fail translate call_site"),
         );
-    }
-
-    // Generate unwinding code for checkpoint
-    if ctx.config.legacy_cr {
-        gen_checkpoint_unwind(ctx, exec_env_ptr, locals)
-            .expect("fail to gen_check_state_and_snapshot");
     }
 
     Ok(())

@@ -3,9 +3,12 @@
 #include "stackmap/stackmap.h"
 #include "stacktrace/stacktrace.h"
 #include "wanco.h"
+#include <algorithm>
 #include <deque>
 #include <map>
 #include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 
 namespace wanco {
@@ -15,21 +18,74 @@ static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
                                const stackmap::Stackmap &stackmap,
                                std::shared_ptr<stackmap::StkMapRecord> record);
 
-static std::map<std::pair<int32_t, int32_t>,
-                std::shared_ptr<stackmap::StkMapRecord>>
-populate_stackmap(const stackmap::Stackmap &stackmap) {
-  std::map<std::pair<int32_t, int32_t>, std::shared_ptr<stackmap::StkMapRecord>>
-      map;
+using stackmap_table =
+    std::map<int32_t, std::vector<std::shared_ptr<stackmap::StkMapRecord>>>;
+
+// func => stackmap_record[]
+static stackmap_table populate_stackmap(const stackmap::Stackmap &stackmap) {
+  stackmap_table map;
 
   for (auto &record : stackmap.stkmap_records) {
     auto id = record->patchpoint_id;
     auto loc = WasmLocation::from_stackmap_id(id);
-    auto pc_offset = record->instruction_offset;
 
-    map[std::make_pair(loc.get_func(), pc_offset)] = record;
+    auto it = map.find(loc.get_func());
+    if (it == map.end()) {
+      std::vector<std::shared_ptr<stackmap::StkMapRecord>> ent;
+      ent.push_back(record);
+      map.insert({loc.get_func(), ent});
+    } else {
+      auto &ent = it->second;
+      ent.push_back(record);
+    }
+  }
+
+  // sort all entries by the first element
+  for (auto &[k, v] : map) {
+    std::sort(v.begin(), v.end(), [](auto &left, auto &right) {
+      return left->instruction_offset < right->instruction_offset;
+    });
   }
 
   return map;
+}
+
+static std::optional<std::shared_ptr<stackmap::StkMapRecord>>
+lookup_stackmap(stackmap_table &map, int32_t func_index, int32_t pc_offset) {
+  auto it = map.find(func_index);
+  if (it == map.end()) {
+    Warn() << "Failed to find records for func_" << std::dec << func_index
+           << '\n';
+    return std::nullopt;
+  }
+
+  auto records = it->second;
+  auto it2 = std::lower_bound(records.begin(), records.end(), pc_offset,
+                              [](const auto &record, const auto &key) {
+                                return record->instruction_offset < key;
+                              });
+
+  if (it2 == records.end()) {
+    Warn() << "Failed to find a record for func_" << std::dec << func_index
+           << " pc_offset=" << pc_offset << '\n';
+    for (auto &record : records) {
+      Debug() << "Instead, found a record for pc_offset=" << std::dec
+              << record->instruction_offset << '\n';
+    }
+    return std::nullopt;
+  }
+
+  DEBUG_LOG << "search pc_offset=0x" << std::hex << pc_offset
+            << " result pc_offset=0x" << it2->get()->instruction_offset << "\n";
+
+  // FIXME: If the difference between actual pc and an instruction offset in the
+  // stackmap record is big, the record is possibly different from the actual
+  // stackmap. However, there seems to be no reasonable way to validate the
+  // record.
+  ASSERT(std::abs(static_cast<int32_t>(pc_offset -
+                                       it2->get()->instruction_offset)) <= 3 &&
+         "");
+  return *it2;
 }
 
 // Perform All-stack replacement exit.
@@ -50,13 +106,14 @@ asr_exit(const stackmap::CallerSavedRegisters &regs,
     auto func_index_str = func_name.substr(5);
     auto func_index = std::stoi(func_index_str);
 
-    auto it = stackmap_table.find({func_index, native_frame.pc_offset});
-    if (it == stackmap_table.end()) {
+    auto record_opt =
+        lookup_stackmap(stackmap_table, func_index, native_frame.pc_offset);
+    if (!record_opt.has_value()) {
       Fatal() << "Failed to find stackmap for " << func_name << ", pc_offset=0x"
               << std::hex << native_frame.pc_offset << '\n';
       exit(1);
     }
-    auto &stackmap_record = it->second;
+    auto &stackmap_record = record_opt.value();
 
     auto wasm_frame = osr_exit(native_frame, regs, stackmap, stackmap_record);
 
@@ -111,7 +168,7 @@ static Value value_from_memory(const uint8_t *addr, Value::Type ty) {
 }
 
 static Value retrieve_value(const stackmap::Stackmap &stackmap,
-                            const stackmap::Location loc,
+                            const stackmap::Location loc, bool loc_is_ptr,
                             const NativeStackFrame &native_frame,
                             const stackmap::CallerSavedRegisters &regs,
                             Value::Type ty) {
@@ -119,27 +176,40 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
   case stackmap::LocationKind::REGISTER: {
     stackmap::Register reg{loc.dwarf_regnum};
     uint64_t value = regs.get_value(reg);
-    return value_from_memory(reinterpret_cast<const uint8_t *>(&value), ty);
+    if (loc_is_ptr)
+      return value_from_memory(reinterpret_cast<const uint8_t *>(value), ty);
+    else
+      return value_from_memory(reinterpret_cast<const uint8_t *>(&value), ty);
   } break;
   case stackmap::LocationKind::DIRECT: {
     stackmap::Register reg{loc.dwarf_regnum};
+    uint64_t reg_value;
     if (reg == stackmap::Register::RBP) {
-      ASSERT(false && "RBP not supported");
-      exit(1);
+      reg_value = reinterpret_cast<uint64_t>(native_frame.bp);
     } else {
-      uint64_t value = regs.get_value(reg) + loc.offset;
-      return value_from_memory(reinterpret_cast<const uint8_t *>(&value), ty);
+      reg_value = regs.get_value(reg);
     }
+    if (loc_is_ptr)
+      return value_from_memory(
+          *reinterpret_cast<const uint8_t **>(&reg_value) + loc.offset, ty);
+    else
+      return value_from_memory(
+          reinterpret_cast<const uint8_t *>(&reg_value) + loc.offset, ty);
   } break;
   case stackmap::LocationKind::INDIRECT: {
     stackmap::Register reg{loc.dwarf_regnum};
+    const uint8_t *address;
     if (reg == stackmap::Register::RBP) {
-      uint8_t *address = native_frame.bp + loc.offset;
-      return value_from_memory(address, ty);
+      address = native_frame.bp + loc.offset;
     } else {
-      uint64_t address = regs.get_value(reg) + loc.offset;
-      return value_from_memory(reinterpret_cast<const uint8_t *>(address), ty);
+      address = reinterpret_cast<uint8_t *>(regs.get_value(reg)) + loc.offset;
     }
+
+    if (loc_is_ptr)
+      return value_from_memory(
+          *reinterpret_cast<const uint8_t *const *>(address), ty);
+    else
+      return value_from_memory(reinterpret_cast<const uint8_t *>(address), ty);
   } break;
   case stackmap::LocationKind::CONSTANT:
     Fatal() << "Constant location kind not supported" << '\n';
@@ -169,7 +239,7 @@ static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
     uint64_t value_ty = retrieve_constant_location(record->locations.at(i++));
     Value::Type ty = decode_value_type(value_ty);
     // decode value
-    Value value = retrieve_value(stackmap, record->locations.at(i++),
+    Value value = retrieve_value(stackmap, record->locations.at(i++), true,
                                  native_frame, regs, ty);
     locals.push_back(value);
   }
@@ -179,7 +249,7 @@ static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
     uint64_t value_ty = retrieve_constant_location(record->locations.at(i++));
     Value::Type ty = decode_value_type(value_ty);
     // decode value
-    Value value = retrieve_value(stackmap, record->locations.at(i++),
+    Value value = retrieve_value(stackmap, record->locations.at(i++), false,
                                  native_frame, regs, ty);
     stack.push_back(value);
   }
