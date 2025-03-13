@@ -87,6 +87,8 @@ $ ./a.out --restore checkpoint.json
 
 Note: Snapshot files are named `checkpoint.json` or `checkpoint.pb`.
 
+Read [the document](docs/cr.md) if you are interested in how this works.
+
 ### Compile and assemble only
 
 If you want to see the compiled Wasm module, specify the `-c` option when running the compiler:
