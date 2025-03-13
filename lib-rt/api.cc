@@ -56,6 +56,9 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   wanco::stackmap::CallerSavedRegisters regs{};
   WANCO_RESTORE_REGISTERS(regs);
 
+  // override migration state
+  exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_CONTINUE;
+
   // auto regs = wanco::stackmap::CallerSavedRegisters{};
   Info() << "Checkpoint started" << std::endl;
 
