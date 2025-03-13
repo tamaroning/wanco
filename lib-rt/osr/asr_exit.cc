@@ -26,9 +26,6 @@ populate_stackmap(const stackmap::Stackmap &stackmap) {
     auto loc = WasmLocation::from_stackmap_id(id);
     auto pc_offset = record->instruction_offset;
 
-    Info() << "Record: " << id << " Func: " << loc.get_func() << " pc_offset=0x"
-           << std::hex << pc_offset << '\n';
-
     map[std::make_pair(loc.get_func(), pc_offset)] = record;
   }
 
@@ -118,8 +115,6 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
                             const NativeStackFrame &native_frame,
                             const stackmap::CallerSavedRegisters &regs,
                             Value::Type ty) {
-  Debug() << stackmap::location_to_string(stackmap, loc) << '\n';
-
   switch (loc.kind) {
   case stackmap::LocationKind::REGISTER: {
     stackmap::Register reg{loc.dwarf_regnum};
@@ -164,9 +159,6 @@ static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
   // the first location represents the number of wasm locals
   uint64_t num_locals = retrieve_constant_location(record->locations.at(0));
   uint64_t num_stack = (record->locations.size() - 1) / 2 - num_locals;
-
-  Debug() << "Num locals: " << num_locals << ", Num stack: " << num_stack
-          << '\n';
 
   std::deque<Value> locals;
   std::vector<Value> stack;

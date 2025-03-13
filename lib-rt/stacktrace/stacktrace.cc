@@ -4,16 +4,16 @@
 #include <cstdlib>
 #include <deque>
 #include <string>
-// libunwind
+
+#if defined(__x86_64__) || defined(_M_X64)
 #include <libunwind-x86_64.h>
 #define UNW_LOCAL_ONLY
+#endif
 
 namespace wanco {
 
 auto get_stack_trace() -> std::deque<NativeStackFrame> {
   std::deque<NativeStackFrame> trace;
-
-  Debug() << "--- call stack top ---" << '\n';
 
   // initialize libunwind
   unw_context_t context;
@@ -53,14 +53,7 @@ auto get_stack_trace() -> std::deque<NativeStackFrame> {
         .sp = reinterpret_cast<uint8_t *>(sp),
         .bp = reinterpret_cast<uint8_t *>(bp),
     });
-
-    // Dump the frame
-    Debug() << "backtrace[" << std::dec << trace.size() << "] ("
-            << function_name << "): " << std::hex << "pc=0x" << pc
-            << "pc_offset=0x" << offset << ", sp=0x" << sp << ", bp=0x" << bp
-            << '\n';
   } while (unw_step(&cursor) > 0);
-  Debug() << "--- call stack bottom ---" << '\n';
   return trace;
 }
 
