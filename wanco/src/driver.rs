@@ -69,6 +69,9 @@ pub struct Args {
     #[arg(long)]
     pub enable_cr: bool,
 
+    #[arg(long)]
+    pub legacy_cr: bool,
+
     /// Disable the loop checkpoint/restore feature.
     #[arg(long)]
     pub disable_loop_cr: bool,
@@ -99,6 +102,10 @@ pub fn run_compiler(args: &Args) -> Result<()> {
 pub fn check_config(args: &Args) -> bool {
     if args.disable_loop_cr && !args.enable_cr {
         log::error!("Specify --enable-cr to enable checkpoint/restore feature");
+        return false;
+    }
+    if args.legacy_cr && args.enable_cr {
+        log::error!("Cannot specify both --enable-cr and --legacy-cr");
         return false;
     }
     true

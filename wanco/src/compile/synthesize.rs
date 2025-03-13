@@ -1,12 +1,17 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use inkwell::{module::Linkage, types::BasicType, values::BasicValue, AddressSpace};
+use inkwell::{
+    module::Linkage,
+    types::{BasicType, PointerType},
+    values::{BasicValue, PointerValue},
+    AddressSpace,
+};
 
 use crate::context::Context;
 
 use super::cr::{
-    checkpoint::{gen_store_globals, gen_store_table},
+    checkpoint::{add_fn_store_globals, add_fn_store_table, gen_store_globals_and_table},
     restore::{gen_restore_globals, gen_restore_table},
 };
 
@@ -76,7 +81,7 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
 pub fn load_api(ctx: &mut Context<'_, '_>) {
     let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
     // Checkpoint related
-    if ctx.config.enable_cr {
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
         // checkpoint api
         let fn_type_start_checkpoint = ctx
             .inkwell_types
@@ -404,7 +409,7 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .position_at_end(ctx.aot_main_block.expect("should move to aot_main_block"));
 
     // restore globals
-    if ctx.config.enable_cr {
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
         gen_restore_globals(ctx, &exec_env_ptr).expect("should gen restore globals");
         gen_restore_table(ctx, &exec_env_ptr).expect("should gen restore table");
     }
@@ -418,13 +423,18 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .build_call(start_fn, &[exec_env_ptr.as_basic_value_enum().into()], "")
         .expect("should build call");
 
-    // checkpoint globals
-    if ctx.config.enable_cr {
-        gen_store_globals(ctx, &exec_env_ptr).expect("should gen store globals");
-        gen_store_table(ctx, &exec_env_ptr).expect("should gen store table");
+    // checkpoint globals (legacy)
+    if ctx.config.legacy_cr {
+        gen_store_globals_and_table(ctx, &exec_env_ptr)?;
     }
 
     ctx.builder.build_return(None).expect("should build return");
+
+    // add functions to checkpoint globals and table
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
+        add_fn_store_globals(ctx, exec_env_ptr)?;
+        add_fn_store_table(ctx, exec_env_ptr)?;
+    }
 
     Ok(())
 }
