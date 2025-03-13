@@ -452,6 +452,8 @@ pub(crate) fn generate_stackmap<'a>(
                 .const_int(encoded_local_ty as u64, false)
                 .into(),
         );
+        // FIXME: We assume this load instruction is not generated as a machine code.
+        // SInce it is not guaranteed, we remove this in the future.
         let load = ctx.builder.build_load(*local_ty, *local, "").unwrap();
         args.push(load.into());
     }
