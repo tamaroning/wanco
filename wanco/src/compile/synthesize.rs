@@ -81,7 +81,9 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
 pub fn load_api(ctx: &mut Context<'_, '_>) {
     let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
     // Checkpoint related
-    if ctx.config.enable_cr || ctx.config.legacy_cr {
+    // FIXME: We should only add these functions if we are using checkpointing
+    // However, lib-rt statically links fn_store_globals and fn_store_table
+    if true || ctx.config.enable_cr || ctx.config.legacy_cr {
         // checkpoint api
         let fn_type_start_checkpoint = ctx
             .inkwell_types
@@ -431,10 +433,9 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     ctx.builder.build_return(None).expect("should build return");
 
     // add functions to checkpoint globals and table
-    if ctx.config.enable_cr || ctx.config.legacy_cr {
-        add_fn_store_globals(ctx, exec_env_ptr)?;
-        add_fn_store_table(ctx, exec_env_ptr)?;
-    }
+    // We always add these functions because lib-rt statically links them
+    add_fn_store_globals(ctx, exec_env_ptr)?;
+    add_fn_store_table(ctx, exec_env_ptr)?;
 
     Ok(())
 }
