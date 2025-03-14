@@ -411,7 +411,7 @@ pub fn finalize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
         .position_at_end(ctx.aot_main_block.expect("should move to aot_main_block"));
 
     // restore globals
-    if ctx.config.enable_cr || ctx.config.legacy_cr {
+    if !ctx.config.no_restore && (ctx.config.enable_cr || ctx.config.legacy_cr) {
         gen_restore_globals(ctx, &exec_env_ptr).expect("should gen restore globals");
         gen_restore_table(ctx, &exec_env_ptr).expect("should gen restore table");
     }

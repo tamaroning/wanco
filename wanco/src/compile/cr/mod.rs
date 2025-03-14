@@ -40,9 +40,24 @@ fn gen_migration_state<'a>(
             "migration_state",
         )
         .expect("fail to build load");
-    let load = migration_state.as_instruction_value().unwrap();
-    load.set_volatile(true).expect("fail to set_volatile");
-    Ok(migration_state)
+    let load_insn = migration_state.as_instruction_value().unwrap();
+    load_insn.set_volatile(true).expect("fail to set_volatile");
+    let expect = ctx
+        .builder
+        .build_call(
+            ctx.inkwell_intrs.expect_i32,
+            &[
+                migration_state.as_basic_value_enum().into(),
+                ctx.inkwell_types
+                    .i32_type
+                    .const_int(0, false)
+                    .as_basic_value_enum()
+                    .into(),
+            ],
+            "",
+        )
+        .unwrap();
+    Ok(expect.try_as_basic_value().left().unwrap())
 }
 
 pub(super) fn gen_compare_migration_state<'a>(
@@ -112,20 +127,13 @@ pub(crate) fn gen_migration_point<'a>(
         &format!("chkpt_op_{}.else", ctx.current_op.unwrap()),
     );
 
-    let current_migration_state =
-        gen_migration_state(ctx, exec_env_ptr).expect("fail to gen_migration_state");
+    let cond = gen_compare_migration_state(ctx, exec_env_ptr, MIGRATION_STATE_CHECKPOINT_START)
+        .expect("fail to gen_compare_migration_state")
+        .into_int_value();
+
     ctx.builder
-        .build_switch(
-            current_migration_state.into_int_value(),
-            chkpt_else_bb,
-            &[(
-                ctx.inkwell_types
-                    .i32_type
-                    .const_int(MIGRATION_STATE_CHECKPOINT_START as u64, false),
-                chkpt_bb,
-            )],
-        )
-        .expect("fail to build_switch");
+        .build_conditional_branch(cond, chkpt_bb, chkpt_else_bb)
+        .unwrap();
 
     // checkpoint
     ctx.builder.position_at_end(chkpt_bb);
@@ -134,22 +142,27 @@ pub(crate) fn gen_migration_point<'a>(
     gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
 
     // restore (create new bb)
-    let phi_bb = ctx.ictx.append_basic_block(
-        ctx.current_fn.unwrap(),
-        &format!("restore_op_{}.end", ctx.current_op.unwrap()),
-    );
-    ctx.builder.position_at_end(chkpt_else_bb);
-    ctx.builder.build_unconditional_branch(phi_bb).unwrap();
-    gen_restore_point(
-        ctx,
-        exec_env_ptr,
-        locals,
-        0,
-        &phi_bb,
-        &ctx.builder.get_insert_block().unwrap(),
-    );
+    if !ctx.config.no_restore {
+        let phi_bb = ctx.ictx.append_basic_block(
+            ctx.current_fn.unwrap(),
+            &format!("restore_op_{}.end", ctx.current_op.unwrap()),
+        );
+        ctx.builder.position_at_end(chkpt_else_bb);
+        ctx.builder.build_unconditional_branch(phi_bb).unwrap();
 
-    ctx.builder.position_at_end(phi_bb);
+        gen_restore_point(
+            ctx,
+            exec_env_ptr,
+            locals,
+            0,
+            &phi_bb,
+            &ctx.builder.get_insert_block().unwrap(),
+        );
+
+        ctx.builder.position_at_end(phi_bb);
+    } else {
+        ctx.builder.position_at_end(chkpt_else_bb);
+    }
     Ok(())
 }
 

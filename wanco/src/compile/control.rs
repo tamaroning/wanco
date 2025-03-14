@@ -558,7 +558,7 @@ pub fn gen_call<'a>(
 ) -> Result<()> {
     let fn_called = ctx.function_values[callee_function_index as usize];
 
-    if ctx.config.enable_cr || ctx.config.legacy_cr {
+    if !ctx.config.no_restore && (ctx.config.enable_cr || ctx.config.legacy_cr) {
         gen_restore_non_leaf(ctx, exec_env_ptr, locals, fn_called.get_params().len() - 1).unwrap();
     }
 
@@ -611,7 +611,7 @@ pub fn gen_call_indirect<'a>(
     assert_eq!(table_index, 0);
     let callee_type = ctx.signatures[type_index as usize];
 
-    if ctx.config.enable_cr || ctx.config.legacy_cr {
+    if !ctx.config.no_restore && (ctx.config.enable_cr || ctx.config.legacy_cr) {
         gen_restore_non_leaf(
             ctx,
             exec_env_ptr,

@@ -72,6 +72,9 @@ pub struct Args {
     #[arg(long)]
     pub legacy_cr: bool,
 
+    #[arg(long)]
+    pub no_restore: bool,
+
     /// Disable the loop checkpoint/restore feature.
     #[arg(long)]
     pub disable_loop_cr: bool,

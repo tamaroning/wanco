@@ -47,9 +47,9 @@ pub struct InkwellIntrinsics<'ctx> {
     pub maxnum_f64: FunctionValue<'ctx>,
     pub copysign_f32: FunctionValue<'ctx>,
     pub copysign_f64: FunctionValue<'ctx>,
+    pub expect_i32: FunctionValue<'ctx>,
 
     pub experimental_stackmap: FunctionValue<'ctx>,
-    pub experimental_patchpoint: FunctionValue<'ctx>,
 }
 
 pub fn init_inkwell<'a>(
@@ -115,25 +115,15 @@ pub fn init_inkwell<'a>(
     let maxnum_f64 = module.add_function("llvm.maxnum.f64", f64f64_f64, None);
     let copysign_f32 = module.add_function("llvm.copysign.f32", f32f32_f32, None);
     let copysign_f64 = module.add_function("llvm.copysign.f64", f64f64_f64, None);
+    let expect_i32 = module.add_function(
+        "llvm.expect.i32",
+        i32_type.fn_type(&[i32_type_meta, i32_type_meta], false),
+        None,
+    );
 
     let experimental_stackmap = module.add_function(
         "llvm.experimental.stackmap",
         void_type.fn_type(&[i64_type_meta, i32_type_meta], true),
-        None,
-    );
-
-    let experimental_patchpoint = module.add_function(
-        "llvm.experimental.patchpoint",
-        void_type.fn_type(
-            &[
-                i64_type_meta,
-                i32_type_meta,
-                // FIXME: We do not have void* type in inkwell, so we use i64* instead.
-                i64_ptr_type_meta,
-                i32_type_meta,
-            ],
-            true,
-        ),
         None,
     );
 
@@ -179,8 +169,9 @@ pub fn init_inkwell<'a>(
             maxnum_f64,
             copysign_f32,
             copysign_f64,
+            expect_i32,
+
             experimental_stackmap,
-            experimental_patchpoint,
         },
     )
 }

@@ -102,7 +102,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // entry dispatcher for restore
-    if ctx.config.enable_cr || ctx.config.legacy_cr {
+    if !ctx.config.no_restore && (ctx.config.enable_cr || ctx.config.legacy_cr) {
         ctx.restore_dispatch_bb = None;
         ctx.restore_dispatch_cases = vec![];
         gen_restore_dispatch(ctx, &exec_env_ptr).expect("should gen restore dispatch")
@@ -129,7 +129,7 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
     }
 
     // finalize dispatcher for restore
-    if ctx.config.enable_cr || ctx.config.legacy_cr {
+    if !ctx.config.no_restore && (ctx.config.enable_cr || ctx.config.legacy_cr) {
         ctx.builder
             .position_at_end(ctx.restore_dispatch_bb.unwrap());
         gen_finalize_restore_dispatch(ctx, &exec_env_ptr)
