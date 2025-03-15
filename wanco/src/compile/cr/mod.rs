@@ -118,6 +118,24 @@ pub(crate) fn gen_migration_point<'a>(
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    // just volatile load exec_env.safepoint
+    let safepoint_ptr = ctx
+        .builder
+        .build_struct_gep(
+            ctx.exec_env_type.unwrap(),
+            *exec_env_ptr,
+            *ctx.exec_env_fields.get("safepoint").unwrap(),
+            "safepoint_ptr",
+        )
+        .expect("fail to build_struct_gep");
+    let safepoint = ctx
+        .builder
+        .build_load(ctx.inkwell_types.i32_type, safepoint_ptr, "safepoint")
+        .expect("fail to build load");
+    let load_insn = safepoint.as_instruction_value().unwrap();
+    load_insn.set_volatile(true).expect("fail to set_volatile");
+
+    /*
     let chkpt_bb = ctx.ictx.append_basic_block(
         ctx.current_fn.unwrap(),
         &format!("chkpt_op_{}.start", ctx.current_op.unwrap()),
@@ -163,6 +181,7 @@ pub(crate) fn gen_migration_point<'a>(
     } else {
         ctx.builder.position_at_end(chkpt_else_bb);
     }
+    */
     Ok(())
 }
 
