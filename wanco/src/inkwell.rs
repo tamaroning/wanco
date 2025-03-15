@@ -48,6 +48,7 @@ pub struct InkwellIntrinsics<'ctx> {
     pub copysign_f32: FunctionValue<'ctx>,
     pub copysign_f64: FunctionValue<'ctx>,
     pub expect_i32: FunctionValue<'ctx>,
+    pub prefetch: FunctionValue<'ctx>,
 
     pub experimental_stackmap: FunctionValue<'ctx>,
 }
@@ -80,6 +81,7 @@ pub fn init_inkwell<'a>(
     let f32_type_meta: BasicMetadataTypeEnum = f32_type.into();
     let f64_type_meta: BasicMetadataTypeEnum = f64_type.into();
 
+    let i8_ptr_type_meta: BasicMetadataTypeEnum = i8_ptr_type.into();
     let i64_ptr_type_meta: BasicMetadataTypeEnum = i64_ptr_type.into();
 
     let i32bool_i32 = i32_type.fn_type(&[i32_type_meta, bool_type_meta], false);
@@ -118,6 +120,19 @@ pub fn init_inkwell<'a>(
     let expect_i32 = module.add_function(
         "llvm.expect.i32",
         i32_type.fn_type(&[i32_type_meta, i32_type_meta], false),
+        None,
+    );
+    let prefetch = module.add_function(
+        "llvm.prefetch",
+        void_type.fn_type(
+            &[
+                i8_ptr_type_meta,
+                i32_type_meta,
+                i32_type_meta,
+                i32_type_meta,
+            ],
+            false,
+        ),
         None,
     );
 
@@ -170,6 +185,7 @@ pub fn init_inkwell<'a>(
             copysign_f32,
             copysign_f64,
             expect_i32,
+            prefetch,
 
             experimental_stackmap,
         },

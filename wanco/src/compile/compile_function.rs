@@ -14,7 +14,7 @@ use crate::{
             ControlFrame, UnreachableReason,
         },
         cr::{
-            gen_migration_point,
+            gen_compare_migration_state, gen_migration_point,
             restore::{gen_finalize_restore_dispatch, gen_restore_dispatch},
         },
         helper::{self, gen_float_compare, gen_int_compare, gen_llvm_intrinsic},
@@ -99,6 +99,47 @@ pub(super) fn compile_function(ctx: &mut Context<'_, '_>, f: FunctionBody) -> Re
                 .expect("should build store");
             locals.push((alloca, valty));
         }
+    }
+
+    // prefetch migration state
+    // TODO: move this to a separate function
+    if ctx.config.enable_cr || ctx.config.legacy_cr {
+        let migration_state_ptr = ctx
+            .builder
+            .build_struct_gep(
+                ctx.exec_env_type.unwrap(),
+                exec_env_ptr,
+                *ctx.exec_env_fields.get("migration_state").unwrap(),
+                "migration_state_ptr",
+            )
+            .expect("fail to build_struct_gep");
+        ctx.builder
+            .build_call(
+                ctx.inkwell_intrs.prefetch,
+                &[
+                    migration_state_ptr.as_basic_value_enum().into(),
+                    // locality = 0: greatest opportunity for cache hit
+                    ctx.inkwell_types
+                        .i32_type
+                        .const_zero()
+                        .as_basic_value_enum()
+                        .into(),
+                    // rw = 0: read
+                    ctx.inkwell_types
+                        .i32_type
+                        .const_zero()
+                        .as_basic_value_enum()
+                        .into(),
+                    // cache type = 1: data
+                    ctx.inkwell_types
+                        .i32_type
+                        .const_int(1, false)
+                        .as_basic_value_enum()
+                        .into(),
+                ],
+                "",
+            )
+            .unwrap();
     }
 
     // entry dispatcher for restore
