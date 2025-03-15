@@ -19,12 +19,13 @@ extern "C" Checkpoint chkpt;
 
 } // namespace wanco
 
-extern "C" struct ExecEnv {
+extern "C" struct __attribute__((packed)) ExecEnv {
   int8_t *memory_base;
   int32_t memory_size;
   wanco::MigrationState migration_state;
   int32_t argc;
   uint8_t **argv;
+  void *safepoint;
 };
 
 // defined in wasm AOT module
