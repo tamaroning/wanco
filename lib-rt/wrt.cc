@@ -37,28 +37,25 @@ OPTIONS:
 )";
 
 // forward decl
-//static void dump_exec_env(ExecEnv &exec_env);
-//static void dump_checkpoint(Checkpoint &chkpt);
+// static void dump_exec_env(ExecEnv &exec_env);
+// static void dump_checkpoint(Checkpoint &chkpt);
 
 extern "C" auto memory_grow(ExecEnv *exec_env, int32_t inc_pages) -> int32_t;
 
 // signal handler for debugging
 static void signal_segv_handler(int signum) {
-  void *array[10];
-  size_t size = 0;
-  ASSERT(signum == SIGSEGV && "Unexpected signal");
-
-  // get void*'s for all entries on the stack
-  size = backtrace(array, 10);
-
-  // print out all the frames to stderr
-  fprintf(stderr, "Error: segmentation fault\n");
-  backtrace_symbols_fd(array, size, STDERR_FILENO);
-  exit(1);
+  // TODO: handle checkpoint
+  exit(3);
 }
 
 static void signal_chkpt_handler(int signum) {
   ASSERT(signum == SIGCHKPT && "Unexpected signal");
+  int err = mprotect(exec_env.safepoint, 4096, PROT_NONE);
+  if (err != 0) {
+    exit(2);
+  }
+  // This is necessary to flush the TLB.
+  asm volatile("invlpg (%0)" ::"r"(exec_env.safepoint) : "memory");
   exec_env.migration_state = MigrationState::STATE_CHECKPOINT_START;
 }
 
@@ -166,7 +163,14 @@ static auto parse_from_args(int argc, char **argv) -> Config {
 }
 
 static auto wanco_main(int argc, char **argv) -> int {
+  void *safepoint = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (safepoint == MAP_FAILED) {
+    Fatal() << "Failed to perform mmap" << '\n';
+    exit(1);
+  }
   signal(SIGSEGV, signal_segv_handler);
+  signal(SIGCHKPT, signal_chkpt_handler);
 
   // Parse CLI arguments
   Config const config = parse_from_args(argc, argv);
@@ -182,6 +186,7 @@ static auto wanco_main(int argc, char **argv) -> int {
         .migration_state = MigrationState::STATE_NONE,
         .argc = argc,
         .argv = reinterpret_cast<uint8_t **>(argv),
+        .safepoint = safepoint,
     };
   } else {
     RESTORE_START_TIME =
@@ -219,10 +224,9 @@ static auto wanco_main(int argc, char **argv) -> int {
         .migration_state = MigrationState::STATE_RESTORE,
         .argc = argc,
         .argv = reinterpret_cast<uint8_t **>(argv),
+        .safepoint = safepoint,
     };
   }
-  // Register signal handler
-  signal(SIGCHKPT, signal_chkpt_handler);
 
   aot_main(&exec_env);
 
