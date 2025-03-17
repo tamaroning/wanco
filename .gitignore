@@ -8,16 +8,13 @@
 **/*.wasm
 **/*.cwasm
 build/
+**/*.bin
 !wanco/tests/**/*
 !demo/**/*.wat
 !demo/**/*.wasm
 !examples/**/*.wat
 !examples/**/*.wasm
 !benchmark/llama2-c/*.wasm
-
-llama2*
-binary-trees*
-nbody*
 
 # snapshots
 checkpoint.pb
