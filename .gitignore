@@ -13,7 +13,7 @@ build/
 !demo/**/*.wasm
 !examples/**/*.wat
 !examples/**/*.wasm
-!benchmark/**/*.wasm
+!benchmark/llama2-c/*.wasm
 
 llama2*
 binary-trees*
