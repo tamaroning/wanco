@@ -16,8 +16,8 @@ native:
 	$(CC) $(CFLAGS) -o runq.exe runq.c $(LDFLAGS)
 
 wasm:
-	$(CC2) $(CFLAGS2) -o run.wasm run.c $(LDFLAGS2)
-	$(CC2) $(CFLAGS2) -o runq.wasm runq.c $(LDFLAGS2)
+	$(CC2) $(CFLAGS2) -o run.c.wasm run.c $(LDFLAGS2)
+	$(CC2) $(CFLAGS2) -o runq.c.wasm runq.c $(LDFLAGS2)
 
 model.bin:
 	wget -nc -O model.bin --no-clobber https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K/stories260K.bin

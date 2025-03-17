@@ -3,6 +3,8 @@ import os
 import subprocess
 from dataclasses import dataclass
 
+NUM_RUNS = 30
+
 
 def check_installed(cmd: str) -> bool:
     code = subprocess.run(
@@ -25,7 +27,6 @@ def check_preconditions() -> bool:
 def get_bench_dir() -> str:
     cwd = os.getcwd()
     return cwd
-    # return os.path.join(cwd, "..")
 
 
 @dataclass
@@ -53,6 +54,16 @@ class Program:
 
 
 programs = [
+    Program(
+        "llama2.c",
+        command=Command(
+            wanco=["../wanco-artifacts/run.c.aot", "--"],
+            wanco_cr=["../wanco-artifacts/run.c.cr.aot", "--"],
+            native=["./llama2.c.exe"],
+        ),
+        args=["model.bin", "-n", "256", "-i", "'Once upon a time'"],
+        workdir=os.path.join(get_bench_dir(), "llama2-c"),
+    ),
     Program(
         name="nbody",
         command=Command(
@@ -113,20 +124,20 @@ def measure(programs: list[Program]) -> None:
         "result.csv",
         "--export-json",
         "result.json",
+        # "--show-output",
         "--runs",
-        "30",
-        #"--prepare",
-        #"1",
+        f"{NUM_RUNS}",
     ]
 
     for program in programs:
-        wanco_cmd = " ".join(program.get_wanco_cmd())
-        hyperfine_cmd.append(wanco_cmd)
+        cmd: list[str] = ["cd", program.workdir, ";"]
+        cmd.extend(program.get_wanco_cmd())
+        hyperfine_cmd.append(" ".join(cmd))
 
-        wanco_cr_cmd = " ".join(program.get_wanco_cr_cmd())
-        hyperfine_cmd.append(wanco_cr_cmd)
+        cmd2: list[str] = ["cd", program.workdir, ";"]
+        cmd2.extend(program.get_wanco_cr_cmd())
+        hyperfine_cmd.append(" ".join(cmd2))
 
-    print(hyperfine_cmd)
     stat = subprocess.Popen(hyperfine_cmd, cwd=get_bench_dir())
     stat.wait()
     if stat.returncode != 0:
