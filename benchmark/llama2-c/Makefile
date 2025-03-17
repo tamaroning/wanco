@@ -20,9 +20,9 @@ wasm:
 	$(CC2) $(CFLAGS2) -o runq.wasm runq.c $(LDFLAGS2)
 
 model.bin:
-	wget -O model.bin --no-clobber https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K/stories260K.bin
+	wget -nc -O model.bin --no-clobber https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K/stories260K.bin
 
 tokenizer.bin:
-	wget -O tokenizer.bin --no-clobber https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K/tok512.bin
+	wget -nc -O tokenizer.bin --no-clobber https://huggingface.co/karpathy/tinyllamas/resolve/main/stories260K/tok512.bin
 
 .PHONY: all clean native wasm
