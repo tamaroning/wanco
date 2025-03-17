@@ -58,7 +58,7 @@ if args.title:
     plt.title(args.title)
 plt.legend(handles=boxplot["boxes"], labels=labels, loc="best", fontsize="medium")
 plt.ylabel("Ratio")
-plt.ylim(0, 2)
+plt.ylim(0.75, 2)
 plt.xticks(list(range(1, len(labels) + 1)), labels, rotation=45)
 if args.output:
     plt.savefig(args.output)
