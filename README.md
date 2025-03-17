@@ -103,8 +103,3 @@ After that, you can link it with the runtime library together by using clang
 ```
 $ clang-17 -flto -no-pie hello.ll /usr/local/lib/libwanco_rt.a /usr/local/lib/libwanco_wasi.a -o hello
 ```
-
-## LICENSE
-
-- benchmark/: See LICENSE files in each directory
-- others: MIT (See [LICENSE](./LICENSE))

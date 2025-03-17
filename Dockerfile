@@ -14,7 +14,11 @@ RUN \
     build-essential \
     cmake \
     libprotobuf-dev \
-    protobuf-compiler
+    protobuf-compiler \
+    libunwind-dev \
+    libelf-dev \
+    libzstd-dev \
+    libpolly-17-dev
 
 # install llvm
 RUN --mount=type=cache,target=/usr/lib/llvm-17 \
