@@ -113,6 +113,8 @@ def measure(programs: list[Program]) -> None:
         "result.csv",
         "--export-json",
         "result.json",
+        "--runs",
+        "30",
         #"--prepare",
         #"1",
     ]
