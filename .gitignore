@@ -14,7 +14,6 @@ build/
 !demo/**/*.wasm
 !examples/**/*.wat
 !examples/**/*.wasm
-!benchmark/llama2-c/*.wasm
 
 # snapshots
 checkpoint.pb
