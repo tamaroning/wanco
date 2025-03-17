@@ -9,6 +9,8 @@
 **/*.cwasm
 build/
 **/*.bin
+**/*.aot
+**/*.exe
 !wanco/tests/**/*
 !demo/**/*.wat
 !demo/**/*.wasm
