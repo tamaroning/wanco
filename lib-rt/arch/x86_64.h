@@ -4,7 +4,27 @@
 #include <cstdint>
 #include <string>
 
-namespace wanco::stackmap {
+#define WANCO_SAVE_REGISTERS()                                                 \
+  asm volatile(".intel_syntax noprefix \n\t"                                   \
+               "push rbx \n\t"                                                 \
+               "push r12 \n\t"                                                 \
+               "push r13 \n\t"                                                 \
+               "push r14 \n\t"                                                 \
+               "push r15 \n\t"                                                 \
+               ".att_syntax \n\t");
+
+#define WANCO_RESTORE_REGISTERS(regs)                                          \
+  asm volatile(".intel_syntax noprefix \n\t"                                   \
+               "pop %0 \n\t"                                                   \
+               "pop %1 \n\t"                                                   \
+               "pop %2 \n\t"                                                   \
+               "pop %3 \n\t"                                                   \
+               "pop %4 \n\t"                                                   \
+               ".att_syntax \n\t"                                              \
+               : "=r"((regs).r15), "=r"((regs).r14), "=r"((regs).r13),         \
+                 "=r"((regs).r12), "=r"((regs).rbx));
+
+namespace wanco {
 
 enum class Register {
   // General purpose registers.
@@ -200,24 +220,4 @@ struct CallerSavedRegisters {
   }
 };
 
-#define WANCO_SAVE_REGISTERS()                                                 \
-  asm volatile(".intel_syntax noprefix \n\t"                                   \
-               "push rbx \n\t"                                                 \
-               "push r12 \n\t"                                                 \
-               "push r13 \n\t"                                                 \
-               "push r14 \n\t"                                                 \
-               "push r15 \n\t"                                                 \
-               ".att_syntax \n\t");
-
-#define WANCO_RESTORE_REGISTERS(regs)                                          \
-  asm volatile(".intel_syntax noprefix \n\t"                                   \
-               "pop %0 \n\t"                                                   \
-               "pop %1 \n\t"                                                   \
-               "pop %2 \n\t"                                                   \
-               "pop %3 \n\t"                                                   \
-               "pop %4 \n\t"                                                   \
-               ".att_syntax \n\t"                                              \
-               : "=r"((regs).r15), "=r"((regs).r14), "=r"((regs).r13),         \
-                 "=r"((regs).r12), "=r"((regs).rbx));
-
-} // namespace wanco::stackmap
+} // namespace wanco

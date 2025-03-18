@@ -14,7 +14,7 @@
 namespace wanco {
 
 static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
-                               const stackmap::CallerSavedRegisters &regs,
+                               const CallerSavedRegisters &regs,
                                const stackmap::Stackmap &stackmap,
                                std::shared_ptr<stackmap::StkMapRecord> record);
 
@@ -91,7 +91,7 @@ lookup_stackmap(stackmap_table &map, int32_t func_index, int32_t pc_offset) {
 // Perform All-stack replacement exit.
 // The bottom frame is stored in the return value.
 std::vector<WasmStackFrame>
-asr_exit(const stackmap::CallerSavedRegisters &regs,
+asr_exit(const CallerSavedRegisters &regs,
          const std::deque<NativeStackFrame> &callstack,
          const stackmap::Stackmap &stackmap) {
   std::vector<WasmStackFrame> trace;
@@ -170,11 +170,10 @@ static Value value_from_memory(const uint8_t *addr, Value::Type ty) {
 static Value retrieve_value(const stackmap::Stackmap &stackmap,
                             const stackmap::Location loc, bool loc_is_ptr,
                             const NativeStackFrame &native_frame,
-                            const stackmap::CallerSavedRegisters &regs,
-                            Value::Type ty) {
+                            const CallerSavedRegisters &regs, Value::Type ty) {
   switch (loc.kind) {
   case stackmap::LocationKind::REGISTER: {
-    stackmap::Register reg{loc.dwarf_regnum};
+    Register reg{loc.dwarf_regnum};
     uint64_t value = regs.get_value(reg);
     if (loc_is_ptr)
       return value_from_memory(reinterpret_cast<const uint8_t *>(value), ty);
@@ -182,9 +181,9 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
       return value_from_memory(reinterpret_cast<const uint8_t *>(&value), ty);
   } break;
   case stackmap::LocationKind::DIRECT: {
-    stackmap::Register reg{loc.dwarf_regnum};
+    Register reg{loc.dwarf_regnum};
     uint64_t reg_value;
-    if (reg == stackmap::Register::RBP) {
+    if (reg == Register::RBP) {
       reg_value = reinterpret_cast<uint64_t>(native_frame.bp);
     } else {
       reg_value = regs.get_value(reg);
@@ -197,9 +196,9 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
           reinterpret_cast<const uint8_t *>(&reg_value) + loc.offset, ty);
   } break;
   case stackmap::LocationKind::INDIRECT: {
-    stackmap::Register reg{loc.dwarf_regnum};
+    Register reg{loc.dwarf_regnum};
     const uint8_t *address;
-    if (reg == stackmap::Register::RBP) {
+    if (reg == Register::RBP) {
       address = native_frame.bp + loc.offset;
     } else {
       address = reinterpret_cast<uint8_t *>(regs.get_value(reg)) + loc.offset;
@@ -222,7 +221,7 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
 }
 
 static WasmStackFrame osr_exit(const NativeStackFrame &native_frame,
-                               const stackmap::CallerSavedRegisters &regs,
+                               const CallerSavedRegisters &regs,
                                const stackmap::Stackmap &stackmap,
                                std::shared_ptr<stackmap::StkMapRecord> record) {
 

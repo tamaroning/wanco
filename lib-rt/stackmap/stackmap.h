@@ -1,10 +1,10 @@
 #pragma once
+#include "arch/arch.h"
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
 #include <vector>
-#include "arch.h"
 
 namespace wanco::stackmap {
 

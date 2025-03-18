@@ -1,8 +1,8 @@
 #include "aot.h"
+#include "arch/arch.h"
 #include "chkpt/chkpt.h"
 #include "elf/elf.h"
 #include "osr/wasm_stacktrace.h"
-#include "stackmap/arch.h"
 #include "stackmap/stackmap.h"
 #include "stacktrace/stacktrace.h"
 #include "wanco.h"
@@ -53,7 +53,7 @@ extern "C" void sleep_msec(ExecEnv *exec_env, int32_t ms) {
 
 extern "C" void start_checkpoint(ExecEnv *exec_env) {
   WANCO_SAVE_REGISTERS();
-  wanco::stackmap::CallerSavedRegisters regs{};
+  wanco::CallerSavedRegisters regs{};
   WANCO_RESTORE_REGISTERS(regs);
 
   // override migration state

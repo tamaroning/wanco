@@ -54,7 +54,7 @@ public:
 };
 
 std::vector<WasmStackFrame>
-asr_exit(const stackmap::CallerSavedRegisters &regs,
+asr_exit(const CallerSavedRegisters &regs,
          const std::deque<NativeStackFrame> &callstack,
          const stackmap::Stackmap &stackmap);
 
