@@ -13,18 +13,21 @@ def transform_path(line: str) -> str:
     if match2:
         return f"{match2.group(1)} w/ cr"
 
-    return line  # 変換できない場合はそのまま
+    return line
 
 
 def process_json(json: Any):
     results = json["results"]
-    # rewrite command field
+    # create name field from command field
     for result in results:
-        result["command"] = transform_path(result["command"])
+        result["name"] = transform_path(result["command"])
+        if "run" in result["name"]:
+            result["name"] = result["name"].replace("run", "llama2.c")
 
+    # add ratios field
     last_mean = 0
     for result in results:
-        if "w/ cr" not in result["command"]:
+        if "w/ cr" not in result["name"]:
             last_mean = result["mean"]
 
         ratios = []

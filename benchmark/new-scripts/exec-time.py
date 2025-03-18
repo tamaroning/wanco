@@ -125,6 +125,8 @@ def measure(programs: list[Program]) -> None:
         "--export-json",
         "result.json",
         # "--show-output",
+        "--warmup",
+        "1",
         "--runs",
         f"{NUM_RUNS}",
     ]

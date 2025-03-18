@@ -1,6 +1,7 @@
 # benchmark
 
 ```bash
+cd benchmark
 # build
 make all
 

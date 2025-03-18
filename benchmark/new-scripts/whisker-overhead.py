@@ -37,7 +37,7 @@ with open(args.file, encoding="utf-8") as f:
 if args.labels:
     labels = args.labels.split(",")
 else:
-    labels = [b["command"] for b in results]
+    labels = [b["name"] for b in results]
 ratios = [b["ratios"] for b in results]
 
 if args.sort_by == "median":
@@ -57,7 +57,7 @@ for patch, color in zip(boxplot["boxes"], colors):
 if args.title:
     plt.title(args.title)
 plt.legend(handles=boxplot["boxes"], labels=labels, loc="best", fontsize="medium")
-plt.ylabel("Ratio")
+plt.ylabel("Execution time [ratio]")
 plt.ylim(0.75, 2)
 plt.xticks(list(range(1, len(labels) + 1)), labels, rotation=45)
 if args.output:
