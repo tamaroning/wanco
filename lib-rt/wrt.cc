@@ -200,11 +200,8 @@ static auto parse_from_args(int argc, char **argv) -> Config {
 }
 
 static void start_checkpoint() {
-  // override migration state
-  exec_env.migration_state = MigrationState::STATE_CHECKPOINT_CONTINUE;
-
-  // auto regs = wanco::stackmap::CallerSavedRegisters{};
   Info() << "Checkpoint started" << std::endl;
+  exec_env.migration_state = MigrationState::STATE_CHECKPOINT_CONTINUE;
 
   ElfFile elf_file{"/proc/self/exe"};
   auto stackmap_section = elf_file.get_section_data(".llvm_stackmaps");
@@ -263,7 +260,7 @@ static void start_checkpoint() {
   exit(0);
 }
 
-static void *setup_polling_page() {
+static void *allocate_polling_page() {
   void *polling_page = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
                             MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (polling_page == MAP_FAILED) {
@@ -291,87 +288,102 @@ static void setup_supervisor_thread() {
   pthread_t tid;
   int err = pthread_create(&tid, NULL, supervisor_thread, NULL);
   if (err != 0) {
-    Fatal() << "Failed to create logger thread" << '\n';
+    Fatal() << "Failed to create supervisor thread" << '\n';
     exit(1);
   }
 }
 
+static ExecEnv init_env(int argc, char **argv) {
+  // Allocate memory
+  int const memory_size = INIT_MEMORY_SIZE;
+  int8_t *memory = allocate_memory(memory_size);
+  void *polling_page = allocate_polling_page();
+  // Initialize exec_env
+  ExecEnv exec_env = ExecEnv{
+      .memory_base = memory,
+      .memory_size = memory_size,
+      .migration_state = MigrationState::STATE_NONE,
+      .argc = argc,
+      .argv = reinterpret_cast<uint8_t **>(argv),
+      .polling_page = polling_page,
+  };
+  return exec_env;
+}
+
+static ExecEnv restore_exec_env(const std::string &restore_file, int argc,
+                                char **argv) {
+  RESTORE_START_TIME = std::chrono::duration_cast<std::chrono::microseconds>(
+                           std::chrono::system_clock::now().time_since_epoch())
+                           .count();
+
+  // Restore from checkpoint
+  std::ifstream ifs{restore_file};
+  if (!ifs.is_open()) {
+    Fatal() << "Failed to open checkpoint file: " << restore_file << '\n';
+    exit(1);
+  }
+
+  int8_t *memory = nullptr;
+  if (!restore_file.ends_with(".pb")) {
+    Warn() << "The file does not have a .pb extension. "
+              "Attempting to parse as proto."
+           << '\n';
+  }
+  auto p = decode_checkpoint_proto(ifs);
+  chkpt = p.first;
+  memory = p.second;
+  chkpt.prepare_restore();
+  Info() << "Checkpoint has been loaded" << '\n';
+  Info() << "- call stack: " << chkpt.frames.size() << " frames" << '\n';
+  Info() << "- value stack: " << chkpt.restore_stack.size() << " values"
+         << '\n';
+
+  void *polling_page = allocate_polling_page();
+  // Initialize exec_env
+  ExecEnv exec_env = ExecEnv{
+      .memory_base = memory,
+      .memory_size = chkpt.memory_size,
+      .migration_state = MigrationState::STATE_RESTORE,
+      .argc = argc,
+      .argv = reinterpret_cast<uint8_t **>(argv),
+      .polling_page = polling_page,
+  };
+  return exec_env;
+}
+
+static void finalize_legacy_checkpoint() {
+  chkpt.memory_size = exec_env.memory_size;
+
+  // write snapshot
+  std::ofstream ofs("checkpoint.pb");
+  encode_checkpoint_proto(ofs, chkpt, exec_env.memory_base);
+  Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
+
+  auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                  std::chrono::system_clock::now().time_since_epoch())
+                  .count();
+  time = time - wanco::CHKPT_START_TIME;
+  // TODO(tamaron): remove this (research purpose)
+  std::ofstream chktime("chkpt-time.txt");
+  chktime << time << '\n';
+  chktime.close();
+}
+
 static auto wanco_main(int argc, char **argv) -> int {
-  void *polling_page = setup_polling_page();
   setup_signal_handlers();
   setup_supervisor_thread();
   Config const config = parse_from_args(argc, argv);
 
   if (config.restore_file.empty()) {
-    // Allocate memory
-    int const memory_size = INIT_MEMORY_SIZE;
-    int8_t *memory = allocate_memory(memory_size);
-    // Initialize exec_env
-    exec_env = ExecEnv{
-        .memory_base = memory,
-        .memory_size = memory_size,
-        .migration_state = MigrationState::STATE_NONE,
-        .argc = argc,
-        .argv = reinterpret_cast<uint8_t **>(argv),
-        .polling_page = polling_page,
-    };
+    exec_env = init_env(argc, argv);
   } else {
-    RESTORE_START_TIME =
-        std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::system_clock::now().time_since_epoch())
-            .count();
-
-    // Restore from checkpoint
-    std::ifstream ifs(config.restore_file);
-    if (!ifs.is_open()) {
-      Fatal() << "Failed to open checkpoint file: " << config.restore_file
-              << '\n';
-      return 1;
-    }
-
-    int8_t *memory = nullptr;
-    if (!config.restore_file.ends_with(".pb")) {
-      Warn() << "The file does not have a .pb extension. "
-                "Attempting to parse as proto."
-             << '\n';
-    }
-    auto p = decode_checkpoint_proto(ifs);
-    chkpt = p.first;
-    memory = p.second;
-    chkpt.prepare_restore();
-    Info() << "Checkpoint has been loaded" << '\n';
-    Info() << "- call stack: " << chkpt.frames.size() << " frames" << '\n';
-    Info() << "- value stack: " << chkpt.restore_stack.size() << " values"
-           << '\n';
-
-    // Initialize exec_env
-    exec_env = ExecEnv{
-        .memory_base = memory,
-        .memory_size = chkpt.memory_size,
-        .migration_state = MigrationState::STATE_RESTORE,
-        .argc = argc,
-        .argv = reinterpret_cast<uint8_t **>(argv),
-        .polling_page = polling_page,
-    };
+    exec_env = restore_exec_env(config.restore_file, argc, argv);
   }
 
   aot_main(&exec_env);
 
   if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE) {
-    chkpt.memory_size = exec_env.memory_size;
-
-    // write snapshot
-    std::ofstream ofs("checkpoint.pb");
-    encode_checkpoint_proto(ofs, chkpt, exec_env.memory_base);
-    Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
-
-    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::system_clock::now().time_since_epoch())
-                    .count();
-    time = time - wanco::CHKPT_START_TIME;
-    // TODO(tamaron): remove this (research purpose)
-    std::ofstream chktime("chkpt-time.txt");
-    chktime << time << '\n';
+    finalize_legacy_checkpoint();
   }
 
   // cleanup
