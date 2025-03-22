@@ -416,11 +416,13 @@ pub(crate) fn generate_stackmap<'a>(
     ctx: &mut Context<'a, '_>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    // We use llvm.experimental.patchpoint instead of llvm.experimental.stackmap so that we can prevent it
+    // from being optimized away by LLVM.
     let func_idx = ctx.current_function_idx.unwrap();
     let insn_offset = ctx.current_op.unwrap();
     let stackmap_id = stackmap::stackmap_id(func_idx, insn_offset);
 
-    // Prepare arguments for llvm.experimental.stackmap
+    // Prepare arguments for llvm.experimental.patchpoint
     let mut args = vec![
         // stackmap id
         ctx.inkwell_types
@@ -429,6 +431,8 @@ pub(crate) fn generate_stackmap<'a>(
             .into(),
         // numShadowBytes is 0.
         ctx.inkwell_types.i32_type.const_zero().into(),
+        // target function is nullptr.
+        ctx.inkwell_types.ptr_type.const_null().into(),
     ];
 
     // the number of locals follows.
