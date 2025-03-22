@@ -45,11 +45,7 @@ pub fn gen_memory_base<'a>(
         .expect("should gen memory_base ptr");
     let memory_base = ctx
         .builder
-        .build_load(
-            ctx.inkwell_types.i8_ptr_type,
-            memory_base_ptr,
-            "memory_base",
-        )
+        .build_load(ctx.inkwell_types.ptr_type, memory_base_ptr, "memory_base")
         .expect("should build load");
     Ok(memory_base.into_pointer_value())
 }

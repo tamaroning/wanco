@@ -11,7 +11,7 @@ use crate::context::Context;
 pub(crate) mod checkpoint;
 pub(crate) mod restore;
 
-pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
+//pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
 pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;
@@ -86,7 +86,7 @@ pub(super) fn gen_compare_migration_state<'a>(
     Ok(cmp.as_basic_value_enum())
 }
 
-pub(self) fn gen_set_migration_state<'a>(
+fn gen_set_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     migration_state: i32,

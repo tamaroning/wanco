@@ -157,7 +157,7 @@ pub(super) fn compile_data_section(
                         .build_int_add(memory_base_int, offset_int, "dest_int")?;
                 let dest_ptr = ctx
                     .builder
-                    .build_int_to_ptr(dest_int, ctx.inkwell_types.i8_ptr_type, "dest_ptr")
+                    .build_int_to_ptr(dest_int, ctx.inkwell_types.ptr_type, "dest_ptr")
                     .expect("should build int to ptr");
 
                 // Memcpy from initializer to Linear Memory

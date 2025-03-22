@@ -3,7 +3,6 @@ use inkwell::{
     module::Linkage,
     types::{BasicType, BasicTypeEnum},
     values::{BasicValue, BasicValueEnum, PointerValue},
-    AddressSpace,
 };
 
 use crate::{
@@ -13,7 +12,7 @@ use crate::{
 
 use super::{
     gen_compare_migration_state, gen_set_migration_state, MAX_LOCALS_STORE, MAX_STACK_STORE,
-    MIGRATION_STATE_CHECKPOINT_CONTINUE, MIGRATION_STATE_CHECKPOINT_START,
+    MIGRATION_STATE_CHECKPOINT_CONTINUE,
 };
 
 /// Generate the code that checks the migration state and stores globals and table if necessary.
@@ -42,7 +41,6 @@ pub(crate) fn add_fn_store_globals<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: PointerValue<'a>,
 ) -> anyhow::Result<()> {
-    let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
     let func_type = ctx
         .inkwell_types
         .void_type
@@ -61,7 +59,6 @@ pub(crate) fn add_fn_store_table<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: PointerValue<'a>,
 ) -> anyhow::Result<()> {
-    let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
     let func_type = ctx
         .inkwell_types
         .void_type
@@ -193,7 +190,7 @@ pub(crate) fn gen_checkpoint_start<'a>(
             &[exec_env_ptr.as_basic_value_enum().into()],
             "",
         )?;
-        generate_stackmap(ctx, exec_env_ptr, locals)?;
+        generate_stackmap(ctx, locals)?;
         // FIXME: I am not sure if this is correct
         // This return is unreachable, but it may be required because we perform stack transformation in start_checkpoint and
         // we need to preserve the current stack fram.
@@ -417,7 +414,6 @@ fn gen_push_stack<'a>(
 
 pub(crate) fn generate_stackmap<'a>(
     ctx: &mut Context<'a, '_>,
-    exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     let func_idx = ctx.current_function_idx.unwrap();
