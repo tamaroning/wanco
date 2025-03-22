@@ -129,7 +129,7 @@ pub(crate) fn gen_migration_point<'a>(
     let safepoint_ptr = ctx
         .builder
         .build_load(
-            ctx.inkwell_types.i32_ptr_type,
+            ctx.inkwell_types.ptr_type,
             safepoint_ptr_ptr,
             "safepoint_ptr",
         )
@@ -142,7 +142,7 @@ pub(crate) fn gen_migration_point<'a>(
     let load_insn = safepoint.as_instruction_value().unwrap();
     load_insn.set_volatile(true).expect("fail to set_volatile");
 
-    generate_stackmap(ctx, exec_env_ptr, locals)?;
+    generate_stackmap(ctx, locals)?;
 
     // TODO: restore
     /*
