@@ -22,6 +22,7 @@ To install dependencies in Linux/Debian, run the following commands:
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 sudo ./llvm.sh 17
+echo 'export LLVM_SYS_170_PREFIX="/usr/lib/llvm-17"' >> ~/.bashrc
 
 # Install all other deps
 sudo apt install build-essential cmake libpolly-17-dev　libprotobuf-dev protobuf-compiler libunwind-dev libelf-dev libzstd-dev
