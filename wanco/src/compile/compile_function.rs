@@ -1211,18 +1211,8 @@ pub fn compile_op_memcpy<'a>(
     let len = ctx.pop().expect("stack empty");
     let src = ctx.pop().expect("stack empty");
     let dst = ctx.pop().expect("stack empty");
-    let src_addr = resolve_pointer(
-        ctx,
-        exec_env_ptr,
-        src.into_int_value(),
-        ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
-    );
-    let dst_addr = resolve_pointer(
-        ctx,
-        exec_env_ptr,
-        dst.into_int_value(),
-        ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
-    );
+    let src_addr = resolve_pointer(ctx, exec_env_ptr, src.into_int_value());
+    let dst_addr = resolve_pointer(ctx, exec_env_ptr, dst.into_int_value());
     ctx.builder
         .build_memcpy(dst_addr, 1, src_addr, 1, len.into_int_value())
         .map_err(|e| anyhow!(e))
@@ -1241,12 +1231,7 @@ pub fn compile_op_memory_fill<'a>(
     let len = ctx.pop().expect("stack empty");
     let val = ctx.pop().expect("stack empty");
     let dst = ctx.pop().expect("stack empty");
-    let dst_addr = resolve_pointer(
-        ctx,
-        exec_env_ptr,
-        dst.into_int_value(),
-        ctx.inkwell_types.i32_type.ptr_type(AddressSpace::default()),
-    );
+    let dst_addr = resolve_pointer(ctx, exec_env_ptr, dst.into_int_value());
     let val_i8 = ctx
         .builder
         .build_int_truncate(val.into_int_value(), ctx.inkwell_types.i8_type, "val_i8")
@@ -1262,7 +1247,6 @@ fn resolve_pointer<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     offset: IntValue<'a>,
-    ptr_type: PointerType<'a>,
 ) -> PointerValue<'a> {
     let memory_base = gen_memory_base(ctx, exec_env_ptr).expect("error gen memory base");
     // calculate base + offset
@@ -1277,7 +1261,7 @@ fn resolve_pointer<'a>(
     .expect("should build gep");
     // cast pointer value
     ctx.builder
-        .build_bit_cast(dst_addr, ptr_type, "bit_casted")
+        .build_bit_cast(dst_addr, ctx.inkwell_types.ptr_type, "bit_casted")
         .expect("should build bit_cast")
         .into_pointer_value()
 }
@@ -1304,7 +1288,7 @@ pub fn compile_op_load<'a>(
         .expect("error build int add");
 
     // get actual virtual address
-    let dst_addr = resolve_pointer(ctx, exec_env_ptr, offset, ctx.inkwell_types.ptr_type);
+    let dst_addr = resolve_pointer(ctx, exec_env_ptr, offset);
     // load value
     let result = ctx
         .builder
@@ -1362,12 +1346,7 @@ pub fn compile_op_store<'a>(
         .expect("error build int add");
 
     // get actual virtual address
-    let dst_addr = resolve_pointer(
-        ctx,
-        exec_env_ptr,
-        offset,
-        store_type.ptr_type(AddressSpace::default()),
-    );
+    let dst_addr = resolve_pointer(ctx, exec_env_ptr, offset);
 
     if require_narrow {
         let narrow_value = ctx
