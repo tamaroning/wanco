@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim AS builder
+FROM ubuntu:22.04 AS builder
 
 WORKDIR /wanco
 

@@ -24,6 +24,8 @@ using stackmap_table =
 // func => stackmap_record[]
 static stackmap_table populate_stackmap(const stackmap::Stackmap &stackmap) {
   stackmap_table map;
+  Info() << "Populating stackmaps: " << std::dec
+         << stackmap.stkmap_records.size() << " records" << '\n';
 
   for (auto &record : stackmap.stkmap_records) {
     auto id = record->patchpoint_id;
@@ -38,6 +40,8 @@ static stackmap_table populate_stackmap(const stackmap::Stackmap &stackmap) {
       auto &ent = it->second;
       ent.push_back(record);
     }
+    Debug() << "Found stackmap record for func_" << std::dec << loc.get_func()
+            << ", pc_offset=" << std::dec << record->instruction_offset << '\n';
   }
 
   // sort all entries by the first element
@@ -72,7 +76,23 @@ lookup_stackmap(stackmap_table &map, int32_t func_index, int32_t pc_offset) {
       Debug() << "Instead, found a record for pc_offset=" << std::dec
               << record->instruction_offset << '\n';
     }
-    return std::nullopt;
+    Warn() << "Assuming the record is empty" << '\n';
+    /*
+      uint64_t patchpoint_id;
+  uint32_t instruction_offset;
+  uint16_t record_flags;
+  uint16_t num_locations;
+  std::vector<Location> locations;
+  // (only if required to align to 8 byte)
+  uint32_t padding1;
+  uint16_t padding2;
+  uint16_t num_live_outs;
+  std::vector<LiveOut> live_outs;
+  // (only if required to align to 8 byte)
+  uint32_t padding3;*/
+    return stackmap::StkMapRecord {
+
+    };
   }
 
   DEBUG_LOG << "search pc_offset=0x" << std::hex << pc_offset

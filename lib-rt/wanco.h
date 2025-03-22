@@ -13,7 +13,7 @@
 
 namespace wanco {
 constexpr bool USE_LZ4 = false;
-constexpr bool DEBUG_ENABLED = false;
+constexpr bool DEBUG_ENABLED = true;
 
 extern uint64_t CHKPT_START_TIME;
 extern uint64_t RESTORE_START_TIME;

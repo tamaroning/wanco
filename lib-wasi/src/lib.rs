@@ -25,6 +25,7 @@ pub(crate) struct ExecEnv {
 }
 
 pub(crate) fn memory<'a>(exec_env: &'a ExecEnv) -> wiggle::GuestMemory<'a> {
+    // FIXME: incorrect memory size
     let memory_size = 4 * 1024 * 1024;
     let slice = unsafe { slice::from_raw_parts_mut(exec_env.memory, memory_size) };
     let cell_slice: &[UnsafeCell<u8>] = unsafe { &*(slice as *mut [u8] as *mut [UnsafeCell<u8>]) };

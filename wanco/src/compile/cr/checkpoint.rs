@@ -433,6 +433,15 @@ pub(crate) fn generate_stackmap<'a>(
         ctx.inkwell_types.i32_type.const_zero().into(),
         // target function is nullptr.
         ctx.inkwell_types.ptr_type.const_null().into(),
+        // numArgs equals to 1 + 2 * numLocals + 2 * numStack.
+        ctx.inkwell_types
+            .i32_type
+            .const_int(
+                1 + 2 * locals.len() as u64
+                    + 2 * ctx.stack_frames.last().unwrap().stack.len() as u64,
+                false,
+            )
+            .into(),
     ];
 
     // the number of locals follows.
@@ -470,7 +479,7 @@ pub(crate) fn generate_stackmap<'a>(
     }
 
     ctx.builder
-        .build_call(ctx.inkwell_intrs.experimental_stackmap, &args, "")?;
+        .build_call(ctx.inkwell_intrs.experimental_patchpoint, &args, "")?;
 
     Ok(())
 }

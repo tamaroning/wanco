@@ -80,6 +80,7 @@ public:
   }
 
   void prepare_restore() {
+    Info() << "Loading value stack" << '\n';
     restore_stack.clear();
     for (auto &frame : frames) {
       for (auto &value : frame.stack) {
@@ -92,6 +93,7 @@ public:
 std::pair<wanco::Checkpoint, int8_t *>
 decode_checkpoint_proto(std::ifstream &f);
 
-void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt, int8_t *memory_base);
+void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
+                             int8_t *memory_base);
 
 } // namespace wanco

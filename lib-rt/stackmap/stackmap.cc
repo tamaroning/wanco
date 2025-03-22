@@ -110,6 +110,8 @@ auto parse_stackmap(const std::span<const uint8_t> data) -> Stackmap {
   uint32_t const num_functions = parse_u32(ptr);
   uint32_t const num_constants = parse_u32(ptr);
   uint32_t const num_records = parse_u32(ptr);
+  Info() << "Expects " << num_functions << " functions, " << num_constants
+         << " constants, and " << num_records << " records" << '\n';
 
   std::vector<StkSizeRecord> stksize_records;
   stksize_records.reserve(num_functions);
@@ -129,6 +131,11 @@ auto parse_stackmap(const std::span<const uint8_t> data) -> Stackmap {
     stkmap_records.push_back(
         std::make_shared<StkMapRecord>(parse_stk_map_record(ptr)));
   }
+
+  ASSERT(num_functions == stksize_records.size() &&
+         "Invalid number of records");
+  ASSERT(num_constants == constants.size() && "Invalid number of constants");
+  ASSERT(num_records == stkmap_records.size() && "Invalid number of records");
 
   return Stackmap{.header = header,
                   .num_functions = num_functions,

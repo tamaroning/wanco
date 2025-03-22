@@ -122,7 +122,6 @@ pub fn init_inkwell<'a>(
                 i32_type_meta,
                 ptr_type.into(),
                 i32_type_meta,
-                i32_type_meta,
             ],
             true,
         ),
