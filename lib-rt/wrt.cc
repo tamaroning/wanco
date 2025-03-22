@@ -9,6 +9,7 @@
 #include <csignal>
 #include <cstdio>
 #include <execinfo.h>
+#include <poll.h>
 #include <pthread.h>
 #include <string>
 #include <string_view>
@@ -43,56 +44,59 @@ OPTIONS:
 )";
 
 // event fd to notify to the ASR thread that the main thread is suspended.
-int efd;
+int efd = 0;
 
 // forward decl
-// static void dump_exec_env(ExecEnv &exec_env);
-// static void dump_checkpoint(Checkpoint &chkpt);
 static void start_checkpoint();
-
-extern "C" auto memory_grow(ExecEnv *exec_env, int32_t inc_pages) -> int32_t;
 
 static void signal_segv_handler(int signum, siginfo_t *info, void *context) {
   int err = save_context((ucontext_t *)context);
   ASSERT(err == 0 && "Failed to save context");
   exec_env.migration_state = MigrationState::STATE_CHECKPOINT_START;
-  // notify to the logger thread
   uint64_t val = 1;
   write(efd, &val, sizeof(val));
   while (1) {
+    sleep(1000);
   }
 }
 
-/*
-static void signal_segv_handler2(int signo, siginfo_t *info, void *context) {
-  void *buffer[1000];
-  int nptrs;
-  ucontext_t *ucontext;
-  ucontext = (ucontext_t *)context;
-
-  nptrs = backtrace(buffer, sizeof(buffer) / sizeof(void *));
-
-  // バックトレースを標準出力に表示
-  backtrace_symbols_fd(buffer, nptrs, fileno(stdout));
-  exit(0);
-}
-  */
-
 static void signal_chkpt_handler(int signum) {
-  int err = mprotect(exec_env.polling_page, 4096, PROT_NONE);
-  ASSERT(err == 0 && "Failed to mprotect safepoint");
-  // This is necessary to flush the TLB.
-  // FIXME: I have no idea why it works if the following line is commented out.
-  // asm volatile("invlpg (%0)" ::"r"(exec_env.polling_page) : "memory");
+  uint64_t val = 1;
+  write(efd, &val, sizeof(val));
 }
 
 void *supervisor_thread(void *arg) {
-  while (1) {
-    uint64_t val;
-    read(efd, &val, sizeof(val));
-    start_checkpoint();
+  ASSERT(efd != 0 && efd != -1 && "efd not initialized");
+  struct pollfd pfd = {.fd = efd, .events = POLLIN};
+  for (int i = 0; i < 2; i++) {
+    printf("Waiting for event %d...\n", i + 1);
+    if (poll(&pfd, 1, -1) == -1) { // イベント待機
+      perror("poll");
+      close(efd);
+      exit(1);
+    }
+
+    if (pfd.revents & POLLIN) {
+      uint64_t value;
+      // reset the counter
+      read(efd, &value, sizeof(value));
+      Info() << "Event received! Value: " << std::dec << value << '\n';
+
+      if (i == 0) {
+        // mprotect the polling page
+        int err = mprotect(exec_env.polling_page, 4096, PROT_NONE);
+        ASSERT(err == 0 && "Failed to mprotect polling page");
+        // This is necessary to flush the TLB.
+        // FIXME: I have no idea why it works if the following line is commented
+        // out.
+
+        // asm volatile("invlpg (%0)" ::"r"(exec_env.polling_page) : "memory");
+      } else {
+        start_checkpoint();
+      }
+    }
   }
-  // unreachable
+
   return NULL;
 }
 
@@ -282,6 +286,10 @@ static void setup_signal_handlers() {
 
 static void setup_supervisor_thread() {
   efd = eventfd(0, 0);
+  if (efd == -1) {
+    perror("eventfd");
+    exit(1);
+  }
 
   // spawn a thread which checks if the main thread is suspended and performs
   // checkpoint
