@@ -1,5 +1,5 @@
 use anyhow::Result;
-use checkpoint::gen_checkpoint_start;
+use checkpoint::generate_stackmap;
 use inkwell::{
     types::BasicTypeEnum,
     values::{BasicValue, BasicValueEnum, PointerValue},
@@ -110,31 +110,41 @@ fn gen_set_migration_state<'a>(
     Ok(())
 }
 
-// almost equiavalent call both to gen_checkpoint and gen_restore, but emit more efficient code
-// by wrapping them in a single conditional branch
-// TODO: 最後のブロックと、ローカル変数、スタックを返す
 pub(crate) fn gen_migration_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
-    // just volatile load exec_env.safepoint
-    let safepoint_ptr = ctx
+    // TODO: change these to a single load instruction
+    // `let _ =  *exec_env.safepoint`
+    let safepoint_ptr_ptr = ctx
         .builder
         .build_struct_gep(
             ctx.exec_env_type.unwrap(),
             *exec_env_ptr,
             *ctx.exec_env_fields.get("safepoint").unwrap(),
-            "safepoint_ptr",
+            "safepoint_ptr_ptr",
         )
         .expect("fail to build_struct_gep");
-    let safepoint = ctx
+    let safepoint_ptr = ctx
         .builder
-        .build_load(ctx.inkwell_types.i32_type, safepoint_ptr, "safepoint")
+        .build_load(
+            ctx.inkwell_types.i32_ptr_type,
+            safepoint_ptr_ptr,
+            "safepoint_ptr",
+        )
         .expect("fail to build load");
+    let safepoint = ctx.builder.build_load(
+        ctx.inkwell_types.i32_type,
+        safepoint_ptr.into_pointer_value(),
+        "safepoint",
+    )?;
     let load_insn = safepoint.as_instruction_value().unwrap();
     load_insn.set_volatile(true).expect("fail to set_volatile");
 
+    generate_stackmap(ctx, exec_env_ptr, locals)?;
+
+    // TODO: restore
     /*
     let chkpt_bb = ctx.ictx.append_basic_block(
         ctx.current_fn.unwrap(),

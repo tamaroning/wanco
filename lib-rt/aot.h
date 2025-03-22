@@ -25,12 +25,14 @@ extern "C" struct __attribute__((packed)) ExecEnv {
   wanco::MigrationState migration_state;
   int32_t argc;
   uint8_t **argv;
-  void *safepoint;
+  void *polling_page;
 };
 
 // defined in wasm AOT module
 extern "C" const int32_t INIT_MEMORY_SIZE;
 extern "C" void aot_main(ExecEnv *);
+extern "C" void store_globals(ExecEnv *);
+extern "C" void store_table(ExecEnv *);
 
 // defined in wrt.c
 extern "C" ExecEnv exec_env;

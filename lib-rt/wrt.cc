@@ -1,12 +1,18 @@
 #include "aot.h"
 #include "chkpt/chkpt.h"
+#include "elf/elf.h"
+#include "osr/wasm_stacktrace.h"
+#include "stackmap/stackmap.h"
+#include "stacktrace/stacktrace.h"
 #include "wanco.h"
 #include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <execinfo.h>
+#include <pthread.h>
 #include <string>
 #include <string_view>
+#include <sys/eventfd.h>
 #include <sys/mman.h>
 #include <ucontext.h>
 
@@ -36,27 +42,58 @@ OPTIONS:
   --restore <FILE>: Restore an execution from a checkpoint file
 )";
 
+// event fd to notify to the ASR thread that the main thread is suspended.
+int efd;
+
 // forward decl
 // static void dump_exec_env(ExecEnv &exec_env);
 // static void dump_checkpoint(Checkpoint &chkpt);
+static void start_checkpoint();
 
 extern "C" auto memory_grow(ExecEnv *exec_env, int32_t inc_pages) -> int32_t;
 
-// signal handler for debugging
-static void signal_segv_handler(int signum) {
-  // TODO: handle checkpoint
-  exit(3);
+static void signal_segv_handler(int signum, siginfo_t *info, void *context) {
+  int err = save_context((ucontext_t *)context);
+  ASSERT(err == 0 && "Failed to save context");
+  exec_env.migration_state = MigrationState::STATE_CHECKPOINT_START;
+  // notify to the logger thread
+  uint64_t val = 1;
+  write(efd, &val, sizeof(val));
+  while (1) {
+  }
 }
 
+/*
+static void signal_segv_handler2(int signo, siginfo_t *info, void *context) {
+  void *buffer[1000];
+  int nptrs;
+  ucontext_t *ucontext;
+  ucontext = (ucontext_t *)context;
+
+  nptrs = backtrace(buffer, sizeof(buffer) / sizeof(void *));
+
+  // バックトレースを標準出力に表示
+  backtrace_symbols_fd(buffer, nptrs, fileno(stdout));
+  exit(0);
+}
+  */
+
 static void signal_chkpt_handler(int signum) {
-  ASSERT(signum == SIGCHKPT && "Unexpected signal");
-  int err = mprotect(exec_env.safepoint, 4096, PROT_NONE);
-  if (err != 0) {
-    exit(2);
-  }
+  int err = mprotect(exec_env.polling_page, 4096, PROT_NONE);
+  ASSERT(err == 0 && "Failed to mprotect safepoint");
   // This is necessary to flush the TLB.
-  asm volatile("invlpg (%0)" ::"r"(exec_env.safepoint) : "memory");
-  exec_env.migration_state = MigrationState::STATE_CHECKPOINT_START;
+  // FIXME: I have no idea why it works if the following line is commented out.
+  // asm volatile("invlpg (%0)" ::"r"(exec_env.polling_page) : "memory");
+}
+
+void *supervisor_thread(void *arg) {
+  while (1) {
+    uint64_t val;
+    read(efd, &val, sizeof(val));
+    start_checkpoint();
+  }
+  // unreachable
+  return NULL;
 }
 
 struct Config {
@@ -162,17 +199,107 @@ static auto parse_from_args(int argc, char **argv) -> Config {
   return config;
 }
 
-static auto wanco_main(int argc, char **argv) -> int {
-  void *safepoint = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
-                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (safepoint == MAP_FAILED) {
-    Fatal() << "Failed to perform mmap" << '\n';
+static void start_checkpoint() {
+  // override migration state
+  exec_env.migration_state = MigrationState::STATE_CHECKPOINT_CONTINUE;
+
+  // auto regs = wanco::stackmap::CallerSavedRegisters{};
+  Info() << "Checkpoint started" << std::endl;
+
+  ElfFile elf_file{"/proc/self/exe"};
+  auto stackmap_section = elf_file.get_section_data(".llvm_stackmaps");
+  if (!stackmap_section.has_value()) {
+    Fatal() << "Failed to get stackmap section" << std::endl;
     exit(1);
   }
-  signal(SIGSEGV, signal_segv_handler);
+
+  stackmap::Stackmap stackmap =
+      stackmap::parse_stackmap(stackmap_section.value());
+  Info() << "Parsed stackmap:" << std::dec << stackmap.stkmap_records.size()
+         << " records" << std::endl;
+
+  const auto [native_trace, regs] = get_stack_trace();
+  for (const auto &frame : native_trace) {
+    Debug() << frame.function_name << " + " << std::dec << frame.pc_offset
+            << std::endl;
+  }
+
+  const auto wasm_trace = asr_exit(regs, native_trace, stackmap);
+
+  Debug() << "Wasm trace:" << std::endl;
+  for (const auto &frame : wasm_trace) {
+    Debug() << frame.to_string() << std::endl;
+  }
+
+  // store the call stack
+  for (const auto &frame : wasm_trace) {
+    wanco::chkpt.frames.push_front(wanco::Frame{
+        .fn_index = frame.loc.get_func(),
+        .pc = frame.loc.get_insn(),
+        .locals = frame.locals,
+        .stack = frame.stack,
+    });
+  }
+
+  // store the globals, table, and memory
+  store_globals(&exec_env);
+  store_table(&exec_env);
+  wanco::chkpt.memory_size = exec_env.memory_size;
+
+  // write snapshot
+  {
+    std::ofstream ofs("checkpoint.pb");
+    encode_checkpoint_proto(ofs, wanco::chkpt, exec_env.memory_base);
+    Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
+
+    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::system_clock::now().time_since_epoch())
+                    .count();
+    time = time - wanco::CHKPT_START_TIME;
+    // TODO(tamaron): remove this (research purpose)
+    std::ofstream chktime("chkpt-time.txt");
+    chktime << time << '\n';
+  }
+  exit(0);
+}
+
+static void *setup_polling_page() {
+  void *polling_page = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (polling_page == MAP_FAILED) {
+    Fatal() << "Failed to mmap a polling page" << '\n';
+    exit(1);
+  }
+  return polling_page;
+}
+
+static void setup_signal_handlers() {
   signal(SIGCHKPT, signal_chkpt_handler);
 
-  // Parse CLI arguments
+  struct sigaction sa;
+  sa.sa_sigaction = signal_segv_handler;
+  sa.sa_flags = SA_SIGINFO;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGSEGV, &sa, NULL);
+}
+
+static void setup_supervisor_thread() {
+  efd = eventfd(0, 0);
+
+  // spawn a thread which checks if the main thread is suspended and performs
+  // checkpoint
+  pthread_t tid;
+  int err = pthread_create(&tid, NULL, supervisor_thread, NULL);
+  if (err != 0) {
+    Fatal() << "Failed to create logger thread" << '\n';
+    exit(1);
+  }
+}
+
+static auto wanco_main(int argc, char **argv) -> int {
+  void *polling_page = setup_polling_page();
+  setup_signal_handlers();
+  setup_supervisor_thread();
   Config const config = parse_from_args(argc, argv);
 
   if (config.restore_file.empty()) {
@@ -186,7 +313,7 @@ static auto wanco_main(int argc, char **argv) -> int {
         .migration_state = MigrationState::STATE_NONE,
         .argc = argc,
         .argv = reinterpret_cast<uint8_t **>(argv),
-        .safepoint = safepoint,
+        .polling_page = polling_page,
     };
   } else {
     RESTORE_START_TIME =
@@ -224,7 +351,7 @@ static auto wanco_main(int argc, char **argv) -> int {
         .migration_state = MigrationState::STATE_RESTORE,
         .argc = argc,
         .argv = reinterpret_cast<uint8_t **>(argv),
-        .safepoint = safepoint,
+        .polling_page = polling_page,
     };
   }
 
