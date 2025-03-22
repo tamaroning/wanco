@@ -28,6 +28,8 @@ uint64_t RESTORE_START_TIME = 0;
 // global instance of checkpoint
 Checkpoint chkpt;
 
+int efd = 0;
+
 // linear memory: 4GiB
 static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0x100000000000;
 static constexpr uint64_t MAX_LINEAR_MEMORY_SIZE = 0x400000; // 4GiB
@@ -42,9 +44,6 @@ OPTIONS:
   --help: Display this message and exit
   --restore <FILE>: Restore an execution from a checkpoint file
 )";
-
-// event fd to notify to the ASR thread that the main thread is suspended.
-int efd = 0;
 
 // forward decl
 static void start_checkpoint();
@@ -69,7 +68,6 @@ void *supervisor_thread(void *arg) {
   ASSERT(efd != 0 && efd != -1 && "efd not initialized");
   struct pollfd pfd = {.fd = efd, .events = POLLIN};
   for (int i = 0; i < 2; i++) {
-    printf("Waiting for event %d...\n", i + 1);
     if (poll(&pfd, 1, -1) == -1) { // イベント待機
       perror("poll");
       close(efd);
@@ -320,10 +318,6 @@ static ExecEnv init_env(int argc, char **argv) {
 
 static ExecEnv restore_exec_env(const std::string &restore_file, int argc,
                                 char **argv) {
-  RESTORE_START_TIME = std::chrono::duration_cast<std::chrono::microseconds>(
-                           std::chrono::system_clock::now().time_since_epoch())
-                           .count();
-
   // Restore from checkpoint
   std::ifstream ifs{restore_file};
   if (!ifs.is_open()) {
@@ -385,6 +379,10 @@ static auto wanco_main(int argc, char **argv) -> int {
   if (config.restore_file.empty()) {
     exec_env = init_env(argc, argv);
   } else {
+    RESTORE_START_TIME =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::system_clock::now().time_since_epoch())
+            .count();
     exec_env = restore_exec_env(config.restore_file, argc, argv);
   }
 
