@@ -580,7 +580,7 @@ pub fn gen_call<'a>(
         .expect("should build call");
 
     if ctx.config.enable_cr {
-        generate_stackmap(ctx, exec_env_ptr, locals)?;
+        generate_stackmap(ctx, locals)?;
     }
 
     // Generate unwinding code for checkpoint
@@ -641,7 +641,7 @@ pub fn gen_call_indirect<'a>(
     let fptr_ptr = unsafe {
         ctx.builder
             .build_gep(
-                ctx.inkwell_types.i8_ptr_type,
+                ctx.inkwell_types.ptr_type,
                 ctx.global_fptr_array
                     .expect("should define global_fptr_array")
                     .as_pointer_value(),
@@ -652,7 +652,7 @@ pub fn gen_call_indirect<'a>(
     };
     let fptr = ctx
         .builder
-        .build_load(ctx.inkwell_types.i8_ptr_type, fptr_ptr, "fptr")
+        .build_load(ctx.inkwell_types.ptr_type, fptr_ptr, "fptr")
         .expect("should build load");
 
     // Generate restore point and get arguments for callee
@@ -675,7 +675,7 @@ pub fn gen_call_indirect<'a>(
         .expect("should build indirect call");
 
     if ctx.config.enable_cr {
-        generate_stackmap(ctx, exec_env_ptr, locals)?;
+        generate_stackmap(ctx, locals)?;
     }
 
     // Generate unwinding code for checkpoint

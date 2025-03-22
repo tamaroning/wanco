@@ -264,16 +264,16 @@ fn compile_op<'a>(
                 .const_int(value.bits() as u64, false);
             let i = ctx
                 .builder
-                .build_bitcast(bits, ctx.inkwell_types.f32_type, "")
-                .expect("should build bitcast");
+                .build_bit_cast(bits, ctx.inkwell_types.f32_type, "")
+                .expect("should build bit_cast");
             ctx.push(i);
         }
         Operator::F64Const { value } => {
             let bits = ctx.inkwell_types.i64_type.const_int(value.bits(), false);
             let i = ctx
                 .builder
-                .build_bitcast(bits, ctx.inkwell_types.f64_type, "")
-                .expect("should build bitcast");
+                .build_bit_cast(bits, ctx.inkwell_types.f64_type, "")
+                .expect("should build bit_cast");
             ctx.push(i);
         }
         Operator::I32Clz => {
@@ -598,32 +598,32 @@ fn compile_op<'a>(
             let v = ctx.pop().expect("stack empty").into_int_value();
             let reinterpreted = ctx
                 .builder
-                .build_bitcast(v, ctx.inkwell_types.f64_type, "")
-                .expect("error build bitcast");
+                .build_bit_cast(v, ctx.inkwell_types.f64_type, "")
+                .expect("error build bit_cast");
             ctx.push(reinterpreted);
         }
         Operator::F32ReinterpretI32 => {
             let v = ctx.pop().expect("stack empty").into_int_value();
             let reinterpreted = ctx
                 .builder
-                .build_bitcast(v, ctx.inkwell_types.f32_type, "")
-                .expect("error build bitcast");
+                .build_bit_cast(v, ctx.inkwell_types.f32_type, "")
+                .expect("error build bit_cast");
             ctx.push(reinterpreted);
         }
         Operator::I64ReinterpretF64 => {
             let v = ctx.pop().expect("stack empty").into_float_value();
             let reinterpreted = ctx
                 .builder
-                .build_bitcast(v, ctx.inkwell_types.i64_type, "")
-                .expect("error build bitcast");
+                .build_bit_cast(v, ctx.inkwell_types.i64_type, "")
+                .expect("error build bit_cast");
             ctx.push(reinterpreted);
         }
         Operator::I32ReinterpretF32 => {
             let v = ctx.pop().expect("stack empty").into_float_value();
             let reinterpreted = ctx
                 .builder
-                .build_bitcast(v, ctx.inkwell_types.i32_type, "")
-                .expect("error build bitcast");
+                .build_bit_cast(v, ctx.inkwell_types.i32_type, "")
+                .expect("error build bit_cast");
             ctx.push(reinterpreted);
         }
         /******************************
@@ -1277,8 +1277,8 @@ fn resolve_pointer<'a>(
     .expect("should build gep");
     // cast pointer value
     ctx.builder
-        .build_bitcast(dst_addr, ptr_type, "bit_casted")
-        .expect("should build bitcast")
+        .build_bit_cast(dst_addr, ptr_type, "bit_casted")
+        .expect("should build bit_cast")
         .into_pointer_value()
 }
 
@@ -1304,12 +1304,7 @@ pub fn compile_op_load<'a>(
         .expect("error build int add");
 
     // get actual virtual address
-    let dst_addr = resolve_pointer(
-        ctx,
-        exec_env_ptr,
-        offset,
-        load_type.ptr_type(AddressSpace::default()),
-    );
+    let dst_addr = resolve_pointer(ctx, exec_env_ptr, offset, ctx.inkwell_types.ptr_type);
     // load value
     let result = ctx
         .builder

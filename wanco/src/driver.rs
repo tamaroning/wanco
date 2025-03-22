@@ -115,9 +115,7 @@ pub fn check_config(args: &Args) -> bool {
 }
 
 struct AotWasmModule<'a> {
-    ictx: &'a inkwell::context::Context,
     module: inkwell::module::Module<'a>,
-    //builder: inkwell::builder::Builder<'a>,
 }
 
 impl<'a> AotWasmModule<'a> {
@@ -128,11 +126,7 @@ impl<'a> AotWasmModule<'a> {
         let mut ctx = Context::new(args, &ictx, &module, builder);
         compile::compile_module(wasm, &mut ctx)?;
 
-        Ok(Self {
-            ictx: ictx,
-            module: module,
-            //builder,
-        })
+        Ok(Self { module })
     }
 
     fn write_llvm_object(&self, args: &Args, out_tmpdir: bool) -> Result<PathBuf> {

@@ -16,7 +16,6 @@ use crate::{
         compile_global::{compile_data_section, compile_global_section},
         compile_memory::compile_memory_section,
         compile_type::compile_type_section,
-        cr,
     },
     context::{Context, Function},
 };
@@ -253,7 +252,7 @@ fn compile_element_section(
                             }
                             let fptr_array = ctx
                                 .inkwell_types
-                                .i8_ptr_type
+                                .ptr_type
                                 .array_type(fpointers.len() as u32);
                             let global_fptr_array = ctx.module.add_global(
                                 fptr_array,
@@ -261,7 +260,7 @@ fn compile_element_section(
                                 "GLOBAL_FPTR_ARRAY",
                             );
                             global_fptr_array.set_constant(true);
-                            let initializer = ctx.inkwell_types.i8_ptr_type.const_array(&fpointers);
+                            let initializer = ctx.inkwell_types.ptr_type.const_array(&fpointers);
                             global_fptr_array.set_initializer(&initializer);
                             ctx.global_fptr_array = Some(global_fptr_array);
                         }

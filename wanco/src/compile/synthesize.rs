@@ -1,12 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use inkwell::{
-    module::Linkage,
-    types::{BasicType, PointerType},
-    values::{BasicValue, PointerValue},
-    AddressSpace,
-};
+use inkwell::{module::Linkage, types::BasicType, values::BasicValue};
 
 use crate::context::Context;
 
@@ -26,14 +21,11 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     exec_env_fields.insert("argv", 4);
     let exec_env_type = ctx.ictx.struct_type(
         &[
-            ctx.inkwell_types.i8_ptr_type.into(),
+            ctx.inkwell_types.ptr_type.into(),
             ctx.inkwell_types.i32_type.into(),
             ctx.inkwell_types.i32_type.into(),
             ctx.inkwell_types.i32_type.into(),
-            ctx.inkwell_types
-                .i8_ptr_type
-                .ptr_type(AddressSpace::default())
-                .into(),
+            ctx.inkwell_types.ptr_type.into(),
         ],
         false,
     );
@@ -42,10 +34,7 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
 
     // Define aot_main function
     let aot_main_fn_type = ctx.inkwell_types.void_type.fn_type(
-        &[exec_env_type
-            .ptr_type(AddressSpace::default())
-            .as_basic_type_enum()
-            .into()],
+        &[ctx.inkwell_types.ptr_type.as_basic_type_enum().into()],
         false,
     );
     let aot_main_fn = ctx.module.add_function("aot_main", aot_main_fn_type, None);
@@ -79,7 +68,7 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
 }
 
 pub fn load_api(ctx: &mut Context<'_, '_>) {
-    let exec_env_ptr_type = ctx.exec_env_type.unwrap().ptr_type(AddressSpace::default());
+    let exec_env_ptr_type = ctx.inkwell_types.ptr_type;
     // Checkpoint related
     // FIXME: We should only add these functions if we are using checkpointing
     // However, lib-rt statically links fn_store_globals and fn_store_table

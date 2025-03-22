@@ -1,8 +1,5 @@
 use anyhow::{bail, Result};
-use inkwell::{
-    types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType},
-    AddressSpace,
-};
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType};
 use wasmparser::{CompositeType, TypeSectionReader, ValType};
 
 use crate::context::Context;
@@ -25,13 +22,7 @@ pub(super) fn compile_type_section(
         // Convert wasmparser type to inkwell type
         let mut params_llty: Vec<BasicMetadataTypeEnum> = Vec::new();
         // Insert &exec_env as the first parameter
-        params_llty.push(
-            ctx.exec_env_type
-                .expect("should define exec_env")
-                .ptr_type(AddressSpace::default())
-                .as_basic_type_enum()
-                .into(),
-        );
+        params_llty.push(ctx.inkwell_types.ptr_type.as_basic_type_enum().into());
 
         for param in params.iter() {
             let param_llty = wasmty_to_llvmty(ctx, param)?;
