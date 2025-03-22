@@ -8,8 +8,9 @@ use crate::{
     context::Context,
 };
 
-#[derive(clap::ValueEnum, Debug, Clone)]
+#[derive(clap::ValueEnum, Debug, Clone, Default)]
 pub enum OptimizationLevel {
+    #[default]
     #[clap(name = "0")]
     O0,
     #[clap(name = "1")]
@@ -18,12 +19,6 @@ pub enum OptimizationLevel {
     O2,
     #[clap(name = "3")]
     O3,
-}
-
-impl Default for OptimizationLevel {
-    fn default() -> Self {
-        OptimizationLevel::O1
-    }
 }
 
 impl std::fmt::Display for OptimizationLevel {
@@ -123,7 +118,7 @@ impl<'a> AotWasmModule<'a> {
         let module = ictx.create_module("wanco_aot");
         let builder = ictx.create_builder();
 
-        let mut ctx = Context::new(args, &ictx, &module, builder);
+        let mut ctx = Context::new(args, ictx, &module, builder);
         compile::compile_module(wasm, &mut ctx)?;
 
         Ok(Self { module })

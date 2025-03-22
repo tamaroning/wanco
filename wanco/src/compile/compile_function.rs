@@ -1,7 +1,6 @@
 use inkwell::{
-    types::{BasicType, BasicTypeEnum, PointerType},
+    types::{BasicType, BasicTypeEnum},
     values::{AnyValue, BasicValue, IntValue, PhiValue, PointerValue},
-    AddressSpace,
 };
 use wasmparser::{FunctionBody, MemArg, Operator};
 
