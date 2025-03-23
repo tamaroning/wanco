@@ -431,6 +431,7 @@ pub(crate) fn generate_stackmap<'a>(
             .into(),
         // numShadowBytes is 0.
         ctx.inkwell_types.i32_type.const_zero().into(),
+        /*
         // target function is nullptr.
         ctx.inkwell_types.ptr_type.const_null().into(),
         // numArgs equals to 1 + 2 * numLocals + 2 * numStack.
@@ -442,6 +443,7 @@ pub(crate) fn generate_stackmap<'a>(
                 false,
             )
             .into(),
+        */
     ];
 
     // the number of locals follows.
@@ -479,7 +481,7 @@ pub(crate) fn generate_stackmap<'a>(
     }
 
     ctx.builder
-        .build_call(ctx.inkwell_intrs.experimental_patchpoint, &args, "")?;
+        .build_call(ctx.inkwell_intrs.experimental_stackmap, &args, "")?;
 
     Ok(())
 }
