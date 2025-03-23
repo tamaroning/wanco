@@ -82,9 +82,15 @@ lookup_stackmap(stackmap_table &map, int32_t func_index, int32_t pc_offset) {
   // stackmap record is big, the record is possibly different from the actual
   // stackmap. However, there seems to be no reasonable way to validate the
   // record.
-  ASSERT(std::abs(static_cast<int32_t>(pc_offset -
-                                       it2->get()->instruction_offset)) <= 3 &&
-         "");
+  if (std::abs(static_cast<int32_t>(pc_offset -
+                                    it2->get()->instruction_offset)) > 3) {
+    Fatal() << "The difference between pc_offset and the instruction offset in "
+               "the stackmap record is too big: pc_offset=0x"
+            << std::hex << pc_offset << ", instruction_offset=0x"
+            << it2->get()->instruction_offset << '\n';
+    exit(1);
+  }
+
   return *it2;
 }
 

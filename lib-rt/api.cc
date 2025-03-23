@@ -109,6 +109,8 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     // TODO(tamaron): remove this (research purpose)
     std::ofstream chktime("chkpt-time.txt");
     chktime << time << '\n';
+    chktime.close();
+    Info() << "Checkpoint time has been saved to chkpt-time.txt" << '\n';
   }
   exit(0);
 }
@@ -304,6 +306,7 @@ static void check_restore_finished(ExecEnv *exec_env, bool cond) {
     // TODO: remove this (research purpose)
     ofs << time << std::endl;
     ofs.close();
+    Info() << "Restore time has been saved to restore-time.txt" << std::endl;
   }
 }
 

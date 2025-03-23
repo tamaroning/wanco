@@ -241,6 +241,8 @@ static auto wanco_main(int argc, char **argv) -> int {
     // TODO(tamaron): remove this (research purpose)
     std::ofstream chktime("chkpt-time.txt");
     chktime << time << '\n';
+    chktime.close();
+    Info() << "Checkpoint time has been saved to chkpt-time.txt" << '\n';
   }
 
   // cleanup
