@@ -31,10 +31,15 @@ Checkpoint chkpt;
 int efd = 0;
 
 // linear memory: 4GiB
-static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0x100000000000;
-static constexpr uint64_t MAX_LINEAR_MEMORY_SIZE = 0x400000; // 4GiB
-// guard page: 2GiB
-static constexpr uint64_t GUARD_PAGE_SIZE = 0x200000;
+static constexpr uint64_t GUARD_PAGE_BEGIN = 0xA0000000;
+static constexpr uint64_t GUARD_PAGE_END = 0xA0010000;
+static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0xA0010000;
+// static constexpr uint64_t MAX_LINEAR_MEMORY_SIZE = 0x400000;
+static constexpr uint64_t GUARD_PAGE2_BEGIN = 0xA0050000;
+static constexpr uint64_t GUARD_PAGE2_END = 0xA00600000;
+
+static constexpr uint64_t POLLING_PAGE_BEGIN = 0xA0060000;
+static constexpr uint64_t POLLING_PAGE_END = 0xA0061000;
 
 static std::string_view USAGE = R"(WebAssembly AOT executable
 USAGE: <this file> [options] -- [arguments]
@@ -82,7 +87,8 @@ void *supervisor_thread(void *arg) {
 
       if (i == 0) {
         // mprotect the polling page
-        int err = mprotect(exec_env.polling_page, 4096, PROT_NONE);
+        int err = mprotect((void *)POLLING_PAGE_BEGIN,
+                           POLLING_PAGE_END - POLLING_PAGE_BEGIN, PROT_NONE);
         ASSERT(err == 0 && "Failed to mprotect polling page");
         // This is necessary to flush the TLB.
         // FIXME: I have no idea why it works if the following line is commented
@@ -113,17 +119,17 @@ auto allocate_memory(int32_t num_pages) -> int8_t * {
 
   // Add guard pages
   Info() << "Allocating guard pages" << '\n';
-  if (mmap((void *)(LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
-           (GUARD_PAGE_SIZE * 2) + MAX_LINEAR_MEMORY_SIZE, PROT_NONE,
-           MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == nullptr) {
+  if (mmap((void *)GUARD_PAGE_BEGIN, GUARD_PAGE_END - GUARD_PAGE_BEGIN,
+           PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) == nullptr) {
+    Fatal() << "Failed to allocate guard pages" << '\n';
+  }
+
+  if (mmap((void *)GUARD_PAGE2_BEGIN, GUARD_PAGE2_END - GUARD_PAGE2_BEGIN,
+           PROT_NONE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0) == nullptr) {
     Fatal() << "Failed to allocate guard pages" << '\n';
   }
 
   // Allocate linear memory
-  if (munmap((void *)LINEAR_MEMORY_BEGIN, num_bytes) < 0) {
-    Fatal() << "Failed to unmap part of guard pages" << '\n';
-    exit(1);
-  };
   auto *res = static_cast<int8_t *>(mmap((void *)LINEAR_MEMORY_BEGIN, num_bytes,
                                          PROT_READ | PROT_WRITE,
                                          MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
@@ -132,12 +138,13 @@ auto allocate_memory(int32_t num_pages) -> int8_t * {
             << " bytes to linear memory" << '\n';
     exit(1);
   }
-  Info() << "Allocating linear memory: " << num_pages
-         << " pages, starting at 0x" << std::hex << (uint64_t)res << '\n';
-// Zero out memory
+  // Zero out memory
 #ifdef __FreeBSD__
   std::memset(res, 0, num_bytes);
 #endif
+
+  Info() << "Allocating linear memory: " << num_pages
+         << " pages, starting at 0x" << std::hex << (uint64_t)res << '\n';
 
   return res;
 }
@@ -262,14 +269,14 @@ static void start_checkpoint() {
   exit(0);
 }
 
-static void *allocate_polling_page() {
-  void *polling_page = mmap(NULL, 4096, PROT_READ | PROT_WRITE,
-                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+static void allocate_polling_page() {
+  void *polling_page =
+      mmap((void *)POLLING_PAGE_BEGIN, POLLING_PAGE_END - POLLING_PAGE_BEGIN,
+           PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (polling_page == MAP_FAILED) {
     Fatal() << "Failed to mmap a polling page" << '\n';
     exit(1);
   }
-  return polling_page;
 }
 
 static void setup_signal_handlers() {
@@ -303,7 +310,6 @@ static ExecEnv init_env(int argc, char **argv) {
   // Allocate memory
   int const memory_size = INIT_MEMORY_SIZE;
   int8_t *memory = allocate_memory(memory_size);
-  void *polling_page = allocate_polling_page();
   // Initialize exec_env
   ExecEnv exec_env = ExecEnv{
       .memory_base = memory,
@@ -311,7 +317,6 @@ static ExecEnv init_env(int argc, char **argv) {
       .migration_state = MigrationState::STATE_NONE,
       .argc = argc,
       .argv = reinterpret_cast<uint8_t **>(argv),
-      .polling_page = polling_page,
   };
   return exec_env;
 }
@@ -340,7 +345,6 @@ static ExecEnv restore_exec_env(const std::string &restore_file, int argc,
   Info() << "- value stack: " << chkpt.restore_stack.size() << " values"
          << '\n';
 
-  void *polling_page = allocate_polling_page();
   // Initialize exec_env
   ExecEnv exec_env = ExecEnv{
       .memory_base = memory,
@@ -348,7 +352,6 @@ static ExecEnv restore_exec_env(const std::string &restore_file, int argc,
       .migration_state = MigrationState::STATE_RESTORE,
       .argc = argc,
       .argv = reinterpret_cast<uint8_t **>(argv),
-      .polling_page = polling_page,
   };
   return exec_env;
 }

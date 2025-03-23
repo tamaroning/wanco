@@ -2,7 +2,7 @@ use anyhow::Result;
 use checkpoint::generate_stackmap;
 use inkwell::{
     types::BasicTypeEnum,
-    values::{BasicValue, BasicValueEnum, PointerValue},
+    values::{AnyValue, BasicValue, BasicValueEnum, PointerValue},
 };
 use restore::gen_restore_point;
 
@@ -18,6 +18,8 @@ pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;
 
 pub(crate) const MAX_LOCALS_STORE: usize = 10000;
 pub(crate) const MAX_STACK_STORE: usize = 10000;
+
+const POLLING_PAGE_BEGIN: i64 = 0xA0060000;
 
 fn gen_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
@@ -116,24 +118,12 @@ pub(crate) fn gen_migration_point<'a>(
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
     // TODO: change these to a single load instruction
-    // `let _ =  *exec_env.safepoint`
-    let safepoint_ptr_ptr = ctx
-        .builder
-        .build_struct_gep(
-            ctx.exec_env_type.unwrap(),
-            *exec_env_ptr,
-            *ctx.exec_env_fields.get("safepoint").unwrap(),
-            "safepoint_ptr_ptr",
-        )
-        .expect("fail to build_struct_gep");
+
     let safepoint_ptr = ctx
-        .builder
-        .build_load(
-            ctx.inkwell_types.ptr_type,
-            safepoint_ptr_ptr,
-            "safepoint_ptr",
-        )
-        .expect("fail to build load");
+        .inkwell_types
+        .i32_type
+        .const_int(POLLING_PAGE_BEGIN as u64, false)
+        .as_any_value_enum();
     let safepoint = ctx.builder.build_load(
         ctx.inkwell_types.i32_type,
         safepoint_ptr.into_pointer_value(),

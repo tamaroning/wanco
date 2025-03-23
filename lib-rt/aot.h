@@ -25,7 +25,6 @@ extern "C" struct __attribute__((packed)) ExecEnv {
   wanco::MigrationState migration_state;
   int32_t argc;
   uint8_t **argv;
-  void *polling_page;
 };
 
 // defined in wasm AOT module

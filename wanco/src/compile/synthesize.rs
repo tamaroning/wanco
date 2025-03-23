@@ -19,14 +19,12 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
     exec_env_fields.insert("migration_state", 2);
     exec_env_fields.insert("argc", 3);
     exec_env_fields.insert("argv", 4);
-    exec_env_fields.insert("safepoint", 5);
     let exec_env_type = ctx.ictx.struct_type(
         &[
             ctx.inkwell_types.ptr_type.into(),
             ctx.inkwell_types.i32_type.into(),
             ctx.inkwell_types.i32_type.into(),
             ctx.inkwell_types.i32_type.into(),
-            ctx.inkwell_types.ptr_type.into(),
             ctx.inkwell_types.ptr_type.into(),
         ],
         true,
