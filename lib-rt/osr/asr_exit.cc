@@ -77,22 +77,7 @@ lookup_stackmap(stackmap_table &map, int32_t func_index, int32_t pc_offset) {
               << record->instruction_offset << '\n';
     }
     Warn() << "Assuming the record is empty" << '\n';
-    /*
-      uint64_t patchpoint_id;
-  uint32_t instruction_offset;
-  uint16_t record_flags;
-  uint16_t num_locations;
-  std::vector<Location> locations;
-  // (only if required to align to 8 byte)
-  uint32_t padding1;
-  uint16_t padding2;
-  uint16_t num_live_outs;
-  std::vector<LiveOut> live_outs;
-  // (only if required to align to 8 byte)
-  uint32_t padding3;*/
-    return stackmap::StkMapRecord {
-
-    };
+    return std::nullopt;
   }
 
   DEBUG_LOG << "search pc_offset=0x" << std::hex << pc_offset
