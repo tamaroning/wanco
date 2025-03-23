@@ -24,9 +24,6 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("file", help="JSON file with benchmark results")
 parser.add_argument("--title", help="Plot Title")
 parser.add_argument("--sort-by", choices=["median"], help="Sort method")
-parser.add_argument(
-    "--labels", help="Comma-separated list of entries for the plot legend"
-)
 parser.add_argument("-o", "--output", help="Save image to the given filename.")
 
 args = parser.parse_args()
@@ -34,17 +31,27 @@ args = parser.parse_args()
 with open(args.file, encoding="utf-8") as f:
     results = json.load(f)["results"]
 
-if args.labels:
-    labels = args.labels.split(",")
-else:
-    labels = [b["name"] for b in results]
-ratios = [b["ratios"] for b in results]
+    labels_ = [b["name"] for b in results]
+    ratios_ = [b["ratios"] for b in results]
+
+    labels = []
+    ratios = []
+    for label, ratio in zip(labels_, ratios_):
+        if "w/ cr" in label:
+            labels.append(label)
+            ratios.append(ratio)
 
 if args.sort_by == "median":
     medians = [b["median"] for b in results]
     indices = sorted(range(len(labels)), key=lambda k: medians[k])
-    labels = [labels[i] for i in indices]
-    ratio = [ratios[i] for i in indices]
+
+    labels = []
+    ratios = []
+    for i in indices:
+        if "w/ cr" not in labels[i]:
+            labels.append(labels[i])
+            ratios.append(ratios[i])
+
 
 plt.figure(figsize=(10, 6), constrained_layout=True)
 boxplot = plt.boxplot(ratios, vert=True, patch_artist=True)

@@ -2,6 +2,8 @@
 import os
 import subprocess
 from dataclasses import dataclass
+import argparse
+from typing import Any
 
 NUM_RUNS = 30
 
@@ -117,13 +119,13 @@ programs = [
 ]
 
 
-def measure(programs: list[Program]) -> None:
+def measure(programs: list[Program], args: Any) -> None:
     hyperfine_cmd: list[str] = [
         "hyperfine",
         "--export-csv",
         "result.csv",
         "--export-json",
-        "result.json",
+        args.output,
         # "--show-output",
         "--warmup",
         "1",
@@ -151,7 +153,14 @@ def main():
     if not check_preconditions():
         exit(1)
 
-    measure(programs)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "-o", "--output", help="Save JSON to the given filename.", default="result.json"
+    )
+
+    args = parser.parse_args()
+
+    measure(programs, args)
 
 
 if __name__ == "__main__":
