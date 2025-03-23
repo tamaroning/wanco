@@ -19,7 +19,7 @@ extern "C" Checkpoint chkpt;
 
 } // namespace wanco
 
-extern "C" struct ExecEnv {
+extern "C" struct __attribute__((packed)) ExecEnv {
   int8_t *memory_base;
   int32_t memory_size;
   wanco::MigrationState migration_state;
@@ -30,6 +30,8 @@ extern "C" struct ExecEnv {
 // defined in wasm AOT module
 extern "C" const int32_t INIT_MEMORY_SIZE;
 extern "C" void aot_main(ExecEnv *);
+extern "C" void store_globals(ExecEnv *);
+extern "C" void store_table(ExecEnv *);
 
 // defined in wrt.c
 extern "C" ExecEnv exec_env;

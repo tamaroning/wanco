@@ -14,16 +14,18 @@ use std::sync::{Mutex, OnceLock};
 static CTX: OnceLock<Mutex<WasiCtx>> = OnceLock::new();
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 
-#[repr(C)]
+#[repr(C, packed)]
 pub(crate) struct ExecEnv {
     memory: *mut u8,
     memory_size: i32,
     migration_state: i32,
     argc: i32,
     argv: *mut *mut c_char,
+    safepoint: *const i8,
 }
 
 pub(crate) fn memory<'a>(exec_env: &'a ExecEnv) -> wiggle::GuestMemory<'a> {
+    // FIXME: incorrect memory size
     let memory_size = 4 * 1024 * 1024;
     let slice = unsafe { slice::from_raw_parts_mut(exec_env.memory, memory_size) };
     let cell_slice: &[UnsafeCell<u8>] = unsafe { &*(slice as *mut [u8] as *mut [UnsafeCell<u8>]) };

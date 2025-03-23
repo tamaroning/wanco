@@ -1,7 +1,10 @@
 #include "stacktrace.h"
+#include "arch/arch.h"
+#include "arch/x86_64.h"
 #include "wanco.h"
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <deque>
 #include <string>
 
@@ -12,27 +15,32 @@
 
 namespace wanco {
 
-auto get_stack_trace() -> std::deque<NativeStackFrame> {
+unw_context_t uc;
+
+int save_context(ucontext_t *c) {
+  uc = convert_ucontext(c);
+  return 0;
+}
+
+// pre-condition: wanco_save_context() must be called before this function
+auto get_stack_trace()
+    -> std::pair<std::deque<NativeStackFrame>, CallerSavedRegisters> {
   std::deque<NativeStackFrame> trace;
 
   // initialize libunwind
-  unw_context_t context;
-  if (unw_getcontext(&context) != 0) {
-    Fatal() << "Failed to get context" << '\n';
-    exit(EXIT_FAILURE);
-  }
   unw_cursor_t cursor;
-  if (unw_init_local(&cursor, &context) != 0) {
+  if (unw_init_local(&cursor, &uc) != 0) {
     Fatal() << "Failed to initialize cursor" << '\n';
     exit(EXIT_FAILURE);
   }
+  CallerSavedRegisters regs = CallerSavedRegisters::from_unw_cursor(&cursor);
 
   do {
     unw_word_t offset = 0;
     char fname[64];
     fname[0] = '\0';
     (void)unw_get_proc_name(&cursor, fname, sizeof(fname), &offset);
-    std::string const function_name = {fname};
+    std::string const function_name = {fname, strlen(fname)};
 
     // Get pc.
     unw_word_t pc = 0;
@@ -54,7 +62,7 @@ auto get_stack_trace() -> std::deque<NativeStackFrame> {
         .bp = reinterpret_cast<uint8_t *>(bp),
     });
   } while (unw_step(&cursor) > 0);
-  return trace;
+  return {trace, regs};
 }
 
 } // namespace wanco

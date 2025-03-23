@@ -43,6 +43,7 @@ pub struct InkwellIntrinsics<'ctx> {
     pub expect_i32: FunctionValue<'ctx>,
 
     pub experimental_stackmap: FunctionValue<'ctx>,
+    pub experimental_patchpoint: FunctionValue<'ctx>,
 }
 
 pub fn init_inkwell<'a>(
@@ -113,6 +114,20 @@ pub fn init_inkwell<'a>(
         None,
     );
 
+    let experimental_patchpoint = module.add_function(
+        "llvm.experimental.patchpoint.void",
+        void_type.fn_type(
+            &[
+                i64_type_meta,
+                i32_type_meta,
+                ptr_type.into(),
+                i32_type_meta,
+            ],
+            true,
+        ),
+        None,
+    );
+
     (
         InkwellTypes {
             void_type,
@@ -153,6 +168,7 @@ pub fn init_inkwell<'a>(
             expect_i32,
 
             experimental_stackmap,
+            experimental_patchpoint,
         },
     )
 }

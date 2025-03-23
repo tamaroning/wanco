@@ -1,5 +1,5 @@
 use anyhow::Result;
-use checkpoint::gen_checkpoint_start;
+use checkpoint::generate_stackmap;
 use inkwell::{
     types::BasicTypeEnum,
     values::{BasicValue, BasicValueEnum, PointerValue},
@@ -12,12 +12,14 @@ pub(crate) mod checkpoint;
 pub(crate) mod restore;
 
 //pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
-pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
+//pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
 pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;
 
 pub(crate) const MAX_LOCALS_STORE: usize = 10000;
 pub(crate) const MAX_STACK_STORE: usize = 10000;
+
+const POLLING_PAGE_BEGIN: i64 = 0xA0060000;
 
 fn gen_migration_state<'a>(
     ctx: &mut Context<'a, '_>,
@@ -110,14 +112,29 @@ fn gen_set_migration_state<'a>(
     Ok(())
 }
 
-// almost equiavalent call both to gen_checkpoint and gen_restore, but emit more efficient code
-// by wrapping them in a single conditional branch
-// TODO: 最後のブロックと、ローカル変数、スタックを返す
 pub(crate) fn gen_migration_point<'a>(
     ctx: &mut Context<'a, '_>,
     exec_env_ptr: &PointerValue<'a>,
     locals: &[(PointerValue<'a>, BasicTypeEnum<'a>)],
 ) -> Result<()> {
+    // TODO: change these to a single load instruction
+
+    let safepoint_ptr = ctx
+        .inkwell_types
+        .i64_type
+        .const_int(POLLING_PAGE_BEGIN as u64, false)
+        .const_to_pointer(ctx.inkwell_types.ptr_type);
+
+    let safepoint =
+        ctx.builder
+            .build_load(ctx.inkwell_types.i32_type, safepoint_ptr, "safepoint")?;
+    let load_insn = safepoint.as_instruction_value().unwrap();
+    load_insn.set_volatile(true).expect("fail to set_volatile");
+
+    generate_stackmap(ctx, locals)?;
+
+    // TODO: restore
+    /*
     let chkpt_bb = ctx.ictx.append_basic_block(
         ctx.current_fn.unwrap(),
         &format!("chkpt_op_{}.start", ctx.current_op.unwrap()),
@@ -140,14 +157,17 @@ pub(crate) fn gen_migration_point<'a>(
 
     // start unwinding
     gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
+    */
 
     // restore (create new bb)
     if !ctx.config.no_restore {
+        let current_bb = ctx.builder.get_insert_block().unwrap();
+
         let phi_bb = ctx.ictx.append_basic_block(
             ctx.current_fn.unwrap(),
             &format!("restore_op_{}.end", ctx.current_op.unwrap()),
         );
-        ctx.builder.position_at_end(chkpt_else_bb);
+        ctx.builder.position_at_end(current_bb);
         ctx.builder.build_unconditional_branch(phi_bb).unwrap();
 
         gen_restore_point(
@@ -160,8 +180,6 @@ pub(crate) fn gen_migration_point<'a>(
         );
 
         ctx.builder.position_at_end(phi_bb);
-    } else {
-        ctx.builder.position_at_end(chkpt_else_bb);
     }
     Ok(())
 }

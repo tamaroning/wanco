@@ -195,6 +195,7 @@ impl<'a> AotWasmModule<'a> {
             .arg("-o")
             .arg(&exe_path)
             .arg("-no-pie")
+            .arg("-rdynamic")
             .arg(format!("-{}", args.optimization));
 
         // link protobuf to the exe
@@ -285,9 +286,7 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     }
 
     // Write and Link object files
-    log::info!("Linking the object files");
     let exe_path = aot_module.link_with_runtime(args)?;
-    log::info!("Linked to {}", exe_path.display());
 
     Ok(())
 }

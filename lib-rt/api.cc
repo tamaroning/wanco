@@ -1,17 +1,11 @@
 #include "aot.h"
-#include "arch/arch.h"
 #include "chkpt/chkpt.h"
-#include "elf/elf.h"
-#include "osr/wasm_stacktrace.h"
-#include "stackmap/stackmap.h"
-#include "stacktrace/stacktrace.h"
 #include "wanco.h"
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <sys/mman.h>
 #include <thread>
 #include <ucontext.h>
@@ -23,10 +17,6 @@ namespace wanco {
 int32_t extend_memory(ExecEnv *exec_env, int32_t inc_pages);
 
 } // namespace wanco
-
-// defined by AOT module
-extern "C" void store_globals(ExecEnv *);
-extern "C" void store_table(ExecEnv *);
 
 extern "C" int32_t memory_grow(ExecEnv *exec_env, int32_t inc_pages) {
   return wanco::extend_memory(exec_env, inc_pages);
@@ -50,68 +40,6 @@ extern "C" void sleep_msec(ExecEnv *exec_env, int32_t ms) {
 /*
 ** checkpoint related functions
 */
-
-extern "C" void start_checkpoint(ExecEnv *exec_env) {
-  WANCO_SAVE_REGISTERS();
-  wanco::CallerSavedRegisters regs{};
-  WANCO_RESTORE_REGISTERS(regs);
-
-  // override migration state
-  exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_CONTINUE;
-
-  // auto regs = wanco::stackmap::CallerSavedRegisters{};
-  Info() << "Checkpoint started" << std::endl;
-
-  wanco::ElfFile elf_file{"/proc/self/exe"};
-  auto stackmap_section = elf_file.get_section_data(".llvm_stackmaps");
-  if (!stackmap_section.has_value()) {
-    Fatal() << "Failed to get stackmap section" << std::endl;
-    exit(1);
-  }
-
-  wanco::stackmap::Stackmap stackmap =
-      wanco::stackmap::parse_stackmap(stackmap_section.value());
-
-  const auto native_trace = wanco::get_stack_trace();
-
-  const auto wasm_trace = wanco::asr_exit(regs, native_trace, stackmap);
-
-  Debug() << "Wasm trace:" << std::endl;
-  for (const auto &frame : wasm_trace) {
-    Debug() << frame.to_string() << std::endl;
-  }
-
-  // store the call stack
-  for (const auto &frame : wasm_trace) {
-    wanco::chkpt.frames.push_front(wanco::Frame{
-        .fn_index = frame.loc.get_func(),
-        .pc = frame.loc.get_insn(),
-        .locals = frame.locals,
-        .stack = frame.stack,
-    });
-  }
-
-  // store the globals, table, and memory
-  store_globals(exec_env);
-  store_table(exec_env);
-  wanco::chkpt.memory_size = exec_env->memory_size;
-
-  // write snapshot
-  {
-    std::ofstream ofs("checkpoint.pb");
-    encode_checkpoint_proto(ofs, wanco::chkpt, exec_env->memory_base);
-    Info() << "Snapshot has been saved to checkpoint.pb" << '\n';
-
-    auto time = std::chrono::duration_cast<std::chrono::microseconds>(
-                    std::chrono::system_clock::now().time_since_epoch())
-                    .count();
-    time = time - wanco::CHKPT_START_TIME;
-    // TODO(tamaron): remove this (research purpose)
-    std::ofstream chktime("chkpt-time.txt");
-    chktime << time << '\n';
-  }
-  exit(0);
-}
 
 extern "C" void push_frame(ExecEnv *exec_env) {
   ASSERT(exec_env->migration_state ==
@@ -288,11 +216,11 @@ void dump_checkpoint(wanco::Checkpoint &chkpt) {
 */
 
 static void check_restore_finished(ExecEnv *exec_env, bool cond) {
-  DEBUG_LOG << "Rest frame size: " << std::dec << wanco::chkpt.frames.size()
-            << std::endl;
+  DEBUG_LOG << "Rest frame size to restore: " << std::dec
+            << wanco::chkpt.frames.size() << std::endl;
   if (cond) {
     exec_env->migration_state = wanco::MigrationState::STATE_NONE;
-    DEBUG_LOG << " Restore completed" << std::endl;
+    DEBUG_LOG << "Restore completed" << std::endl;
     ASSERT(wanco::chkpt.restore_stack.empty() && "Stack not empty");
     ASSERT(wanco::chkpt.frames.empty() && "Frames not empty");
     // equivalent to date +%s.%N

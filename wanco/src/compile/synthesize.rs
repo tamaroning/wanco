@@ -27,7 +27,7 @@ pub fn initialize(ctx: &mut Context<'_, '_>) -> anyhow::Result<()> {
             ctx.inkwell_types.i32_type.into(),
             ctx.inkwell_types.ptr_type.into(),
         ],
-        false,
+        true,
     );
     ctx.exec_env_type = Some(exec_env_type);
     ctx.exec_env_fields = exec_env_fields;

@@ -2,27 +2,10 @@
 #pragma once
 #include "wanco.h"
 #include <cstdint>
+#include <libunwind-x86_64.h>
+#include <libunwind.h>
 #include <string>
-
-#define WANCO_SAVE_REGISTERS()                                                 \
-  asm volatile(".intel_syntax noprefix \n\t"                                   \
-               "push rbx \n\t"                                                 \
-               "push r12 \n\t"                                                 \
-               "push r13 \n\t"                                                 \
-               "push r14 \n\t"                                                 \
-               "push r15 \n\t"                                                 \
-               ".att_syntax \n\t");
-
-#define WANCO_RESTORE_REGISTERS(regs)                                          \
-  asm volatile(".intel_syntax noprefix \n\t"                                   \
-               "pop %0 \n\t"                                                   \
-               "pop %1 \n\t"                                                   \
-               "pop %2 \n\t"                                                   \
-               "pop %3 \n\t"                                                   \
-               "pop %4 \n\t"                                                   \
-               ".att_syntax \n\t"                                              \
-               : "=r"((regs).r15), "=r"((regs).r14), "=r"((regs).r13),         \
-                 "=r"((regs).r12), "=r"((regs).rbx));
+#include <sys/ucontext.h>
 
 namespace wanco {
 
@@ -218,6 +201,49 @@ struct CallerSavedRegisters {
       exit(1);
     }
   }
+
+  static CallerSavedRegisters from_unw_cursor(unw_cursor_t *cursor) {
+    CallerSavedRegisters regs{};
+    unw_get_reg(cursor, UNW_X86_64_RBX, &regs.rbx);
+    unw_get_reg(cursor, UNW_X86_64_R12, &regs.r12);
+    unw_get_reg(cursor, UNW_X86_64_R13, &regs.r13);
+    unw_get_reg(cursor, UNW_X86_64_R14, &regs.r14);
+    unw_get_reg(cursor, UNW_X86_64_R15, &regs.r15);
+    return regs;
+  }
 };
+
+inline unw_context_t convert_ucontext(ucontext_t *uc) {
+  unw_context_t unw_ctx;
+  unw_getcontext(&unw_ctx);
+  unw_ctx.uc_mcontext.gregs[REG_RAX] = uc->uc_mcontext.gregs[REG_RAX];
+  unw_ctx.uc_mcontext.gregs[REG_RDX] = uc->uc_mcontext.gregs[REG_RDX];
+  unw_ctx.uc_mcontext.gregs[REG_RCX] = uc->uc_mcontext.gregs[REG_RCX];
+  unw_ctx.uc_mcontext.gregs[REG_RBX] = uc->uc_mcontext.gregs[REG_RBX];
+  unw_ctx.uc_mcontext.gregs[REG_RSI] = uc->uc_mcontext.gregs[REG_RSI];
+  unw_ctx.uc_mcontext.gregs[REG_RDI] = uc->uc_mcontext.gregs[REG_RDI];
+  unw_ctx.uc_mcontext.gregs[REG_RBP] = uc->uc_mcontext.gregs[REG_RBP];
+  unw_ctx.uc_mcontext.gregs[REG_RSP] = uc->uc_mcontext.gregs[REG_RSP];
+  unw_ctx.uc_mcontext.gregs[REG_R8] = uc->uc_mcontext.gregs[REG_R8];
+  unw_ctx.uc_mcontext.gregs[REG_R9] = uc->uc_mcontext.gregs[REG_R9];
+  unw_ctx.uc_mcontext.gregs[REG_R10] = uc->uc_mcontext.gregs[REG_R10];
+  unw_ctx.uc_mcontext.gregs[REG_R11] = uc->uc_mcontext.gregs[REG_R11];
+  unw_ctx.uc_mcontext.gregs[REG_R12] = uc->uc_mcontext.gregs[REG_R12];
+  unw_ctx.uc_mcontext.gregs[REG_R13] = uc->uc_mcontext.gregs[REG_R13];
+  unw_ctx.uc_mcontext.gregs[REG_R14] = uc->uc_mcontext.gregs[REG_R14];
+  unw_ctx.uc_mcontext.gregs[REG_R15] = uc->uc_mcontext.gregs[REG_R15];
+  unw_ctx.uc_mcontext.gregs[REG_RIP] = uc->uc_mcontext.gregs[REG_RIP];
+  unw_ctx.uc_mcontext.gregs[REG_RSP] = uc->uc_mcontext.gregs[REG_RSP];
+  unw_ctx.uc_mcontext.fpregs = &uc->__fpregs_mem;
+
+  unw_ctx.uc_stack.ss_sp = uc->uc_stack.ss_sp;
+  unw_ctx.uc_stack.ss_size = uc->uc_stack.ss_size;
+  unw_ctx.uc_stack.ss_flags = uc->uc_stack.ss_flags;
+
+  unw_ctx.uc_link = uc->uc_link;
+  unw_ctx.uc_sigmask = uc->uc_sigmask;
+
+  return unw_ctx;
+}
 
 } // namespace wanco
