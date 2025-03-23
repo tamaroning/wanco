@@ -196,8 +196,6 @@ impl<'a> AotWasmModule<'a> {
             .arg(&exe_path)
             .arg("-no-pie")
             .arg("-rdynamic")
-            .arg("-fno-optimize-sibling-calls")
-            .arg("-fno-inline")
             .arg(format!("-{}", args.optimization));
 
         // link protobuf to the exe

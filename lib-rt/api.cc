@@ -216,11 +216,11 @@ void dump_checkpoint(wanco::Checkpoint &chkpt) {
 */
 
 static void check_restore_finished(ExecEnv *exec_env, bool cond) {
-  DEBUG_LOG << "Rest frame size: " << std::dec << wanco::chkpt.frames.size()
-            << std::endl;
+  DEBUG_LOG << "Rest frame size to restore: " << std::dec
+            << wanco::chkpt.frames.size() << std::endl;
   if (cond) {
     exec_env->migration_state = wanco::MigrationState::STATE_NONE;
-    DEBUG_LOG << " Restore completed" << std::endl;
+    DEBUG_LOG << "Restore completed" << std::endl;
     ASSERT(wanco::chkpt.restore_stack.empty() && "Stack not empty");
     ASSERT(wanco::chkpt.frames.empty() && "Frames not empty");
     // equivalent to date +%s.%N

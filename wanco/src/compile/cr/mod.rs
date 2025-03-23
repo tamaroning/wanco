@@ -2,7 +2,7 @@ use anyhow::Result;
 use checkpoint::generate_stackmap;
 use inkwell::{
     types::BasicTypeEnum,
-    values::{AnyValue, BasicValue, BasicValueEnum, PointerValue},
+    values::{BasicValue, BasicValueEnum, PointerValue},
 };
 use restore::gen_restore_point;
 
@@ -12,7 +12,7 @@ pub(crate) mod checkpoint;
 pub(crate) mod restore;
 
 //pub(crate) const MIGRATION_STATE_NONE: i32 = 0;
-pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
+//pub(crate) const MIGRATION_STATE_CHECKPOINT_START: i32 = 1;
 pub(crate) const MIGRATION_STATE_CHECKPOINT_CONTINUE: i32 = 2;
 pub(crate) const MIGRATION_STATE_RESTORE: i32 = 3;
 
@@ -121,14 +121,13 @@ pub(crate) fn gen_migration_point<'a>(
 
     let safepoint_ptr = ctx
         .inkwell_types
-        .i32_type
+        .i64_type
         .const_int(POLLING_PAGE_BEGIN as u64, false)
-        .as_any_value_enum();
-    let safepoint = ctx.builder.build_load(
-        ctx.inkwell_types.i32_type,
-        safepoint_ptr.into_pointer_value(),
-        "safepoint",
-    )?;
+        .const_to_pointer(ctx.inkwell_types.ptr_type);
+
+    let safepoint =
+        ctx.builder
+            .build_load(ctx.inkwell_types.i32_type, safepoint_ptr, "safepoint")?;
     let load_insn = safepoint.as_instruction_value().unwrap();
     load_insn.set_volatile(true).expect("fail to set_volatile");
 
@@ -158,14 +157,17 @@ pub(crate) fn gen_migration_point<'a>(
 
     // start unwinding
     gen_checkpoint_start(ctx, exec_env_ptr, locals).expect("fail to gen_checkpoint");
+    */
 
     // restore (create new bb)
     if !ctx.config.no_restore {
+        let current_bb = ctx.builder.get_insert_block().unwrap();
+
         let phi_bb = ctx.ictx.append_basic_block(
             ctx.current_fn.unwrap(),
             &format!("restore_op_{}.end", ctx.current_op.unwrap()),
         );
-        ctx.builder.position_at_end(chkpt_else_bb);
+        ctx.builder.position_at_end(current_bb);
         ctx.builder.build_unconditional_branch(phi_bb).unwrap();
 
         gen_restore_point(
@@ -178,10 +180,7 @@ pub(crate) fn gen_migration_point<'a>(
         );
 
         ctx.builder.position_at_end(phi_bb);
-    } else {
-        ctx.builder.position_at_end(chkpt_else_bb);
     }
-    */
     Ok(())
 }
 

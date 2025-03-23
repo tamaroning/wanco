@@ -377,6 +377,7 @@ static void finalize_legacy_checkpoint() {
 static auto wanco_main(int argc, char **argv) -> int {
   setup_signal_handlers();
   setup_supervisor_thread();
+  allocate_polling_page();
   Config const config = parse_from_args(argc, argv);
 
   if (config.restore_file.empty()) {
