@@ -1,20 +1,3 @@
-#!/usr/bin/env python
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#     "matplotlib",
-#     "pyqt6",
-# ]
-# ///
-
-"""This program shows `hyperfine` benchmark results as a box and whisker plot.
-
-Quoting from the matplotlib documentation:
-    The box extends from the lower to upper quartile values of the data, with
-    a line at the median. The whiskers extend from the box to show the range
-    of the data. Flier points are those past the end of the whiskers.
-"""
-
 import argparse
 import json
 
@@ -37,8 +20,8 @@ with open(args.file, encoding="utf-8") as f:
     labels = []
     ratios = []
     for label, ratio in zip(labels_, ratios_):
-        if "w/ cr" in label:
-            labels.append(label)
+        if " w/ cr" in label:
+            labels.append(label.replace(" w/ cr", ""))
             ratios.append(ratio)
 
 if args.sort_by == "median":
@@ -48,8 +31,8 @@ if args.sort_by == "median":
     labels = []
     ratios = []
     for i in indices:
-        if "w/ cr" not in labels[i]:
-            labels.append(labels[i])
+        if " w/ cr" not in labels[i]:
+            labels.append(labels[i].replace(" w/ cr", ""))
             ratios.append(ratios[i])
 
 
@@ -65,7 +48,7 @@ if args.title:
     plt.title(args.title)
 plt.legend(handles=boxplot["boxes"], labels=labels, loc="best", fontsize="medium")
 plt.ylabel("Execution time [ratio]")
-plt.ylim(0.75, 2)
+plt.ylim(0.75, 1.5)
 plt.xticks(list(range(1, len(labels) + 1)), labels, rotation=45)
 if args.output:
     plt.savefig(args.output)
