@@ -120,13 +120,6 @@ extern "C" void push_frame(ExecEnv *exec_env) {
              wanco::MigrationState::STATE_CHECKPOINT_CONTINUE &&
          "Invalid migration state");
   DEBUG_LOG << "call to push_frame" << std::endl;
-  if (wanco::RESTORE_START_TIME == 0) {
-    wanco::CHKPT_START_TIME =
-        std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::system_clock::now().time_since_epoch())
-            .count();
-  }
-
   wanco::chkpt.frames.push_back(wanco::Frame());
 }
 

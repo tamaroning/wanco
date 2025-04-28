@@ -59,16 +59,16 @@ def wait_for_file_creation(file_path: str) -> None:
 
 
 programs = [
-    Program(
-        "llama2.c",
-        command=Command(
-            wanco=["../wanco-artifacts/run.c.aot", "--"],
-            wanco_cr=["../wanco-artifacts/run.c.cr.aot", "--"],
-            native=["./llama2.c.exe"],
-        ),
-        args=["model.bin", "-n", "256", "-i", "'Once upon a time'"],
-        workdir=os.path.join(get_bench_dir(), "llama2-c"),
-    ),
+    #Program(
+    #    "llama2.c",
+    #    command=Command(
+    #        wanco=["../wanco-artifacts/run.c.aot", "--"],
+    #        wanco_cr=["../wanco-artifacts/run.c.cr.aot", "--"],
+    #        native=["./llama2.c.exe"],
+    #    ),
+    #    args=["model.bin", "-n", "256", "-i", "'Once upon a time'"],
+    #    workdir=os.path.join(get_bench_dir(), "llama2-c"),
+    #),
     Program(
         name="nbody",
         command=Command(

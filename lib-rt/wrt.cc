@@ -36,10 +36,6 @@ OPTIONS:
   --restore <FILE>: Restore an execution from a checkpoint file
 )";
 
-// forward decl
-//static void dump_exec_env(ExecEnv &exec_env);
-//static void dump_checkpoint(Checkpoint &chkpt);
-
 extern "C" auto memory_grow(ExecEnv *exec_env, int32_t inc_pages) -> int32_t;
 
 // signal handler for debugging
@@ -223,6 +219,10 @@ static auto wanco_main(int argc, char **argv) -> int {
   }
   // Register signal handler
   signal(SIGCHKPT, signal_chkpt_handler);
+
+  CHKPT_START_TIME = std::chrono::duration_cast<std::chrono::microseconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
 
   aot_main(&exec_env);
 
