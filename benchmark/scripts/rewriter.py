@@ -5,13 +5,19 @@ from typing import Any
 
 
 def transform_path(line: str) -> str:
-    match = re.search(r"([^/\s]+)\.c\.aot", line)
+    match = re.search(r"[A-Za-z0-9|\.]+\.aot", line)
+    if match:
+        line = match.group(0)
+
+    line = line.replace(".c.", ".")
+
+    match = re.search(r"([^/\s]+)\.cr\.aot", line)
+    if match:
+        return f"{match.group(1)} w/ cr"
+
+    match = re.search(r"([^/\s]+)\.aot", line)
     if match:
         return f"{match.group(1)}"
-
-    match2 = re.search(r"([^/\s]+)\.c\.cr\.aot", line)
-    if match2:
-        return f"{match2.group(1)} w/ cr"
 
     return line
 
@@ -23,6 +29,7 @@ def process_json(json: Any):
         result["name"] = transform_path(result["command"])
         if "run" in result["name"]:
             result["name"] = result["name"].replace("run", "llama2.c")
+        print("Found", result["name"])
 
     # add ratios field
     last_mean = 0

@@ -1,4 +1,4 @@
-SUBDIRS=computer-lab-benchmark llama2-c wanco-artifacts
+SUBDIRS=computer-lab-benchmark llama2-c gapbs wanco-artifacts
 
 all: $(SUBDIRS)
 

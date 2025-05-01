@@ -6,7 +6,7 @@ import argparse
 from typing import Any
 from common import *
 
-NUM_RUNS = 30
+NUM_RUNS = 5
 
 def measure(programs: list[Program], args: Any) -> None:
     hyperfine_cmd: list[str] = [

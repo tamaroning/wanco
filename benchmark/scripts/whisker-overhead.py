@@ -48,7 +48,7 @@ if args.title:
     plt.title(args.title)
 plt.legend(handles=boxplot["boxes"], labels=labels, loc="best", fontsize="medium")
 plt.ylabel("Execution time [ratio]")
-plt.ylim(0.75, 1.5)
+#plt.ylim(0.75, 1.5)
 plt.xticks(list(range(1, len(labels) + 1)), labels, rotation=45)
 if args.output:
     plt.savefig(args.output)

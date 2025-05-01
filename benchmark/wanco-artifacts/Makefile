@@ -1,9 +1,9 @@
-SUBDIRS = ../computer-lab-benchmark ../llama2-c
+SUBDIRS = ../computer-lab-benchmark ../llama2-c ../gapbs
 WASM_FILES = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*.wasm))
 
 WASMC = wanco
-WASMFLAGS = -O3
-WASMFLAGS_CR = -O3 --enable-cr
+WASMFLAGS = -O1
+WASMFLAGS_CR = -O1 --enable-cr
 
 all: aot cr-aot
 
