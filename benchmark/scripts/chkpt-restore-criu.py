@@ -104,6 +104,8 @@ def measure_once(
         raise Exception("Error: criu decode failed")
 
     criu_stat_json: Any = json.loads(subproc_decode.stdout)
+    # CRIU outputs us.
+    # https://github.com/checkpoint-restore/criu/issues/702
     freezing_time_ms = int(criu_stat_json["entries"][0]["dump"]["freezing_time"]) / 1000
     memdump_time_ms = int(criu_stat_json["entries"][0]["dump"]["memdump_time"]) / 1000
     memwrite_time_ms = int(criu_stat_json["entries"][0]["dump"]["memwrite_time"]) / 1000
