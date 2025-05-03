@@ -1,10 +1,10 @@
+#include "aot.h"
 #include "chkpt.h"
 #include "chkpt.pb.h"
 #include "lz4/lz4.h"
 #include "wanco.h"
 #include <fstream>
 #include <google/protobuf/util/json_util.h>
-
 namespace wanco {
 
 static wanco::Value decode_value_proto(const chkpt::Value &v) {
@@ -91,7 +91,9 @@ decode_checkpoint_proto(std::ifstream &f) {
     ASSERT(buf.memory().size() == (std::size_t)ret.memory_size * PAGE_SIZE);
     Info() << "Copying memory: " << std::dec << ret.memory_size << " pages ("
            << buf.memory().size() << " bytes)" << std::endl;
-    memcpy(memory_base, buf.memory().data(), buf.memory().size());
+
+    parallel_memcpy(memory_base, buf.memory().data(), buf.memory().size(),
+                    NUM_THREADS);
   }
 
   return {ret, memory_base};

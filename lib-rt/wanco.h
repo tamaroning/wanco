@@ -1,6 +1,9 @@
 #pragma once
 #include <cstdint>
+#include <cstring>
 #include <iostream>
+#include <thread>
+#include <vector>
 
 #define ASSERT(condition)                                                      \
   do {                                                                         \
@@ -14,6 +17,7 @@
 namespace wanco {
 constexpr bool USE_LZ4 = false;
 constexpr bool DEBUG_ENABLED = false;
+constexpr int NUM_THREADS = 28;
 
 extern uint64_t CHKPT_START_TIME;
 extern uint64_t RESTORE_START_TIME;
@@ -75,7 +79,23 @@ private:
   std::ostream &out = std::cerr;
 };
 
-namespace wanco {
-// wrt.cc
-int8_t *allocate_memory(int32_t num_pages);
-} // namespace wanco
+inline void parallel_memcpy(void *dst, const void *src, size_t size,
+                            int num_threads) {
+  std::vector<std::thread> threads;
+  size_t chunk_size = size / num_threads;
+
+  for (int i = 0; i < num_threads; ++i) {
+    size_t offset = i * chunk_size;
+    size_t current_chunk_size =
+        (i == num_threads - 1) ? (size - offset) : chunk_size;
+
+    threads.emplace_back([=]() {
+      std::memcpy(static_cast<char *>(dst) + offset,
+                  static_cast<const char *>(src) + offset, current_chunk_size);
+    });
+  }
+
+  for (auto &t : threads) {
+    t.join();
+  }
+}
