@@ -24,6 +24,9 @@ uv run ./scripts/whisker-overhead.py overhead.json -o overhead.jpg
 # measure checkpoint and restore time, snapshot size
 # overhead.json is required to get the half elapsed time of the execution time
 uv run scripts/chkpt-restore-wasm.py overhead.json
+
+# measure checkpoint and restore time, snapshot size with CRIU (for comparison)
+sudo uv run scripts/chkpt-restore-criu.py overhead.json
 ```
 
 TODO: measure checkpoint and restore time
