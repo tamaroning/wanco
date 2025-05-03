@@ -20,6 +20,8 @@ uint64_t RESTORE_START_TIME = 0;
 
 // global instance of checkpoint
 Checkpoint chkpt;
+// global instance of stackmap info
+stackmap::Stackmap g_stackmap;
 
 // linear memory: 4GiB
 static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0x100000000000;
@@ -161,11 +163,24 @@ static auto parse_from_args(int argc, char **argv) -> Config {
   return config;
 }
 
+static auto prepare_checkpoint() -> void {
+  ElfFile elf_file{"/proc/self/exe"};
+  auto stackmap_section = elf_file.get_section_data(".llvm_stackmaps");
+  if (!stackmap_section.has_value()) {
+    Fatal() << "Failed to get stackmap section" << std::endl;
+    exit(1);
+  }
+
+  g_stackmap = wanco::stackmap::parse_stackmap(stackmap_section.value());
+}
+
 static auto wanco_main(int argc, char **argv) -> int {
   signal(SIGSEGV, signal_segv_handler);
 
   // Parse CLI arguments
   Config const config = parse_from_args(argc, argv);
+
+  prepare_checkpoint();
 
   if (config.restore_file.empty()) {
     // Allocate memory
@@ -220,11 +235,11 @@ static auto wanco_main(int argc, char **argv) -> int {
   // Register signal handler
   signal(SIGCHKPT, signal_chkpt_handler);
 
+  aot_main(&exec_env);
+
   CHKPT_START_TIME = std::chrono::duration_cast<std::chrono::microseconds>(
                          std::chrono::system_clock::now().time_since_epoch())
                          .count();
-
-  aot_main(&exec_env);
 
   if (exec_env.migration_state == MigrationState::STATE_CHECKPOINT_CONTINUE) {
     chkpt.memory_size = exec_env.memory_size;

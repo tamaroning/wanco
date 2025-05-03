@@ -56,29 +56,27 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
   wanco::CallerSavedRegisters regs{};
   WANCO_RESTORE_REGISTERS(regs);
 
+  wanco::CHKPT_START_TIME =
+      std::chrono::duration_cast<std::chrono::microseconds>(
+          std::chrono::system_clock::now().time_since_epoch())
+          .count();
+
   // override migration state
   exec_env->migration_state = wanco::MigrationState::STATE_CHECKPOINT_CONTINUE;
 
   // auto regs = wanco::stackmap::CallerSavedRegisters{};
   Info() << "Checkpoint started" << std::endl;
 
-  wanco::ElfFile elf_file{"/proc/self/exe"};
-  auto stackmap_section = elf_file.get_section_data(".llvm_stackmaps");
-  if (!stackmap_section.has_value()) {
-    Fatal() << "Failed to get stackmap section" << std::endl;
-    exit(1);
-  }
-
-  wanco::stackmap::Stackmap stackmap =
-      wanco::stackmap::parse_stackmap(stackmap_section.value());
-
   const auto native_trace = wanco::get_stack_trace();
 
-  const auto wasm_trace = wanco::asr_exit(regs, native_trace, stackmap);
+  const auto wasm_trace =
+      wanco::asr_exit(regs, native_trace, wanco::g_stackmap);
 
-  Debug() << "Wasm trace:" << std::endl;
-  for (const auto &frame : wasm_trace) {
-    Debug() << frame.to_string() << std::endl;
+  if constexpr (wanco::DEBUG_ENABLED) {
+    Debug() << "Wasm trace:" << std::endl;
+    for (const auto &frame : wasm_trace) {
+      Debug() << frame.to_string() << std::endl;
+    }
   }
 
   // store the call stack

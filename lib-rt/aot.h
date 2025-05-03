@@ -1,7 +1,8 @@
 #pragma once
 #include "chkpt/chkpt.h"
+#include "elf/elf.h"
+#include "stackmap/stackmap.h"
 #include "wanco.h"
-#include <cstdint>
 
 namespace wanco {
 
@@ -33,7 +34,7 @@ extern "C" void aot_main(ExecEnv *);
 
 // defined in wrt.c
 extern "C" ExecEnv exec_env;
-
 namespace wanco {
 extern "C" Checkpoint chkpt;
-}
+extern "C" stackmap::Stackmap g_stackmap;
+} // namespace wanco
