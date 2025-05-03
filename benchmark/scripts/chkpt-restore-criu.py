@@ -1,4 +1,5 @@
 import argparse
+from os import path
 import time
 from typing import Any, Dict, Tuple
 from common import *
@@ -6,6 +7,8 @@ import pandas as pd
 import json
 
 NUM_RUNS = 1
+
+CHECKPOINT_DIR = "checkpoint"
 
 data: Dict[str, list[float | int | str]] = {
     # program name
@@ -44,19 +47,19 @@ def measure_once(
     Raise an exception if checkpoint or restore does not succeed.
     """
 
-    command = program.get_wanco_cr_cmd()
+    command = program.get_wanco_cmd()
     exe_name = command[0].split("/")[-1]
 
-    chkpt_time_us: float = 0
-    restore_time_us: float = 0
-    file_size: int = 0
+    checkpoint_time_ms: float = 0
+    restore_time_ms: float = 0
+    snapshot_size: int = 0
 
-    if os.path.exists("checkpoint.pb"):
-        os.remove("checkpoint.pb")
-    if os.path.exists("restore-time.txt"):
-        os.remove("restore-time.txt")
-    if os.path.exists("chkpt-time.txt"):
-        os.remove("chkpt-time.txt")
+    # --- start the execution ---
+
+    snapshot_dir_path = CHECKPOINT_DIR
+    if os.path.exists(snapshot_dir_path):
+        os.system(f"rm -rf {snapshot_dir_path}")
+    os.makedirs(snapshot_dir_path)
 
     proc = subprocess.Popen(
         command,
@@ -65,46 +68,73 @@ def measure_once(
         cwd=program.workdir,
     )
     time.sleep(half_elapsed_time_ms / 1000)
-    subprocess.run(["pkill", "-10", "-f", exe_name], cwd=program.workdir)
+    # get the pid of the process
+    pids = get_pid_by_name(exe_name)
+    if len(pids) == 0:
+        raise Exception(f"Error: process {exe_name} not found")
+    dump_proc = subprocess.run(
+        [
+            "criu",
+            "dump",
+            "--shell-job",
+            "-t",
+            str(pids[0]),
+            "--file-locks",
+            "-D",
+            CHECKPOINT_DIR,
+        ],
+    )
 
     # wait for the process to finish
     stat = proc.wait()
     if stat != 0:
-        raise Exception("Error: process failed")
+        # It is ok because the process is killed
+        pass
+    if dump_proc.returncode != 0:
+        raise Exception("Error: criu dump failed")
 
-    chkpt_time_path = os.path.join(program.workdir, "chkpt-time.txt")
-    wait_for_file_creation(chkpt_time_path)
-    try:
-        f = open(chkpt_time_path, "r")
-        chkpt_time_us = float(f.read().strip())
-    except FileNotFoundError:
-        raise Exception("Error: chkpt-time.txt not found")
+    # --- Get the checkpoint status ---
 
-    snapshot_path = os.path.join(program.workdir, "checkpoint.pb")
-    wait_for_file_creation(snapshot_path)
-    if os.path.exists(snapshot_path):
-        file_size = os.path.getsize(snapshot_path)
-
-    proc2 = subprocess.Popen(
-        [command[0], "--restore", "checkpoint.pb"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        cwd=program.workdir,
+    subproc_decode = subprocess.run(
+        ["crit", "decode", "-i", path.join(snapshot_dir_path, "stats-dump")],
+        capture_output=True,
+        text=True,
     )
-    stat2 = proc2.wait(timeout=5)
-    if stat2 != 0:
-        raise Exception("Error: restore failed")
+    if subproc_decode.returncode != 0:
+        raise Exception("Error: criu decode failed")
 
-    restore_time_path = os.path.join(program.workdir, "restore-time.txt")
-    wait_for_file_creation(restore_time_path)
-    try:
-        f = open(restore_time_path, "r")
-        restore_time_us = float(f.read().strip())
-    except FileNotFoundError:
-        raise Exception("Error: restore-time.txt not found")
+    criu_stat_json: Any = json.loads(subproc_decode.stdout)
+    freezing_time_ms = int(criu_stat_json["entries"][0]["dump"]["freezing_time"]) / 1000
+    memdump_time_ms = int(criu_stat_json["entries"][0]["dump"]["memdump_time"]) / 1000
+    memwrite_time_ms = int(criu_stat_json["entries"][0]["dump"]["memwrite_time"]) / 1000
+    checkpoint_time_ms = freezing_time_ms + memdump_time_ms + memwrite_time_ms
 
-    # convert us to ms
-    return chkpt_time_us / 1000, restore_time_us / 1000, file_size
+    # get the snpashot folder size
+    snapshot_size = get_dir_size(snapshot_dir_path)
+
+    # --- Restore the process ---
+
+    subproc_restore = subprocess.run(
+        ["criu", "restore", "--shell-job", "-D", snapshot_dir_path],
+    )
+    if subproc_restore.returncode != 0:
+        raise Exception("Error: criu restore failed")
+
+    # restore_time=$(crit decode -i checkpoint/stats-restore | jq '.entries[0].restore.restore_time')
+    stats_restore = subprocess.run(
+        ["crit", "decode", "-i", path.join(snapshot_dir_path, "stats-restore")],
+        capture_output=True,
+        text=True,
+    )
+    if stats_restore.returncode != 0:
+        raise Exception("Error: criu decode failed to get stas-restore")
+
+    criu_restore_stat_json: Any = json.loads(stats_restore.stdout)
+    restore_time_ms = (
+        int(criu_restore_stat_json["entries"][0]["restore"]["restore_time"]) / 1000
+    )
+
+    return checkpoint_time_ms, restore_time_ms, snapshot_size
 
 
 def measure_checkpoint_time(program: Program, elapsed_time_sec: float) -> None:
@@ -152,7 +182,7 @@ def main():
         "-o",
         "--output",
         help="Save CSV to the given filename.",
-        default="chkpt-restore-wasm.csv",
+        default="chkpt-restore-criu.csv",
     )
     parser.add_argument("filename", help="overhead.json")
     args = parser.parse_args()

@@ -3,8 +3,13 @@
 ## Prerequisites
 
 - [uv](https://github.com/astral-sh/uv): Python package and version manager
+- CRIU
 
 ```bash
+# Install CRIU
+sudo add-apt-repository ppa:criu/ppa
+sudo apt install criu
+
 cd benchmark
 # build the benchmark programs
 make all

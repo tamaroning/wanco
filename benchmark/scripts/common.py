@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import subprocess
 import os
 import time
+from typing import Any
 
 
 def check_installed(cmd: str) -> bool:
@@ -189,7 +190,7 @@ programs = [
         args=["-g", "20", "-n", "1"],
         workdir=get_bench_dir(),
     ),
-    #Program(
+    # Program(
     #    name="tc",
     #    command=Command(
     #        wanco=["./wanco-artifacts/tc.aot", "--"],
@@ -198,5 +199,43 @@ programs = [
     #    ),
     #    args=["-g", "20", "-n", "1"],
     #    workdir=get_bench_dir(),
-    #),
+    # ),
 ]
+
+
+def get_elapsed_time_sec(name: str, overhead_json: Any, cr=False) -> float:
+    """
+    Get the elapsed time in seconds for a given program name from the overhead.json file.
+    """
+    if cr:
+        name = name + " w/ cr"
+
+    results = overhead_json["results"]
+    for result in results:
+        if result["name"] == name:
+            elapsed_time_sec = result["median"]
+            print(f"\tElapsed time: {elapsed_time_sec} s")
+            return elapsed_time_sec
+
+    raise Exception(f"Error: {name} not found in overhead.json")
+
+
+def get_pid_by_name(name):
+    try:
+        result = subprocess.check_output(["pgrep", "-f", name])
+        pids = result.decode().strip().split("\n")
+        return [int(pid) for pid in pids]
+    except subprocess.CalledProcessError:
+        return []
+
+
+def get_dir_size(path: str) -> int:
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if not os.path.islink(fp):
+                total_size += os.path.getsize(fp)
+
+    return total_size
