@@ -8,6 +8,7 @@ from common import *
 
 NUM_RUNS = 5
 
+
 def measure(programs: list[Program], args: Any) -> None:
     hyperfine_cmd: list[str] = [
         "hyperfine",
@@ -46,6 +47,7 @@ def main():
     parser.add_argument(
         "-o", "--output", help="Save JSON to the given filename.", default="result.json"
     )
+
     args = parser.parse_args()
 
     measure(programs, args)

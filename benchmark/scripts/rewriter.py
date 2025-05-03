@@ -5,7 +5,7 @@ from typing import Any
 
 
 def transform_path(line: str) -> str:
-    match = re.search(r"[A-Za-z0-9|\.]+\.aot", line)
+    match = re.search(r"[A-Za-z0-9|\.|\-|\_]+\.aot", line)
     if match:
         line = match.group(0)
 

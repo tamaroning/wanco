@@ -189,14 +189,14 @@ programs = [
         args=["-g", "20", "-n", "1"],
         workdir=get_bench_dir(),
     ),
-    Program(
-        name="tc",
-        command=Command(
-            wanco=["./wanco-artifacts/tc.aot", "--"],
-            wanco_cr=["./wanco-artifacts/tc.cr.aot", "--"],
-            native=["./gapbs/tc.exe"],
-        ),
-        args=["-g", "20", "-n", "1"],
-        workdir=get_bench_dir(),
-    ),
+    #Program(
+    #    name="tc",
+    #    command=Command(
+    #        wanco=["./wanco-artifacts/tc.aot", "--"],
+    #        wanco_cr=["./wanco-artifacts/tc.cr.aot", "--"],
+    #        native=["./gapbs/tc.exe"],
+    #    ),
+    #    args=["-g", "20", "-n", "1"],
+    #    workdir=get_bench_dir(),
+    #),
 ]

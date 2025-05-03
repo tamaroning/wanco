@@ -1,9 +1,9 @@
 import argparse
-import statistics
 import time
 from typing import Any, Dict, Tuple
 from common import *
 import pandas as pd
+import json
 
 NUM_RUNS = 10
 
@@ -106,13 +106,14 @@ def measure_once(
     return chkpt_time, restore_time, file_size
 
 
-def measure_checkpoint_time(program: Program) -> None:
-    # half elapsed time in milliseconds
-    # TODO: Implement this function
-    half_elapsed_time_ms: float = 1
+def measure_checkpoint_time(program: Program, elapsed_time_sec: float) -> None:
+    half_elapsed_time_ms: float = elapsed_time_sec * 1000 / 2
 
+    print(f"Program: {program.name}")
+    print(f"\tHalf elapsed time: {half_elapsed_time_ms} ms")
+
+    print("\t", end="")
     rest = NUM_RUNS
-
     while rest > 0:
         try:
             chkpt_time, restore_time, file_size = measure_once(
@@ -123,13 +124,34 @@ def measure_checkpoint_time(program: Program) -> None:
             print(f"\tError: {e}, retrying...")
             continue
 
+        print(".", end="", flush=True)
         rest -= 1
 
+    print("done")
 
-def measure(programs: list[Program]) -> None:
+
+def get_elapsed_time_sec(name: str, overhead_json: Any) -> float:
+    name = name + " w/ cr"
+    results = overhead_json["results"]
+    for result in results:
+        if result["name"] == name:
+            elapsed_time_sec = result["median"]
+            print(f"\tElapsed time: {elapsed_time_sec} s")
+            return elapsed_time_sec
+
+    raise Exception(f"Error: {name} not found in overhead.json")
+
+
+def measure(programs: list[Program], args: Any) -> None:
+    # Load overhead.json
+    overhead_json: Any = None
+    with open(args.filename, "r") as f:
+        overhead_json = json.load(f)
+
     for program in programs:
         print(f"{program.name}")
-        measure_checkpoint_time(program)
+        elapsed_time_sec = get_elapsed_time_sec(program.name, overhead_json)
+        measure_checkpoint_time(program, elapsed_time_sec)
 
 
 def main():
@@ -138,11 +160,12 @@ def main():
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "-o", "--output", help="Save CSV to the given filename.", default="result.csv"
+        "-o", "--output", help="Save CSV to the given filename.", default="chkpt-restore.csv"
     )
+    parser.add_argument("filename", help="overhead.json")
     args = parser.parse_args()
 
-    measure(programs)
+    measure(programs, args)
     save_csv_file(args.output)
 
 

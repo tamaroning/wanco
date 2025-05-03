@@ -11,12 +11,14 @@ make all
 
 # measure execution time
 uv run ./scripts/exec-time.py
+# calculate the overhead of the execution time and output to JSON
 uv run ./scripts/rewriter.py result.json --output overhead.json
-# generate whisker plots
+# generate whisker plots from overhead.json
 uv run ./scripts/whisker-overhead.py overhead.json -o overhead.jpg
 
 # measure checkpoint and restore time, snapshot size
-uv run ./scripts/chkpt-restore-wasm.py
+# overhead.json is required to get the half elapsed time of the execution time
+uv run scripts/chkpt-restore-wasm.py overhead.json
 ```
 
 TODO: measure checkpoint and restore time
