@@ -1,6 +1,6 @@
 #include "chkpt.h"
-#include "lz4/lz4.h"
 #include "chkpt.pb.h"
+#include "lz4/lz4.h"
 #include "wanco.h"
 #include <fstream>
 #include <google/protobuf/util/json_util.h>
@@ -183,7 +183,8 @@ void encode_checkpoint_proto(std::ofstream &ofs, Checkpoint &chkpt,
     buf.set_memory_lz4(std::string(compressed.begin(), compressed.end()));
   } else {
     Info() << "Copying memory" << std::endl;
-    buf.set_memory(memory_base, chkpt.memory_size * PAGE_SIZE);
+    buf.set_allocated_memory(
+        new std::string((char *)memory_base, chkpt.memory_size * PAGE_SIZE));
   }
 
   if (!buf.SerializeToOstream(&ofs)) {
