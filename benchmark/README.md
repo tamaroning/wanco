@@ -27,6 +27,9 @@ uv run scripts/chkpt-restore-wasm.py overhead.json
 
 # measure checkpoint and restore time, snapshot size with CRIU (for comparison)
 sudo uv run scripts/chkpt-restore-criu.py overhead.json
+
+# Plot comparison of CRIU and WASM (checkpoting and restoring time, snapshot size)
+uv run scripts/plot-wasm-vs-criu.py results/chkpt-restore-wasm.csv results/chkpt-restore-criu.csv
 ```
 
 TODO: measure checkpoint and restore time
