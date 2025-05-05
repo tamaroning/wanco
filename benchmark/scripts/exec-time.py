@@ -1,12 +1,10 @@
-#!/bin/python3
-import os
 import subprocess
 from dataclasses import dataclass
 import argparse
 from typing import Any
 from common import *
 
-NUM_RUNS = 5
+NUM_RUNS = 10
 
 
 def measure(programs: list[Program], args: Any) -> None:

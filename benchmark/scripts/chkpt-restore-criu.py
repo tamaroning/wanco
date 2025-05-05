@@ -6,7 +6,7 @@ from common import *
 import pandas as pd
 import json
 
-NUM_RUNS = 1
+NUM_RUNS = 10
 
 CHECKPOINT_DIR = "checkpoint"
 
