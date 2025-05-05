@@ -22,12 +22,8 @@ uint64_t RESTORE_START_TIME = 0;
 Checkpoint chkpt;
 // global instance of stackmap info
 stackmap::Stackmap g_stackmap;
-
-// linear memory: 4GiB
-static constexpr uint64_t LINEAR_MEMORY_BEGIN = 0x100000000000;
-static constexpr uint64_t MAX_LINEAR_MEMORY_SIZE = 0x400000; // 4GiB
-// guard page: 2GiB
-static constexpr uint64_t GUARD_PAGE_SIZE = 0x200000;
+// global instance of linear memory
+std::string linear_memory;
 
 static std::string_view USAGE = R"(WebAssembly AOT executable
 USAGE: <this file> [options] -- [arguments]
@@ -37,8 +33,6 @@ OPTIONS:
   --help: Display this message and exit
   --restore <FILE>: Restore an execution from a checkpoint file
 )";
-
-extern "C" auto memory_grow(ExecEnv *exec_env, int32_t inc_pages) -> int32_t;
 
 // signal handler for debugging
 static void signal_segv_handler(int signum) {
@@ -64,75 +58,24 @@ struct Config {
   std::string restore_file;
 } __attribute__((aligned(32)));
 
-auto allocate_memory(int32_t num_pages) -> int8_t * {
+std::string allocate_memory(int32_t num_pages) {
   uint64_t const num_bytes = num_pages * PAGE_SIZE;
-
-  // Memory layout
-  // 0x100000000000 - 0x100000000000 + 0x400000: linear memory
-  // Guard pages are placed at the beginning and the end of the linear memory
-  // (Unused linear memory is allocated as guard pages before memory.grow is
-  // called)
-
-  // Add guard pages
-  Info() << "Allocating guard pages" << '\n';
-  if (mmap((void *)(LINEAR_MEMORY_BEGIN - GUARD_PAGE_SIZE),
-           (GUARD_PAGE_SIZE * 2) + MAX_LINEAR_MEMORY_SIZE, PROT_NONE,
-           MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0) == nullptr) {
-    Fatal() << "Failed to allocate guard pages" << '\n';
-  }
-
-  // Allocate linear memory
-  if (munmap((void *)LINEAR_MEMORY_BEGIN, num_bytes) < 0) {
-    Fatal() << "Failed to unmap part of guard pages" << '\n';
-    exit(1);
-  };
-  auto *res = static_cast<int8_t *>(mmap((void *)LINEAR_MEMORY_BEGIN, num_bytes,
-                                         PROT_READ | PROT_WRITE,
-                                         MAP_ANONYMOUS | MAP_PRIVATE, -1, 0));
-  if (res == nullptr) {
-    Fatal() << "Failed to allocate " << num_pages * PAGE_SIZE
-            << " bytes to linear memory" << '\n';
-    exit(1);
-  }
-  Info() << "Allocating linear memory: " << num_pages
-         << " pages, starting at 0x" << std::hex << (uint64_t)res << '\n';
-// Zero out memory
-#ifdef __FreeBSD__
-  std::memset(res, 0, num_bytes);
-#endif
-
-  return res;
+  std::string new_memory(num_bytes, 0);
+  return new_memory;
 }
 
 auto extend_memory(ExecEnv *exec_env, int32_t inc_pages) -> int32_t {
   ASSERT(inc_pages >= 0);
-  int32_t const old_size = exec_env->memory_size;
-  int32_t const new_size = old_size + inc_pages;
+  int32_t old_size = exec_env->memory_size;
+  int32_t new_size = old_size + inc_pages;
 
   if (inc_pages == 0) {
     return old_size;
   }
 
-  // Unmap requested pages
-  if (munmap(exec_env->memory_base + (old_size * PAGE_SIZE),
-             inc_pages * PAGE_SIZE) < 0) {
-    Fatal() << "Failed to unmap guard pages: inc_pages=" << std::dec
-            << inc_pages << '\n';
-    exit(1);
-  }
-  auto *res =
-      static_cast<int8_t *>(mremap(exec_env->memory_base, old_size * PAGE_SIZE,
-                                   new_size * PAGE_SIZE, MREMAP_MAYMOVE));
-  if (res == nullptr) {
-    Fatal() << "Failed to grow memory (" << inc_pages << ")" << '\n';
-    exit(1);
-  }
-// Zero out new memory
-#ifdef __FreeBSD__
-  std::memset(res + old_size * PAGE_SIZE, 0, inc_pages * PAGE_SIZE);
-#endif
+  linear_memory.resize(new_size * PAGE_SIZE, 0);
 
-  exec_env->memory_base = res;
+  exec_env->memory_base = reinterpret_cast<int8_t *>(linear_memory.data());
   exec_env->memory_size = new_size;
   return old_size;
 }
@@ -185,10 +128,10 @@ static auto wanco_main(int argc, char **argv) -> int {
   if (config.restore_file.empty()) {
     // Allocate memory
     int const memory_size = INIT_MEMORY_SIZE;
-    int8_t *memory = allocate_memory(memory_size);
+    linear_memory = allocate_memory(memory_size);
     // Initialize exec_env
     exec_env = ExecEnv{
-        .memory_base = memory,
+        .memory_base = reinterpret_cast<int8_t *>(linear_memory.data()),
         .memory_size = memory_size,
         .migration_state = MigrationState::STATE_NONE,
         .argc = argc,
@@ -208,15 +151,12 @@ static auto wanco_main(int argc, char **argv) -> int {
       return 1;
     }
 
-    int8_t *memory = nullptr;
     if (!config.restore_file.ends_with(".pb")) {
       Warn() << "The file does not have a .pb extension. "
                 "Attempting to parse as proto."
              << '\n';
     }
-    auto p = decode_checkpoint_proto(ifs);
-    chkpt = p.first;
-    memory = p.second;
+    chkpt = decode_checkpoint_proto(ifs);
     chkpt.prepare_restore();
     Info() << "Checkpoint has been loaded" << '\n';
     Info() << "- call stack: " << chkpt.frames.size() << " frames" << '\n';
@@ -225,7 +165,7 @@ static auto wanco_main(int argc, char **argv) -> int {
 
     // Initialize exec_env
     exec_env = ExecEnv{
-        .memory_base = memory,
+        .memory_base = reinterpret_cast<int8_t *>(linear_memory.data()),
         .memory_size = chkpt.memory_size,
         .migration_state = MigrationState::STATE_RESTORE,
         .argc = argc,

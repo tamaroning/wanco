@@ -37,9 +37,7 @@ extern "C" ExecEnv exec_env;
 namespace wanco {
 extern "C" Checkpoint chkpt;
 extern "C" stackmap::Stackmap g_stackmap;
-} // namespace wanco
+extern std::string linear_memory;
 
-namespace wanco {
-// wrt.cc
-int8_t *allocate_memory(int32_t num_pages);
+std::string allocate_memory(int32_t num_pages);
 } // namespace wanco

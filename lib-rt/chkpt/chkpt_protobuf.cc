@@ -49,8 +49,7 @@ static wanco::Frame decode_frame_proto(const chkpt::Frame &f) {
   return frame;
 }
 
-std::pair<wanco::Checkpoint, int8_t *>
-decode_checkpoint_proto(std::ifstream &f) {
+wanco::Checkpoint decode_checkpoint_proto(std::ifstream &f) {
   Checkpoint ret;
   chkpt::Checkpoint buf;
   if (!buf.ParseFromIstream(&f)) {
@@ -73,7 +72,7 @@ decode_checkpoint_proto(std::ifstream &f) {
   }
 
   ret.memory_size = buf.memory_size();
-  int8_t *memory_base = allocate_memory(ret.memory_size);
+  linear_memory = allocate_memory(ret.memory_size);
 
   if (USE_LZ4) {
     Info() << "Decompressing memory: " << std::dec << ret.memory_size
@@ -81,7 +80,7 @@ decode_checkpoint_proto(std::ifstream &f) {
            << std::endl;
     std::string compressed = buf.memory_lz4();
     size_t size =
-        LZ4_decompress_safe(compressed.data(), (char *)memory_base,
+        LZ4_decompress_safe(compressed.data(), (char *)linear_memory.data(),
                             compressed.size(), ret.memory_size * PAGE_SIZE);
     if (size < 0) {
       Fatal() << "Failed to decompress memory" << std::endl;
@@ -92,11 +91,10 @@ decode_checkpoint_proto(std::ifstream &f) {
     Info() << "Copying memory: " << std::dec << ret.memory_size << " pages ("
            << buf.memory().size() << " bytes)" << std::endl;
 
-    parallel_memcpy(memory_base, buf.memory().data(), buf.memory().size(),
-                    NUM_THREADS);
+    linear_memory = std::move(buf.memory());
   }
 
-  return {ret, memory_base};
+  return ret;
 }
 
 static chkpt::Value encode_value_proto(const wanco::Value &v) {
