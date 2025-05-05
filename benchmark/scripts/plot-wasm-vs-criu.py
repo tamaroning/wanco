@@ -4,13 +4,15 @@ import argparse
 import os
 
 
-def load_and_aggregate(csv_path):
+def load_and_aggregate(csv_path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
-    return df.groupby("program").median()
+    return df.groupby("program", sort=False).median()
 
 
-def plot_comparison(df_a, df_b, column, output_file):
-    programs = sorted(set(df_a.index) | set(df_b.index))
+def plot_comparison(
+    df_a: pd.DataFrame, df_b: pd.DataFrame, column: str, output_file: str
+) -> None:
+    programs = df_a.index
 
     values_a = [df_a.loc[p, column] if p in df_a.index else 0 for p in programs]
     values_b = [df_b.loc[p, column] if p in df_b.index else 0 for p in programs]
@@ -20,7 +22,11 @@ def plot_comparison(df_a, df_b, column, output_file):
 
     plt.figure(figsize=(10, 6))
     plt.bar(
-        [i - width / 2 for i in x], values_a, width=width, label="Wanco", color="skyblue"
+        [i - width / 2 for i in x],
+        values_a,
+        width=width,
+        label="Wanco",
+        color="skyblue",
     )
     plt.bar(
         [i + width / 2 for i in x], values_b, width=width, label="CRIU", color="salmon"
