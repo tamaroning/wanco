@@ -18,17 +18,22 @@ def plot_comparison(
     values_a = [df_a.loc[p, column] if p in df_a.index else 0 for p in programs]
     values_b = [df_b.loc[p, column] if p in df_b.index else 0 for p in programs]
 
-    if "size" in y_label:
-        values_a = [v / 1024 / 1024 for v in values_a]
-        values_b = [v / 1024 / 1024 for v in values_b]
+    color_a = "blue"
+    color_b = "orange"
 
     x = range(len(programs))
     width = 0.35
     
     if "time" in y_label:
         y_label += " [ms]"
+        color_a = "#1f77b4"
+        color_b = "#ff7f0e"
     elif "size" in y_label:
         y_label += " [MiB]"
+        values_a = [v / 1024 / 1024 for v in values_a]
+        values_b = [v / 1024 / 1024 for v in values_b]
+        color_a = "lightseagreen"
+        color_b = "hotpink"
 
     plt.figure(figsize=(10, 6))
     plt.bar(
@@ -36,10 +41,10 @@ def plot_comparison(
         values_a,
         width=width,
         label="Wanco",
-        color="skyblue",
+        color=color_a,
     )
     plt.bar(
-        [i + width / 2 for i in x], values_b, width=width, label="CRIU", color="salmon"
+        [i + width / 2 for i in x], values_b, width=width, label="CRIU", color=color_b
     )
     plt.xticks(ticks=x, labels=programs, rotation=45, ha="right")
     plt.title(f'Comparison of {column.replace("_", " ").capitalize()}')
