@@ -127,7 +127,7 @@ programs = [
             wanco_cr=["./wanco-artifacts/bc.cr.aot", "--"],
             native=["./gapbs/br.exe"],
         ),
-        args=["-g", "20", "-n", "1"],
+        args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
     ),
     Program(
@@ -137,7 +137,7 @@ programs = [
             wanco_cr=["./wanco-artifacts/bfs.cr.aot", "--"],
             native=["./gapbs/bfs.exe"],
         ),
-        args=["-g", "20", "-n", "1"],
+        args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
     ),
     Program(
@@ -147,7 +147,7 @@ programs = [
             wanco_cr=["./wanco-artifacts/cc.cr.aot", "--"],
             native=["./gapbs/cc.exe"],
         ),
-        args=["-g", "20", "-n", "1"],
+        args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
     ),
     Program(
@@ -157,7 +157,7 @@ programs = [
             wanco_cr=["./wanco-artifacts/cc_sv.cr.aot", "--"],
             native=["./gapbs/cc_sv.exe"],
         ),
-        args=["-g", "20", "-n", "1"],
+        args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
     ),
     Program(
@@ -167,7 +167,7 @@ programs = [
             wanco_cr=["./wanco-artifacts/pr.cr.aot", "--"],
             native=["./gapbs/pr.exe"],
         ),
-        args=["-g", "20", "-n", "1"],
+        args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
     ),
     Program(
@@ -177,7 +177,7 @@ programs = [
             wanco_cr=["./wanco-artifacts/pr_spmv.cr.aot", "--"],
             native=["./gapbs/pr_spmv.exe"],
         ),
-        args=["-g", "20", "-n", "1"],
+        args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
     ),
     Program(
@@ -187,7 +187,7 @@ programs = [
             wanco_cr=["./wanco-artifacts/sssp.cr.aot", "--"],
             native=["./gapbs/sssp.exe"],
         ),
-        args=["-g", "20", "-n", "1"],
+        args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
     ),
     # Program(
@@ -197,7 +197,7 @@ programs = [
     #        wanco_cr=["./wanco-artifacts/tc.cr.aot", "--"],
     #        native=["./gapbs/tc.exe"],
     #    ),
-    #    args=["-g", "20", "-n", "1"],
+    #    args=["-g", "18", "-n", "1"],
     #    workdir=get_bench_dir(),
     # ),
 ]
