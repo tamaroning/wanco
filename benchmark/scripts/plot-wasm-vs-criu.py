@@ -32,7 +32,14 @@ def plot_comparison(
     )
 
     plt.xticks(ticks=x, labels=programs, rotation=45, ha="right")
-    plt.ylabel(column.replace("_", " ").capitalize())
+
+    y_label = column.replace("_", " ").capitalize()
+    if "time" in y_label:
+        y_label += " (ms)"
+    elif "size" in y_label:
+        y_label += " (bytes)"
+    plt.ylabel(y_label)
+
     plt.title(f'Comparison of {column.replace("_", " ").capitalize()}')
     plt.legend()
     plt.tight_layout()
