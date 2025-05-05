@@ -109,12 +109,9 @@ static auto parse_from_args(int argc, char **argv) -> Config {
 static auto prepare_checkpoint() -> void {
   ElfFile elf_file{"/proc/self/exe"};
   auto stackmap_section = elf_file.get_section_data(".llvm_stackmaps");
-  if (!stackmap_section.has_value()) {
-    Fatal() << "Failed to get stackmap section" << std::endl;
-    exit(1);
+  if (stackmap_section.has_value()) {
+    g_stackmap = wanco::stackmap::parse_stackmap(stackmap_section.value());
   }
-
-  g_stackmap = wanco::stackmap::parse_stackmap(stackmap_section.value());
 }
 
 static auto wanco_main(int argc, char **argv) -> int {
