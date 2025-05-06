@@ -13,7 +13,7 @@
       (else
         (if (i32.eq (local.get $n) (i32.const 1))
           (then
-            (return i32.const 1)
+            (return (i32.const 1))
           )
           (else
             (return (i32.add
