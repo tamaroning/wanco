@@ -1,51 +1,107 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import argparse
+import numpy as np
 
 
-def load_and_aggregate(csv_path) -> pd.DataFrame:
-    df = pd.read_csv(csv_path)
-    return df.groupby("program", sort=False).median()
+def load_data(csv_path) -> pd.DataFrame:
+    """生のデータを読み込む（集計せずに全データを保持）"""
+    return pd.read_csv(csv_path)
+
+
+def remove_outliers_by_column(df, column):
+    """特定の列に基づいてハズレ値を除外する"""
+    if len(df) <= 3:  # データが少ない場合はそのまま返す
+        return df
+    
+    # IQRベースでハズレ値を判定
+    q1 = df[column].quantile(0.25)
+    q3 = df[column].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+
+    # ハズレ値の個数
+    num_outliers = len(df[(df[column] < lower_bound) | (df[column] > upper_bound)])
+    print(f"Outliers in {column}: {num_outliers} ({(num_outliers / len(df)) * 100:.2f}%)")
+
+    # ハズレ値を除外
+    return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
 
 def plot_comparison(
-    df_wasm: pd.DataFrame, df_criu: pd.DataFrame, column: str, output_file: str
+    df_wasm_raw: pd.DataFrame, df_criu_raw: pd.DataFrame, column: str, output_file: str
 ) -> None:
     print("--- Plotting", column, "---")
+    
+    # プログラム名の出現順序を保持
+    wasm_programs = df_wasm_raw['program'].unique()
+    criu_programs = df_criu_raw['program'].unique()
+    
+    # 出現順序を保持したプログラムリスト作成
+    programs = []
+    for prog in wasm_programs:
+        if prog not in programs:
+            programs.append(prog)
+    
+    for prog in criu_programs:
+        if prog not in programs:
+            programs.append(prog)
+    
+    # ハズレ値を除外したデータフレーム作成
+    wasm_data = {}
+    criu_data = {}
+    
+    for program in programs:
+        # プログラムごとのデータ取得
+        wasm_program_data = df_wasm_raw[df_wasm_raw['program'] == program]
+        criu_program_data = df_criu_raw[df_criu_raw['program'] == program]
+        
+        # ハズレ値除外
+        if len(wasm_program_data) > 0:
+            wasm_program_data = remove_outliers_by_column(wasm_program_data, column)
+        
+        if len(criu_program_data) > 0:
+            criu_program_data = remove_outliers_by_column(criu_program_data, column)
+        
+        # 各プログラムのデータ保存
+        wasm_data[program] = wasm_program_data[column].tolist() if len(wasm_program_data) > 0 else []
+        criu_data[program] = criu_program_data[column].tolist() if len(criu_program_data) > 0 else []
+    
+    # 平均値を計算
+    values_wasm = [np.mean(wasm_data[p]) if wasm_data[p] else 0 for p in programs]
+    values_criu = [np.mean(criu_data[p]) if criu_data[p] else 0 for p in programs]
 
-    programs = df_wasm.index
-
-    y_label = column.replace("_", " ").capitalize()
-
-    values_wasm = [
-        df_wasm.loc[p, column] if p in df_wasm.index else 0 for p in programs
-    ]
-    values_criu = [
-        df_criu.loc[p, column] if p in df_criu.index else 0 for p in programs
-    ]
-
-    # print analysis result to stdout
+    # 比率分析
     ratios = [
-        values_criu[i] / values_wasm[i] if values_criu[i] != 0 else float("inf")
+        values_criu[i] / values_wasm[i] if values_wasm[i] != 0 and values_criu[i] != 0 else float("inf")
         for i in range(len(values_wasm))
     ]
     # 最大の比を与えるプログラム
-    max_ratio_index = ratios.index(max(ratios))
-    max_ratio_program = programs[max_ratio_index]
-    max_ratio_value = ratios[max_ratio_index]
-    max_ratio_wanco = values_wasm[max_ratio_index]
-    max_ratio_criu = values_criu[max_ratio_index]
-    print(f"Max ratio: {max_ratio_program} ({max_ratio_value:.2f})")
-    print(f"\tCRIU={max_ratio_criu:.2f} => Wanco={max_ratio_wanco:.2f}")
-    # 最小の比を与えるプログラム
-    min_ratio_index = ratios.index(min(ratios))
-    min_ratio_program = programs[min_ratio_index]
-    min_ratio_value = ratios[min_ratio_index]
-    min_ratio_wanco = values_wasm[min_ratio_index]
-    min_ratio_criu = values_criu[min_ratio_index]
-    print(f"Min ratio: {min_ratio_program} ({min_ratio_value:.2f})")
-    print(f"\tCRIU={min_ratio_criu:.2f} => Wanco={min_ratio_wanco:.2f}")
+    valid_ratios = [r for r in ratios if r != float("inf") and not np.isnan(r)]
+    if valid_ratios:
+        max_ratio = max(valid_ratios)
+        max_ratio_index = ratios.index(max_ratio)
+        max_ratio_program = programs[max_ratio_index]
+        max_ratio_value = ratios[max_ratio_index]
+        max_ratio_wasm = values_wasm[max_ratio_index]
+        max_ratio_criu = values_criu[max_ratio_index]
+        print(f"Max ratio: {max_ratio_program} ({max_ratio_value:.2f})")
+        print(f"\tCRIU={max_ratio_criu:.2f} => Wasm={max_ratio_wasm:.2f}")
+        
+        # 最小の比を与えるプログラム
+        min_ratio = min(valid_ratios)
+        min_ratio_index = ratios.index(min_ratio)
+        min_ratio_program = programs[min_ratio_index]
+        min_ratio_value = ratios[min_ratio_index]
+        min_ratio_wasm = values_wasm[min_ratio_index]
+        min_ratio_criu = values_criu[min_ratio_index]
+        print(f"Min ratio: {min_ratio_program} ({min_ratio_value:.2f})")
+        print(f"\tCRIU={min_ratio_criu:.2f} => Wasm={min_ratio_wasm:.2f}")
 
+    # グラフ設定
+    y_label = column.replace("_", " ").capitalize()
+    
     color_wasm = "blue"
     color_criu = "orange"
 
@@ -54,36 +110,71 @@ def plot_comparison(
 
     if "time" in y_label:
         y_label += " [ms]"
-        color_wasm = "#1f77b4"
-        color_criu = "#ff7f0e"
+        color_wasm = "#1f77b4"  # 青系統
+        color_criu = "#ff7f0e"  # オレンジ系統
     elif "size" in y_label:
         y_label += " [MiB]"
         values_wasm = [v / 1024 / 1024 for v in values_wasm]
         values_criu = [v / 1024 / 1024 for v in values_criu]
+        for program in programs:
+            if wasm_data[program]:
+                wasm_data[program] = [v / 1024 / 1024 for v in wasm_data[program]]
+            if criu_data[program]:
+                criu_data[program] = [v / 1024 / 1024 for v in criu_data[program]]
         color_wasm = "lightseagreen"
         color_criu = "hotpink"
 
-    plt.figure(figsize=(10, 6))
-    plt.bar(
+    # プロット作成（高解像度設定）
+    plt.figure(figsize=(12, 7), dpi=300)
+    
+    # 平均値を使用した棒グラフ作成
+    bars_wasm = plt.bar(
         [i - width / 2 for i in x],
         values_wasm,
         width=width,
-        label="Wanco",
+        label="Wasm",  # Wanco -> Wasm に変更
         color=color_wasm,
     )
-    plt.bar(
+    bars_criu = plt.bar(
         [i + width / 2 for i in x],
         values_criu,
         width=width,
         label="CRIU",
         color=color_criu,
     )
+    
+    # 箱ひげ図風の線を追加（散らばりを表示）
+    for i, program in enumerate(programs):
+        # Wasm データの散らばりを表示
+        if wasm_data[program]:
+            data_min = min(wasm_data[program])
+            data_max = max(wasm_data[program])
+            # 箱ひげ図風の線を追加（最小値-最大値を示す）
+            plt.plot([i - width / 2 - width * 0.3, i - width / 2 + width * 0.3], 
+                     [data_min, data_min], color='black', linewidth=0.5)
+            plt.plot([i - width / 2 - width * 0.3, i - width / 2 + width * 0.3], 
+                     [data_max, data_max], color='black', linewidth=0.5)
+            plt.plot([i - width / 2, i - width / 2], 
+                     [data_min, data_max], color='black', linewidth=0.5)
+        
+        # CRIU データの散らばりを表示
+        if criu_data[program]:
+            data_min = min(criu_data[program])
+            data_max = max(criu_data[program])
+            # 箱ひげ図風の線を追加（最小値-最大値を示す）
+            plt.plot([i + width / 2 - width * 0.3, i + width / 2 + width * 0.3], 
+                     [data_min, data_min], color='black', linewidth=0.5)
+            plt.plot([i + width / 2 - width * 0.3, i + width / 2 + width * 0.3], 
+                     [data_max, data_max], color='black', linewidth=0.5)
+            plt.plot([i + width / 2, i + width / 2], 
+                     [data_min, data_max], color='black', linewidth=0.5)
+    
     plt.xticks(ticks=x, labels=programs, rotation=45, ha="right")
     plt.title(f'Comparison of {column.replace("_", " ").capitalize()}')
     plt.ylabel(y_label)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(output_file)
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()
 
 
@@ -93,8 +184,9 @@ def main():
     parser.add_argument("criu", help="Path to CRIU CSV file")
     args = parser.parse_args()
 
-    df_wasm = load_and_aggregate(args.wasm)
-    df_criu = load_and_aggregate(args.criu)
+    # 生データを読み込む（集計しない）
+    df_wasm_raw = load_data(args.wasm)
+    df_criu_raw = load_data(args.criu)
 
     comparisons = {
         "checkpoint_time": "checkpoint-time-wasm-criu.png",
@@ -103,7 +195,7 @@ def main():
     }
 
     for column, output_file in comparisons.items():
-        plot_comparison(df_wasm, df_criu, column, output_file)
+        plot_comparison(df_wasm_raw, df_criu_raw, column, output_file)
 
 
 if __name__ == "__main__":
