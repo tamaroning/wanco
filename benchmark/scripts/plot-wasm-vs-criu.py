@@ -86,8 +86,8 @@ def plot_comparison(
         max_ratio_value = ratios[max_ratio_index]
         max_ratio_wasm = values_wasm[max_ratio_index]
         max_ratio_criu = values_criu[max_ratio_index]
-        print(f"Max ratio: {max_ratio_program} ({max_ratio_value:.2f})")
-        print(f"\tCRIU={max_ratio_criu:.2f} => Wasm={max_ratio_wasm:.2f}")
+        print(f"Max ratio: {max_ratio_program} ({round(max_ratio_value, 4)})")
+        print(f"\tCRIU={round(max_ratio_criu, 4)} => Wasm={round(max_ratio_wasm,4)}")
         
         # 最小の比を与えるプログラム
         min_ratio = min(valid_ratios)
@@ -96,8 +96,8 @@ def plot_comparison(
         min_ratio_value = ratios[min_ratio_index]
         min_ratio_wasm = values_wasm[min_ratio_index]
         min_ratio_criu = values_criu[min_ratio_index]
-        print(f"Min ratio: {min_ratio_program} ({min_ratio_value:.2f})")
-        print(f"\tCRIU={min_ratio_criu:.2f} => Wasm={min_ratio_wasm:.2f}")
+        print(f"Min ratio: {min_ratio_program} ({round(min_ratio_value,4)})")
+        print(f"\tCRIU={round(min_ratio_criu,4)} => Wasm={round(min_ratio_wasm,4)}")
 
     # グラフ設定
     y_label = column.replace("_", " ").capitalize()
