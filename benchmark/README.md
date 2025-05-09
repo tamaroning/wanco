@@ -4,6 +4,7 @@
 
 - [uv](https://github.com/astral-sh/uv): Python package and version manager
 - CRIU
+- Linux on x86-64
 
 ```bash
 # Install CRIU

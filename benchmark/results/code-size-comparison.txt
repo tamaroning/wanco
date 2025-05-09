@@ -1,0 +1,8 @@
+--- Code Size Comparison Analysis ---
+Max ratio wanco/wamrc: fannkuch-redux (2.5271)
+Wanco size: 0.16878128051757812 MiB = 172.83203125 KiB
+Wamrc size: 0.0667877197265625 MiB = 68.390625 KiB
+Min ratio wanco/wamrc: bfs (2.1666)
+Wanco size: 1.9746513366699219 MiB = 2022.04296875 KiB
+Wamrc size: 0.9114227294921875 MiB = 933.296875 KiB
+Plot saved to results/code-size-comparison.png

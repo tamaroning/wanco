@@ -7,3 +7,5 @@ uv run scripts/chkpt-restore-criu.py ./results/overhead.json -o ./results/chkpt-
 uv run scripts/plot-wasm-vs-criu.py results/chkpt-restore-wasm.csv results/chkpt-restore-criu.csv
 # migration timeのグラフを表示
 uv run scripts/plot-migration-time.py results/chkpt-restore-wasm.csv results/chkpt-restore-criu.csv
+# code sizeのグラフを表示
+uv run scripts/plot-code-size.py -o results/code-size-comparison.png

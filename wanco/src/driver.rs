@@ -159,6 +159,17 @@ impl<'a> AotWasmModule<'a> {
         }
     }
 
+    fn write_object(&self, args: &Args) -> Result<PathBuf> {
+        let path =
+            Path::new(&args.output_file.clone().unwrap_or("wasm.o".to_owned())).with_extension("o");
+        log::info!("Writing object file to {}", path.display());
+        if self.module.write_bitcode_to_path(&path) {
+            Ok(path)
+        } else {
+            Err(anyhow!("Failed to write object file"))
+        }
+    }
+
     fn write_object_to_memory(&self, args: &Args) -> Result<ObjectFile> {
         log::info!("Writing module to memory buffer");
         let target = get_target_machine(args).map_err(|e| anyhow!(e))?;
@@ -280,6 +291,7 @@ pub fn compile_and_link(wasm: &[u8], args: &Args) -> Result<()> {
     }
 
     if args.compile_only {
+        aot_module.write_object(args)?;
         aot_module.write_llvm_asm(args, false)?;
         return Ok(());
     }
