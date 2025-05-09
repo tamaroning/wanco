@@ -1,8 +1,27 @@
 --- Code Size Comparison Analysis ---
-Max ratio wanco/wamrc: fannkuch-redux (2.5271)
-Wanco size: 0.16878128051757812 MiB = 172.83203125 KiB
-Wamrc size: 0.0667877197265625 MiB = 68.390625 KiB
-Min ratio wanco/wamrc: bfs (2.1666)
-Wanco size: 1.9746513366699219 MiB = 2022.04296875 KiB
-Wamrc size: 0.9114227294921875 MiB = 933.296875 KiB
-Plot saved to results/code-size-comparison.png
+--- wamrc/wanco Ratio Analysis ---
+Max ratio wamrc/wanco: bfs (0.4616)
+wamrc size: 0.9114227294921875 MiB = 933.296875 KiB
+wanco size: 1.9746513366699219 MiB = 2022.04296875 KiB
+Min ratio wamrc/wanco: fannkuch-redux (0.3957)
+wamrc size: 0.0667877197265625 MiB = 68.390625 KiB
+wanco size: 0.16878128051757812 MiB = 172.83203125 KiB
+Average ratio wamrc/wanco: 0.4391
+
+--- wasmedge/wanco Ratio Analysis ---
+Max ratio wasmedge/wanco: bfs (1.7791)
+wasmedge size: 3.513054847717285 MiB = 3597.3681640625 KiB
+wanco size: 1.9746513366699219 MiB = 2022.04296875 KiB
+Min ratio wasmedge/wanco: llama2.c (1.0464)
+wasmedge size: 0.4458732604980469 MiB = 456.57421875 KiB
+wanco size: 0.4261054992675781 MiB = 436.33203125 KiB
+Average ratio wasmedge/wanco: 1.4541
+
+--- wanco_cr/wanco Ratio Analysis ---
+Max ratio wanco_cr/wanco: llama2.c (2.4658)
+wanco_cr size: 1.0506858825683594 MiB = 1075.90234375 KiB
+wanco size: 0.4261054992675781 MiB = 436.33203125 KiB
+Min ratio wanco_cr/wanco: pr (1.992)
+wanco_cr size: 4.007358551025391 MiB = 4103.53515625 KiB
+wanco size: 2.0117111206054688 MiB = 2059.9921875 KiB
+Average ratio wanco_cr/wanco: 2.1636

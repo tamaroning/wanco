@@ -4,6 +4,51 @@ from common import *
 import matplotlib.pyplot as plt
 
 
+def print_ratio_analysis(
+    programs_names: list[str],
+    a_name: str,
+    a_sizes: list[int],
+    b_name: str,
+    b_sizes: list[int],
+) -> None:
+    print(f"--- {a_name}/{b_name} Ratio Analysis ---")
+    # a/bの分析
+    # 最高、最低、平均比率を計算
+    ratios = [
+        a_sizes[i] / b_sizes[i] if b_sizes[i] != 0 else float("inf")
+        for i in range(len(a_sizes))
+    ]
+    valid_ratios = [r for r in ratios if r != float("inf") and not np.isnan(r)]
+    if valid_ratios:
+        max_ratio = max(valid_ratios)
+        max_idx = ratios.index(max_ratio)
+        print(
+            f"Max ratio {a_name}/{b_name}: {programs_names[max_idx]} ({round(max_ratio, 4)})"
+        )
+        print(
+            f"{a_name} size: {a_sizes[max_idx] / 1024 / 1024} MiB = {a_sizes[max_idx] / 1024} KiB"
+        )
+        print(
+            f"{b_name} size: {b_sizes[max_idx] / 1024 / 1024} MiB = {b_sizes[max_idx] / 1024} KiB"
+        )
+
+        min_ratio = min(valid_ratios)
+        min_idx = ratios.index(min_ratio)
+        print(
+            f"Min ratio {a_name}/{b_name}: {programs_names[min_idx]} ({round(min_ratio, 4)})"
+        )
+        print(
+            f"{a_name} size: {a_sizes[min_idx] / 1024 / 1024} MiB = {a_sizes[min_idx] / 1024} KiB"
+        )
+        print(
+            f"{b_name} size: {b_sizes[min_idx] / 1024 / 1024} MiB = {b_sizes[min_idx] / 1024} KiB"
+        )
+
+        average_ratio = sum(valid_ratios) / len(valid_ratios)
+        print(f"Average ratio {a_name}/{b_name}: {round(average_ratio, 4)}")
+    
+    print()
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -93,37 +138,31 @@ def main():
 
     # 比率分析（提供されたコード例に類似した分析）
     print("--- Code Size Comparison Analysis ---")
-    # wancoとwamrcの比較
-    ratios = [
-        wanco_bars[i] / wamrc_bars[i] if wamrc_bars[i] != 0 else float("inf")
-        for i in range(len(wanco_bars))
-    ]
 
-    valid_ratios = [r for r in ratios if r != float("inf") and not np.isnan(r)]
-    if valid_ratios:
-        max_ratio = max(valid_ratios)
-        max_idx = ratios.index(max_ratio)
-        print(
-            f"Max ratio wanco/wamrc: {programs_names[max_idx]} ({round(max_ratio, 4)})"
-        )
-        print(
-            f"Wanco size: {wanco_bars[max_idx] / 1024 / 1024} MiB = {wanco_bars[max_idx] / 1024} KiB"
-        )
-        print(
-            f"Wamrc size: {wamrc_bars[max_idx] / 1024 / 1024} MiB = {wamrc_bars[max_idx] / 1024} KiB"
-        )
-
-        min_ratio = min(valid_ratios)
-        min_idx = ratios.index(min_ratio)
-        print(
-            f"Min ratio wanco/wamrc: {programs_names[min_idx]} ({round(min_ratio, 4)})"
-        )
-        print(
-            f"Wanco size: {wanco_bars[min_idx] / 1024 / 1024} MiB = {wanco_bars[min_idx] / 1024} KiB"
-        )
-        print(
-            f"Wamrc size: {wamrc_bars[min_idx] / 1024 / 1024} MiB = {wamrc_bars[min_idx] / 1024} KiB"
-        )
+    # wamr/wancoの比較
+    print_ratio_analysis(
+        programs_names,
+        "wamrc",
+        wamrc_bars,
+        "wanco",
+        wanco_bars,
+    )
+    # wasmedge/wancoの比較
+    print_ratio_analysis(
+        programs_names,
+        "wasmedge",
+        wasmedge_bars,
+        "wanco",
+        wanco_bars,
+    )
+    # wanco_cr/wancoの比較
+    print_ratio_analysis(
+        programs_names,
+        "wanco_cr",
+        wanco_cr_bars,
+        "wanco",
+        wanco_bars,
+    )
 
     # グラフの装飾
     plt.xlabel("Programs")
