@@ -5,6 +5,8 @@
 - [uv](https://github.com/astral-sh/uv): Python package and version manager
 - CRIU
 - Linux on x86-64
+- My custom Binaryen
+
 
 ```bash
 # Install CRIU
@@ -16,6 +18,24 @@ cd benchmark
 make all
 # Run as root because CRIU requires root privileges
 sudo env "PATH=$PATH" ./scripts/run-all-bench.sh
+```
+
+
+## Build customized Binaryen
+
+```
+git@github.com:tamaroning/binaryen.git
+cd binaryen
+git checkout checkpoint-restore
+mkdir build
+cd build
+```
+
+
+Create a symlink to the binary on the `benchmark` (this) directory.
+
+```sh
+ln -s ../../binaryen/build/bin/wasm-opt .
 ```
 
 
@@ -39,7 +59,3 @@ sudo uv run scripts/chkpt-restore-criu.py ./results/overhead.json -o ./results/c
 # Plot comparison of CRIU and WASM (checkpoting and restoring time, snapshot size)
 uv run scripts/plot-wasm-vs-criu.py results/chkpt-restore-wasm.csv results/chkpt-restore-criu.csv
 ```
-
-TODO: measure checkpoint and restore time
-
-TODO: measure snapshot size

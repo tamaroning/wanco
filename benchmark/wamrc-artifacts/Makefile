@@ -2,7 +2,7 @@ SUBDIRS = ../computer-lab-benchmark ../llama2-c ../gapbs
 WASM_FILES = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*.wasm))
 
 WASMC = ./wamrc
-WASMFLAGS = --target=i386 --opt-level=1
+WASMFLAGS = --target=i386 --opt-level=2
 
 all: wamrc aot
 	@echo "Downloading WAMR artifacts..."

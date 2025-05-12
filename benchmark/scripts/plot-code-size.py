@@ -46,8 +46,9 @@ def print_ratio_analysis(
 
         average_ratio = sum(valid_ratios) / len(valid_ratios)
         print(f"Average ratio {a_name}/{b_name}: {round(average_ratio, 4)}")
-    
+
     print()
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -68,6 +69,9 @@ def main():
         wanco_cr_object = os.path.join(
             program.workdir, program.get_wanco_cr_cmd()[0].replace(".aot", ".o")
         )
+        wanco_asyncify_object = os.path.join(
+            program.workdir, program.get_wanco_cmd()[0].replace(".aot", ".asyncify.o")
+        )
         wamrc_object = wanco_object.replace(
             "wanco-artifacts", "wamrc-artifacts"
         ).replace(".o", ".aot")
@@ -79,6 +83,7 @@ def main():
                 "name": program.name,
                 "wanco": os.path.getsize(wanco_object),
                 "wanco_cr": os.path.getsize(wanco_cr_object),
+                "wanco_asyncify": os.path.getsize(wanco_asyncify_object),
                 "wamrc": os.path.getsize(wamrc_object),
                 "wasmedge": os.path.getsize(wasmedge_object),
             }
@@ -88,28 +93,31 @@ def main():
     plt.figure(figsize=(12, 7), dpi=300)
 
     # 設定
-    bar_width = 0.18  # 棒の幅を少し狭くする
-    group_gap = 0.02  # グループ内の棒の間隔
+    bar_width = 0.15  # 棒の幅をさらに狭くする（5つの棒を入れるため）
+    group_gap = 0.01  # グループ内の棒の間隔
     index = np.arange(len(sizes))
     programs_names = [program["name"] for program in sizes]
 
     # データ準備
     wanco_bars = [program["wanco"] for program in sizes]
     wanco_cr_bars = [program["wanco_cr"] for program in sizes]
+    wanco_asyncify_bars = [program["wanco_asyncify"] for program in sizes]
     wamrc_bars = [program["wamrc"] for program in sizes]
     wasmedge_bars = [program["wasmedge"] for program in sizes]
 
     # バイト数をMiBに変換（より読みやすくするため）
     wanco_bars_mib = [size / (1024 * 1024) for size in wanco_bars]
     wanco_cr_bars_mib = [size / (1024 * 1024) for size in wanco_cr_bars]
+    wanco_asyncify_bars_mib = [size / (1024 * 1024) for size in wanco_asyncify_bars]
     wamrc_bars_mib = [size / (1024 * 1024) for size in wamrc_bars]
     wasmedge_bars_mib = [size / (1024 * 1024) for size in wasmedge_bars]
 
     # 各棒の位置を計算（間隔を追加）
-    pos_wamrc = index - (bar_width * 1.5 + group_gap)
-    pos_wasmedge = index - (bar_width * 0.5 + group_gap / 3)
-    pos_wanco = index + (bar_width * 0.5 + group_gap / 3)
-    pos_wanco_cr = index + (bar_width * 1.5 + group_gap)
+    pos_wamrc = index - (bar_width * 2 + group_gap * 2)
+    pos_wasmedge = index - (bar_width + group_gap)
+    pos_wanco = index
+    pos_wanco_cr = index + (bar_width + group_gap)
+    pos_wanco_asyncify = index + (bar_width * 2 + group_gap * 2)
 
     # プログラムごとに、wamrc, wasmedge, wanco, wanco_crの順に棒を並べる
     bars_wamrc = plt.bar(
@@ -133,7 +141,19 @@ def main():
     )
 
     bars_wanco_cr = plt.bar(
-        pos_wanco_cr, wanco_cr_bars_mib, bar_width, label="wanco_cr", color="hotpink"
+        pos_wanco_cr,
+        wanco_cr_bars_mib,
+        bar_width,
+        label="wanco w/ C/R",
+        color="hotpink",
+    )
+
+    bars_wanco_asyncify = plt.bar(
+        pos_wanco_asyncify,
+        wanco_asyncify_bars_mib,
+        bar_width,
+        label="wanco w/ asyncify",
+        color="purple",
     )
 
     # 比率分析（提供されたコード例に類似した分析）
@@ -160,6 +180,14 @@ def main():
         programs_names,
         "wanco_cr",
         wanco_cr_bars,
+        "wanco",
+        wanco_bars,
+    )
+    # wanco_asyncify/wancoの比較
+    print_ratio_analysis(
+        programs_names,
+        "wanco_asyncify",
+        wanco_asyncify_bars,
         "wanco",
         wanco_bars,
     )
