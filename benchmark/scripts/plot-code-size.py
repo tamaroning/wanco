@@ -121,14 +121,14 @@ def main():
 
     # プログラムごとに、wamrc, wasmedge, wanco, wanco_crの順に棒を並べる
     bars_wamrc = plt.bar(
-        pos_wamrc, wamrc_bars_mib, bar_width, label="wamrc", color="lightseagreen"
+        pos_wamrc, wamrc_bars_mib, bar_width, label="WAMR", color="lightseagreen"
     )
 
     bars_wasmedge = plt.bar(
         pos_wasmedge,
         wasmedge_bars_mib,
         bar_width,
-        label="wasmedge",
+        label="WasmEdge",
         color="#1f77b4",  # 青系統
     )
 
