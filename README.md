@@ -25,7 +25,7 @@ sudo ./llvm.sh 17
 echo 'export LLVM_SYS_170_PREFIX="/usr/lib/llvm-17"' >> ~/.bashrc
 
 # Install all other deps
-sudo apt install build-essential cmake libpolly-17-dev　libprotobuf-dev protobuf-compiler libunwind-dev libelf-dev libzstd-dev
+sudo apt install build-essential cmake libpolly-17-dev libprotobuf-dev protobuf-compiler libunwind-dev libelf-dev libzstd-dev
 ```
 
 First, clone the repository:
