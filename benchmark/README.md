@@ -47,7 +47,7 @@ uv run ./scripts/exec-time.py
 # calculate the overhead of the execution time and output to JSON
 uv run ./scripts/rewriter.py result.json --output ./results/overhead.json
 # generate whisker plots from overhead.json
-uv run ./scripts/whisker-overhead.py ./results/overhead.json -o ./results/overhead.jpg
+uv run scripts/plot-exec-time.py results/overhead.json
 
 # measure checkpoint and restore time, snapshot size
 # overhead.json is required to get the half elapsed time of the execution time
