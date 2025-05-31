@@ -77,7 +77,8 @@ def create_grouped_box_plot(plot_data, filename="overhead.jpg"):
     for idx, (program, runtime_data) in enumerate(plot_data.items()):
         ax = axes[idx]
 
-        runtimes = [k for k in runtime_data.keys() if k != "Wanco"]
+        #runtimes = [k for k in runtime_data.keys() if k != "Wanco"]
+        runtimes = ["Wanco w/ C/R", "WAMR", "WasmEdge"]
         data_to_plot = [runtime_data[runtime] for runtime in runtimes]
 
         # Wancoは除外してランタイムを取得
