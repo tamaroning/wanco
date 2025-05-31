@@ -41,7 +41,7 @@ ln -s ../../binaryen/build/bin/wasm-opt .
 
 ## Run individual benchmarks manually
 
-```
+```sh
 # measure execution time
 uv run ./scripts/exec-time.py
 # calculate the overhead of the execution time and output to JSON

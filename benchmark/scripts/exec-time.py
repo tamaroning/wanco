@@ -30,6 +30,15 @@ def measure(programs: list[Program], args: Any) -> None:
         cmd2.extend(program.get_wanco_cr_cmd())
         hyperfine_cmd.append(" ".join(cmd2))
 
+        cmd3: list[str] = ["cd", program.workdir, ";"]
+        cmd3.extend(program.get_wasmedge_cmd())
+        hyperfine_cmd.append(" ".join(cmd3))
+
+        cmd4: list[str] = ["cd", program.workdir, ";"]
+        cmd4.extend(program.get_wamr_cmd())
+        hyperfine_cmd.append(" ".join(cmd4))
+        
+
     stat = subprocess.Popen(hyperfine_cmd, cwd=get_bench_dir())
     stat.wait()
     if stat.returncode != 0:

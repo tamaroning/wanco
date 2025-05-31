@@ -1,0 +1,54 @@
+-------- wanco-cr ------------
+llama2.c : Median ratio 1.69
+nbody : Median ratio 0.897
+binary-trees : Median ratio 1.822
+fannkuch-redux : Median ratio 1.477
+mandelbrot : Median ratio 1.292
+bc : Median ratio 1.349
+bfs : Median ratio 1.338
+cc : Median ratio 1.212
+cc_sv : Median ratio 1.258
+pr : Median ratio 1.407
+pr_spmv : Median ratio 1.359
+sssp : Median ratio 1.26
+--------------------
+Mean median ratio 1.363
+Max ratio 1.822
+Min ratio 0.897
+--------------------
+-------- wasmedge ------------
+llama2.c : Median ratio 1.135
+nbody : Median ratio 0.941
+binary-trees : Median ratio 1.091
+fannkuch-redux : Median ratio 1.113
+mandelbrot : Median ratio 1.093
+bc : Median ratio 0.959
+bfs : Median ratio 0.926
+cc : Median ratio 0.987
+cc_sv : Median ratio 1.003
+pr : Median ratio 1.008
+pr_spmv : Median ratio 0.928
+sssp : Median ratio 0.949
+--------------------
+Mean median ratio 1.011
+Max ratio 1.135
+Min ratio 0.926
+--------------------
+-------- wamr ------------
+llama2.c : Median ratio 1.077
+nbody : Median ratio 0.984
+binary-trees : Median ratio 1.096
+fannkuch-redux : Median ratio 0.984
+mandelbrot : Median ratio 1.095
+bc : Median ratio 0.915
+bfs : Median ratio 0.94
+cc : Median ratio 0.922
+cc_sv : Median ratio 0.966
+pr : Median ratio 0.993
+pr_spmv : Median ratio 0.927
+sssp : Median ratio 0.926
+--------------------
+Mean median ratio 0.985
+Max ratio 1.096
+Min ratio 0.915
+--------------------

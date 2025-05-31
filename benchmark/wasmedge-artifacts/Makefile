@@ -2,7 +2,7 @@ SUBDIRS = ../computer-lab-benchmark ../llama2-c ../gapbs
 WASM_FILES = $(foreach dir,$(SUBDIRS),$(wildcard $(dir)/*.wasm))
 
 WASMC = wasmedge
-WASMFLAGS = compile --optimize 2
+WASMFLAGS = compile --optimize 1
 
 all: aot
 

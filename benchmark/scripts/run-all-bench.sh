@@ -3,7 +3,7 @@ uv run ./scripts/exec-time.py
 # Calculate the overhead of Wanco
 uv run ./scripts/rewriter.py result.json --output ./results/overhead.json
 # Create a graph of the overhead of Wanco
-uv run ./scripts/whisker-overhead.py ./results/overhead.json -o ./results/overhead.jpg
+uv run scripts/plot-exec-time.py results/overhead.json
 # Measure checkpoint and restore time for Wasm and CRIU
 uv run scripts/chkpt-restore-wasm.py ./results/overhead.json -o ./results/chkpt-restore-wasm.csv
 uv run scripts/chkpt-restore-criu.py ./results/overhead.json -o ./results/chkpt-restore-criu.csv

@@ -183,7 +183,7 @@ def plot_migration_time(
         checkpointtime_wasm_means,
         bar_width,
         color=color_wasm_checkpoint,
-        label="Wasm Checkpoint",
+        label="Wanco Checkpoint",
     )
     bar2 = ax.bar(
         index - bar_width / 2,
@@ -191,7 +191,7 @@ def plot_migration_time(
         bar_width,
         bottom=checkpointtime_wasm_means,
         color=color_wasm_restore,
-        label="Wasm Restore",
+        label="Wanco Restore",
     )
 
     # CRIUの棒グラフ作成（checkpointとrestore）- 平均値

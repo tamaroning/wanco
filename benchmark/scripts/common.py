@@ -33,6 +33,8 @@ class Command:
     wanco: list[str]
     wanco_cr: list[str]
     native: list[str]
+    wasmedge: list[str]
+    wamr: list[str]
 
 
 @dataclass
@@ -51,6 +53,12 @@ class Program:
     def get_native_cmd(self) -> list[str]:
         return self.command.native + self.args
 
+    def get_wasmedge_cmd(self) -> list[str]:
+        return ["wasmedge", "run", "--dir=/:."] + self.command.wasmedge + self.args
+
+    def get_wamr_cmd(self) -> list[str]:
+        return ["iwasm", "--map-dir=/::."] + self.command.wamr + self.args
+
 
 def wait_for_file_creation(file_path: str) -> None:
     for i in range(10):
@@ -66,6 +74,8 @@ programs = [
             wanco=["../wanco-artifacts/run.c.aot", "--"],
             wanco_cr=["../wanco-artifacts/run.c.cr.aot", "--"],
             native=["./llama2.c.exe"],
+            wasmedge=["../wasmedge-artifacts/run.aot"],
+            wamr=["../wamrc-artifacts/run.aot"],
         ),
         args=["model.bin", "-n", "256", "-s", "42"],
         workdir=os.path.join(get_bench_dir(), "llama2-c"),
@@ -76,6 +86,8 @@ programs = [
             wanco=["./wanco-artifacts/nbody.c.aot", "--"],
             wanco_cr=["./wanco-artifacts/nbody.c.cr.aot", "--"],
             native=["./computer-lab-benchmark/nbody.c.exe"],
+            wasmedge=["./wasmedge-artifacts/nbody.c.aot"],
+            wamr=["./wamrc-artifacts/nbody.c.aot"],
         ),
         args=["1000000"],
         workdir=get_bench_dir(),
@@ -86,6 +98,8 @@ programs = [
             wanco=["./wanco-artifacts/binary-trees.c.aot", "--"],
             wanco_cr=["./wanco-artifacts/binary-trees.c.cr.aot", "--"],
             native=["./computer-lab-benchmark/binary-trees.c.exe"],
+            wasmedge=["./wasmedge-artifacts/binary-trees.c.aot"],
+            wamr=["./wamrc-artifacts/binary-trees.c.aot"],
         ),
         args=["18"],
         workdir=get_bench_dir(),
@@ -96,6 +110,8 @@ programs = [
             wanco=["./wanco-artifacts/fannkuch-redux.c.aot", "--"],
             wanco_cr=["./wanco-artifacts/fannkuch-redux.c.cr.aot", "--"],
             native=["./computer-lab-benchmark/fannkuch-redux.c.exe"],
+            wasmedge=["./wasmedge-artifacts/fannkuch-redux.c.aot"],
+            wamr=["./wamrc-artifacts/fannkuch-redux.c.aot"],
         ),
         args=["11"],
         workdir=get_bench_dir(),
@@ -106,6 +122,8 @@ programs = [
             wanco=["./wanco-artifacts/mandelbrot.c.aot", "--"],
             wanco_cr=["./wanco-artifacts/mandelbrot.c.cr.aot", "--"],
             native=["./computer-lab-benchmark/mandelbrot.c.exe"],
+            wasmedge=["./wasmedge-artifacts/mandelbrot.c.aot"],
+            wamr=["./wamrc-artifacts/mandelbrot.c.aot"],
         ),
         args=["1000"],
         workdir=get_bench_dir(),
@@ -126,6 +144,8 @@ programs = [
             wanco=["./wanco-artifacts/bc.aot", "--"],
             wanco_cr=["./wanco-artifacts/bc.cr.aot", "--"],
             native=["./gapbs/br.exe"],
+            wasmedge=["./wasmedge-artifacts/bc.aot"],
+            wamr=["./wamrc-artifacts/bc.aot"],
         ),
         args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
@@ -136,6 +156,8 @@ programs = [
             wanco=["./wanco-artifacts/bfs.aot", "--"],
             wanco_cr=["./wanco-artifacts/bfs.cr.aot", "--"],
             native=["./gapbs/bfs.exe"],
+            wasmedge=["./wasmedge-artifacts/bfs.aot"],
+            wamr=["./wamrc-artifacts/bfs.aot"],
         ),
         args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
@@ -146,6 +168,8 @@ programs = [
             wanco=["./wanco-artifacts/cc.aot", "--"],
             wanco_cr=["./wanco-artifacts/cc.cr.aot", "--"],
             native=["./gapbs/cc.exe"],
+            wasmedge=["./wasmedge-artifacts/cc.aot"],
+            wamr=["./wamrc-artifacts/cc.aot"],
         ),
         args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
@@ -156,6 +180,8 @@ programs = [
             wanco=["./wanco-artifacts/cc_sv.aot", "--"],
             wanco_cr=["./wanco-artifacts/cc_sv.cr.aot", "--"],
             native=["./gapbs/cc_sv.exe"],
+            wasmedge=["./wasmedge-artifacts/cc_sv.aot"],
+            wamr=["./wamrc-artifacts/cc_sv.aot"],
         ),
         args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
@@ -166,6 +192,8 @@ programs = [
             wanco=["./wanco-artifacts/pr.aot", "--"],
             wanco_cr=["./wanco-artifacts/pr.cr.aot", "--"],
             native=["./gapbs/pr.exe"],
+            wasmedge=["./wasmedge-artifacts/pr.aot"],
+            wamr=["./wamrc-artifacts/pr.aot"],
         ),
         args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
@@ -176,6 +204,8 @@ programs = [
             wanco=["./wanco-artifacts/pr_spmv.aot", "--"],
             wanco_cr=["./wanco-artifacts/pr_spmv.cr.aot", "--"],
             native=["./gapbs/pr_spmv.exe"],
+            wasmedge=["./wasmedge-artifacts/pr_spmv.aot"],
+            wamr=["./wamrc-artifacts/pr_spmv.aot"],
         ),
         args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
@@ -186,6 +216,8 @@ programs = [
             wanco=["./wanco-artifacts/sssp.aot", "--"],
             wanco_cr=["./wanco-artifacts/sssp.cr.aot", "--"],
             native=["./gapbs/sssp.exe"],
+            wasmedge=["./wasmedge-artifacts/sssp.aot"],
+            wamr=["./wamrc-artifacts/sssp.aot"],
         ),
         args=["-g", "18", "-n", "1"],
         workdir=get_bench_dir(),
@@ -207,12 +239,13 @@ def get_elapsed_time_sec(name: str, overhead_json: Any, cr=False) -> float:
     """
     Get the elapsed time in seconds for a given program name from the overhead.json file.
     """
+    runtime = "wanco"
     if cr:
-        name = name + " w/ cr"
+        runtime = "wanco-cr"
 
     results = overhead_json["results"]
     for result in results:
-        if result["name"] == name:
+        if result["name"] == name and result["runtime"] == runtime:
             elapsed_time_sec = result["median"]
             print(f"\tElapsed time: {elapsed_time_sec} s")
             return elapsed_time_sec

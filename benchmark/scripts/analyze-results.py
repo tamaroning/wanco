@@ -3,12 +3,11 @@ import json
 from typing import Any
 
 
-def analyze_ratio(results: list[Any]):
-    print("--------------------")
+def analyze_ratio(results: list[Any], runtime: str):
+    print(f"-------- {runtime} ------------")
     median_ratios = []
     for result in results:
-        if "w/ cr" in result["name"]:
-
+        if runtime == result["runtime"]:
             name = result["name"]
             # calulate mean
             ratios = result["ratios"]
@@ -24,12 +23,15 @@ def analyze_ratio(results: list[Any]):
     print("Mean median ratio", round(mean, 3))
     print("Max ratio", round(max_ratio, 3))
     print("Min ratio", round(min_ratio, 3))
+    print("--------------------")
 
 
 def process_json(json: Any):
     results = json["results"]
 
-    analyze_ratio(results)
+    analyze_ratio(results, "wanco-cr")
+    analyze_ratio(results, "wasmedge")
+    analyze_ratio(results, "wamr")
 
 
 def main():

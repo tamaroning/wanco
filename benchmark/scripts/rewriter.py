@@ -1,10 +1,18 @@
 import argparse
 import json
 import re
-from typing import Any
+from typing import Any, Tuple
 
+def transform_path(line: str) -> Tuple[str, str]:
+    runtime = "wanco"
 
-def transform_path(line: str) -> str:
+    if ".cr." in line:
+        runtime = "wanco-cr"
+    elif "wasmedge" in line:
+        runtime = "wasmedge"
+    elif "iwasm" in line:
+        runtime = "wamr"
+
     match = re.search(r"[A-Za-z0-9|\.|\-|\_]+\.aot", line)
     if match:
         line = match.group(0)
@@ -13,20 +21,20 @@ def transform_path(line: str) -> str:
 
     match = re.search(r"([^/\s]+)\.cr\.aot", line)
     if match:
-        return f"{match.group(1)} w/ cr"
+        return f"{match.group(1)}", runtime
 
     match = re.search(r"([^/\s]+)\.aot", line)
     if match:
-        return f"{match.group(1)}"
+        return f"{match.group(1)}", runtime
 
-    return line
+    return line, runtime
 
 
 def process_json(json: Any):
     results = json["results"]
     # create name field from command field
     for result in results:
-        result["name"] = transform_path(result["command"])
+        result["name"], result["runtime"] = transform_path(result["command"])
         if "run" in result["name"]:
             result["name"] = result["name"].replace("run", "llama2.c")
         print("Found", result["name"])
@@ -34,9 +42,10 @@ def process_json(json: Any):
     # add ratios field
     last_mean = 0
     for result in results:
-        if "w/ cr" not in result["name"]:
+        # wanco C/R
+        if result["runtime"] == "wanco":
             last_mean = result["mean"]
-
+        
         ratios = []
         for time in result["times"]:
             ratios.append(time / last_mean)
