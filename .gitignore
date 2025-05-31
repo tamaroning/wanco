@@ -24,9 +24,6 @@ checkpoint.pb.json
 # benchmark
 restore-time.txt
 chkpt-time.txt
-result.csv
-result.json
-result.jpg
 
 # clangd
 compile_commands.json
