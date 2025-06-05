@@ -132,7 +132,7 @@ def plot_comparison(
         [i - width / 2 for i in x],
         values_wasm,
         width=width,
-        label="Wasm",  # Wanco -> Wasm に変更
+        label="Wanco",
         color=color_wasm,
     )
     bars_criu = plt.bar(
@@ -169,10 +169,11 @@ def plot_comparison(
             plt.plot([i + width / 2, i + width / 2], 
                      [data_min, data_max], color='black', linewidth=0.5)
     
-    plt.xticks(ticks=x, labels=programs, rotation=45, ha="right")
-    plt.title(f'Comparison of {column.replace("_", " ").capitalize()}')
-    plt.ylabel(y_label)
-    plt.legend()
+    plt.xticks(ticks=x, labels=programs, rotation=45, ha="right", fontsize=20)
+    #plt.title(f'Comparison of {column.replace("_", " ").capitalize()}', fontsize=20)
+    plt.ylabel(y_label, fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.legend(fontsize=20)
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()

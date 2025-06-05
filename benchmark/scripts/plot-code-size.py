@@ -136,7 +136,7 @@ def main():
         pos_wanco,
         wanco_bars_mib,
         bar_width,
-        label="wanco",
+        label="Wanco",
         color="#ff7f0e",  # オレンジ系統
     )
 
@@ -144,7 +144,7 @@ def main():
         pos_wanco_cr,
         wanco_cr_bars_mib,
         bar_width,
-        label="wanco w/ C/R",
+        label="Wanco w/ C/R",
         color="hotpink",
     )
 
@@ -152,7 +152,7 @@ def main():
         pos_wanco_asyncify,
         wanco_asyncify_bars_mib,
         bar_width,
-        label="wanco w/ asyncify",
+        label="Wanco w/ asyncify",
         color="purple",
     )
 
@@ -192,12 +192,14 @@ def main():
         wanco_bars,
     )
 
+    FONT_SIZE = 20
+
     # グラフの装飾
-    plt.xlabel("Programs")
-    plt.ylabel("Size [MiB]")
-    plt.title("Code Size Comparison")
-    plt.xticks(index, programs_names, rotation=45, ha="right")
-    plt.legend()
+    plt.xlabel("Programs", fontsize=FONT_SIZE)
+    plt.ylabel("Code size [MiB]", fontsize=FONT_SIZE)
+    plt.xticks(index, programs_names, rotation=45, ha="right", fontsize=FONT_SIZE)
+    plt.yticks(fontsize=FONT_SIZE)
+    plt.legend(fontsize=FONT_SIZE)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
 
     # 各バーに値を表示（オプション）
@@ -211,7 +213,7 @@ def main():
                     f"{height:.2f}",
                     ha="center",
                     va="bottom",
-                    fontsize=8,
+                    fontsize=FONT_SIZE,
                     rotation=90,
                 )
 

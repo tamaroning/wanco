@@ -73,17 +73,17 @@ def create_grouped_box_plot(plot_data, filename="overhead.jpg"):
 
     print(f"利用可能なランタイム: {all_runtimes}")
 
+    # フォントサイズ設定
+    label_fontsize = 14
+    tick_fontsize = 11
+    title_fontsize = 14
+
     # 各プログラムについてサブプロットを作成
     for idx, (program, runtime_data) in enumerate(plot_data.items()):
         ax = axes[idx]
 
-        #runtimes = [k for k in runtime_data.keys() if k != "Wanco"]
         runtimes = ["Wanco w/ C/R", "WAMR", "WasmEdge"]
         data_to_plot = [runtime_data[runtime] for runtime in runtimes]
-
-        # Wancoは除外してランタイムを取得
-        # runtimes = [k for k in runtime_data.keys() if k != "Wanco"]
-        # data_to_plot = [runtime_data[runtime] for runtime in runtimes]
 
         # 箱ひげ図を描画
         bp = ax.boxplot(
@@ -92,6 +92,7 @@ def create_grouped_box_plot(plot_data, filename="overhead.jpg"):
             patch_artist=True,
             showfliers=True,
             meanline=True,
+            widths=0.6,  # デフォルトは0.5、これを小さく
         )
 
         # 箱ひげ図の塗りつぶしを無効化（no fill）
@@ -100,20 +101,20 @@ def create_grouped_box_plot(plot_data, filename="overhead.jpg"):
             box.set_alpha(1.0)
 
         # サブプロットの設定
-        ax.set_title(f"{program}")
+        ax.set_title(f"{program}", fontsize=title_fontsize)
         ax.grid(True, alpha=0.3)
 
         # y軸ラベルは最初のサブプロットのみ
         if idx == 0:
-            ax.set_ylabel("Ratio of Execution Time to Wanco wo/ C/R")
+            ax.set_ylabel("Ratio of Execution Time to Wanco wo/ C/R", fontsize=label_fontsize)
 
         # x軸のラベルを45度回転
-        ax.tick_params(axis="x", rotation=45)
+        ax.tick_params(axis="x", labelsize=tick_fontsize, rotation=45)
+        ax.tick_params(axis="y", labelsize=tick_fontsize)
         for tick in ax.get_xticklabels():
             tick.set_horizontalalignment("right")
 
-    plt.suptitle("Comparison of execution time", fontsize=14)
-    plt.tight_layout()
+    plt.tight_layout(pad=0.0, w_pad=0.2, h_pad=0.2)  # サブプロット間の余白を狭く
     plt.savefig(filename, dpi=300, bbox_inches="tight")
     plt.show()
 

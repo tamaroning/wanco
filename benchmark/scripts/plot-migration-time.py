@@ -348,13 +348,13 @@ def plot_migration_time(
                 )
 
     # X軸のラベルとtickを設定
-    ax.set_xlabel("Programs")
+    ax.set_xlabel("Programs", fontsize=20)
     ax.set_xticks(index)
-    ax.set_xticklabels(programs, rotation=45, ha="right")
+    ax.set_xticklabels(programs, rotation=45, ha="right", fontsize=20)
 
-    plt.title("Comparison of Migration Time")
-    plt.ylabel("Migration Time [ms]")
-    plt.legend()
+    plt.ylabel("Migration time [ms]", fontsize=20)
+    plt.yticks(fontsize=20)
+    plt.legend(fontsize=20)
     plt.tight_layout()
 
     # 高解像度で保存
