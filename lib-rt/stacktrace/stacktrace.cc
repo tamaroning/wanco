@@ -8,6 +8,10 @@
 #if defined(__x86_64__) || defined(_M_X64)
 #include <libunwind-x86_64.h>
 #define UNW_LOCAL_ONLY
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#include <libunwind-aarch64.h>
+#elif defined(__arm__) || defined(_M_ARM)
+#define UNW_LOCAL_ONLY
 #endif
 
 namespace wanco {
@@ -44,7 +48,12 @@ auto get_stack_trace() -> std::deque<NativeStackFrame> {
 
     // Get frame size
     unw_word_t bp = 0;
+
+    #if defined(__x86_64__) || defined(_M_X64)
     unw_get_reg(&cursor, UNW_TDEP_BP, &bp);
+    #elif defined(__aarch64__) || defined(_M_ARM64)
+    unw_get_reg(&cursor, UNW_AARCH64_X29, &bp);
+    #endif
 
     trace.push_front(NativeStackFrame{
         .function_name = function_name,

@@ -52,9 +52,9 @@ extern "C" void sleep_msec(ExecEnv *exec_env, int32_t ms) {
 */
 
 extern "C" void start_checkpoint(ExecEnv *exec_env) {
-  WANCO_SAVE_REGISTERS();
+  //WANCO_SAVE_REGISTERS();
   wanco::CallerSavedRegisters regs{};
-  WANCO_RESTORE_REGISTERS(regs);
+  //WANCO_RESTORE_REGISTERS(regs);
 
   wanco::CHKPT_START_TIME =
       std::chrono::duration_cast<std::chrono::microseconds>(
@@ -79,6 +79,8 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     }
   }
 
+  //Debug() << "execenv=" << std::hex << exec_env << std::endl; // ok
+
   // store the call stack
   for (const auto &frame : wasm_trace) {
     wanco::chkpt.frames.push_front(wanco::Frame{
@@ -89,9 +91,12 @@ extern "C" void start_checkpoint(ExecEnv *exec_env) {
     });
   }
 
+  //Debug() << "execenv=" << std::hex << exec_env << std::endl; // ng
+
   // store the globals, table, and memory
   store_globals(exec_env);
   store_table(exec_env);
+  Debug() << "Stored globals and table" << std::endl;
   wanco::chkpt.memory_size = exec_env->memory_size;
 
   // write snapshot
