@@ -189,7 +189,7 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
   case stackmap::LocationKind::DIRECT: {
     Register reg{loc.dwarf_regnum};
     uint64_t reg_value;
-    if (reg == Register::RBP) {
+    if (reg == BP_REGISTER) {
       reg_value = reinterpret_cast<uint64_t>(native_frame.bp);
     } else {
       reg_value = regs.get_value(reg);
@@ -204,7 +204,7 @@ static Value retrieve_value(const stackmap::Stackmap &stackmap,
   case stackmap::LocationKind::INDIRECT: {
     Register reg{loc.dwarf_regnum};
     const uint8_t *address;
-    if (reg == Register::RBP) {
+    if (reg == BP_REGISTER) {
       address = native_frame.bp + loc.offset;
     } else {
       address = reinterpret_cast<uint8_t *>(regs.get_value(reg)) + loc.offset;
