@@ -119,44 +119,69 @@ def main():
     pos_wamrc = index + (bar_width + group_gap)
     pos_wasmedge = index + (bar_width * 2 + group_gap * 2)
 
+    # 各プログラムごとに平均値と標準偏差を計算（今回は1サンプルなのでstd=0になるが、将来拡張のために記述）
+    # もし複数サンプルがある場合はここでリスト化してnp.mean/np.stdを使う
+    # 今回は各バー1サンプルなのでエラー線は0
+    wanco_stds = [0 for _ in wanco_bars_mib]
+    wanco_cr_stds = [0 for _ in wanco_cr_bars_mib]
+    wanco_asyncify_stds = [0 for _ in wanco_asyncify_bars_mib]
+    wamrc_stds = [0 for _ in wamrc_bars_mib]
+    wasmedge_stds = [0 for _ in wasmedge_bars_mib]
+
+    # 各棒グラフをエラー線付きで描画
     bars_wanco = plt.bar(
         pos_wanco,
         wanco_bars_mib,
         bar_width,
+        yerr=wanco_stds,
+        capsize=3,
         label="Wanco",
         color="#1f77b4",  # 青
+        alpha=0.8,
     )
 
     bars_wanco_cr = plt.bar(
         pos_wanco_cr,
         wanco_cr_bars_mib,
         bar_width,
+        yerr=wanco_cr_stds,
+        capsize=3,
         label="Wanco w/ C/R",
-        color="#9467bd",  # 紫（青に近い寒色）
+        color="#9467bd",  # 紫
+        alpha=0.8,
     )
 
     bars_wanco_asyncify = plt.bar(
         pos_wanco_asyncify,
         wanco_asyncify_bars_mib,
         bar_width,
+        yerr=wanco_asyncify_stds,
+        capsize=3,
         label="Wanco w/ asyncify",
-        color="#17becf",  # シアン（青系の最後）
+        color="#17becf",  # シアン
+        alpha=0.8,
     )
 
     bars_wamrc = plt.bar(
         pos_wamrc,
         wamrc_bars_mib,
         bar_width,
+        yerr=wamrc_stds,
+        capsize=3,
         label="WAMR",
         color="#ff7f0e",  # オレンジ
+        alpha=0.8,
     )
 
     bars_wasmedge = plt.bar(
         pos_wasmedge,
         wasmedge_bars_mib,
         bar_width,
+        yerr=wasmedge_stds,
+        capsize=3,
         label="WasmEdge",
         color="#d62728",  # 赤
+        alpha=0.8,
     )
 
     # 比率分析（提供されたコード例に類似した分析）

@@ -68,9 +68,11 @@ def plot_comparison(
         wasm_data[program] = wasm_program_data[column].tolist() if len(wasm_program_data) > 0 else []
         criu_data[program] = criu_program_data[column].tolist() if len(criu_program_data) > 0 else []
     
-    # 平均値を計算
+    # 平均値と標準偏差を計算
     values_wasm = [np.mean(wasm_data[p]) if wasm_data[p] else 0 for p in programs]
+    stds_wasm = [np.std(wasm_data[p]) if wasm_data[p] else 0 for p in programs]
     values_criu = [np.mean(criu_data[p]) if criu_data[p] else 0 for p in programs]
+    stds_criu = [np.std(criu_data[p]) if criu_data[p] else 0 for p in programs]
 
     # 比率分析
     ratios = [
@@ -115,62 +117,40 @@ def plot_comparison(
     elif "size" in y_label:
         y_label += " [MiB]"
         values_wasm = [v / 1024 / 1024 for v in values_wasm]
+        stds_wasm = [s / 1024 / 1024 for s in stds_wasm]
         values_criu = [v / 1024 / 1024 for v in values_criu]
-        for program in programs:
-            if wasm_data[program]:
-                wasm_data[program] = [v / 1024 / 1024 for v in wasm_data[program]]
-            if criu_data[program]:
-                criu_data[program] = [v / 1024 / 1024 for v in criu_data[program]]
+        stds_criu = [s / 1024 / 1024 for s in stds_criu]
         color_wasm = "lightseagreen"
         color_criu = "hotpink"
 
     # プロット作成（高解像度設定）
     plt.figure(figsize=(12, 7), dpi=300)
-    
-    # 平均値を使用した棒グラフ作成
+
+    # 平均値＋標準偏差のエラー線を使用した棒グラフ作成
     bars_wasm = plt.bar(
         [i - width / 2 for i in x],
         values_wasm,
         width=width,
+        yerr=stds_wasm,
+        capsize=3,
         label="Wanco",
         color=color_wasm,
+        alpha=0.8,
     )
     bars_criu = plt.bar(
         [i + width / 2 for i in x],
         values_criu,
         width=width,
+        yerr=stds_criu,
+        capsize=3,
         label="CRIU",
         color=color_criu,
+        alpha=0.8,
     )
-    
-    # 箱ひげ図風の線を追加（散らばりを表示）
-    for i, program in enumerate(programs):
-        # Wasm データの散らばりを表示
-        if wasm_data[program]:
-            data_min = min(wasm_data[program])
-            data_max = max(wasm_data[program])
-            # 箱ひげ図風の線を追加（最小値-最大値を示す）
-            plt.plot([i - width / 2 - width * 0.3, i - width / 2 + width * 0.3], 
-                     [data_min, data_min], color='black', linewidth=0.5)
-            plt.plot([i - width / 2 - width * 0.3, i - width / 2 + width * 0.3], 
-                     [data_max, data_max], color='black', linewidth=0.5)
-            plt.plot([i - width / 2, i - width / 2], 
-                     [data_min, data_max], color='black', linewidth=0.5)
-        
-        # CRIU データの散らばりを表示
-        if criu_data[program]:
-            data_min = min(criu_data[program])
-            data_max = max(criu_data[program])
-            # 箱ひげ図風の線を追加（最小値-最大値を示す）
-            plt.plot([i + width / 2 - width * 0.3, i + width / 2 + width * 0.3], 
-                     [data_min, data_min], color='black', linewidth=0.5)
-            plt.plot([i + width / 2 - width * 0.3, i + width / 2 + width * 0.3], 
-                     [data_max, data_max], color='black', linewidth=0.5)
-            plt.plot([i + width / 2, i + width / 2], 
-                     [data_min, data_max], color='black', linewidth=0.5)
-    
+
+    # 箱ひげ図風の線（min/max線）は削除
+
     plt.xticks(ticks=x, labels=programs, rotation=45, ha="right", fontsize=20)
-    #plt.title(f'Comparison of {column.replace("_", " ").capitalize()}', fontsize=20)
     plt.ylabel(y_label, fontsize=20)
     plt.yticks(fontsize=20)
     plt.legend(fontsize=20)

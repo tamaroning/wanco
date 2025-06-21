@@ -99,23 +99,6 @@ def create_combined_bar_plot(plot_data, filename="overhead.jpg"):
             alpha=0.8,
         )
 
-        # 棒の上に値を表示
-        # for j, (bar, mean) in enumerate(zip(bars, means)):
-        #    if mean > 0:  # データがある場合のみ
-        #        height = bar.get_height()
-        #        ax.text(
-        #            bar.get_x() + bar.get_width() / 2.0,
-        #            height + stds[j] + 0.02,
-        #            f"{mean:.2f}",
-        #            ha="center",
-        #            va="bottom",
-        #            fontsize=9,
-        #            fontweight="bold",
-        #        )
-
-    # 基準線（線幅を細くする）
-    ax.axhline(y=1.0, color="gray", linestyle="--", alpha=0.7, linewidth=0.3)
-
     # グラフの設定
     # ax.set_xlabel("Programs", fontsize=14)
     ax.set_ylabel("Ratio of Execution Time to Wanco wo/ C/R", fontsize=14)

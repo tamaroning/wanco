@@ -138,7 +138,7 @@ def plot_migration_time(
             "restore_times": filtered_restore_criu,
         }
 
-    # 各プログラムの平均値を計算（ハズレ値を除外したデータから）
+    # 各プログラムの平均値と標準偏差を計算（ハズレ値を除外したデータから）
     checkpointtime_wasm_means = [
         (
             np.mean(wasm_data[p]["checkpoint_times"])
@@ -147,8 +147,20 @@ def plot_migration_time(
         )
         for p in programs
     ]
+    checkpointtime_wasm_stds = [
+        (
+            np.std(wasm_data[p]["checkpoint_times"])
+            if wasm_data[p]["checkpoint_times"]
+            else 0
+        )
+        for p in programs
+    ]
     restoretime_wasm_means = [
         np.mean(wasm_data[p]["restore_times"]) if wasm_data[p]["restore_times"] else 0
+        for p in programs
+    ]
+    restoretime_wasm_stds = [
+        np.std(wasm_data[p]["restore_times"]) if wasm_data[p]["restore_times"] else 0
         for p in programs
     ]
     checkpointtime_criu_means = [
@@ -159,8 +171,20 @@ def plot_migration_time(
         )
         for p in programs
     ]
+    checkpointtime_criu_stds = [
+        (
+            np.std(criu_data[p]["checkpoint_times"])
+            if criu_data[p]["checkpoint_times"]
+            else 0
+        )
+        for p in programs
+    ]
     restoretime_criu_means = [
         np.mean(criu_data[p]["restore_times"]) if criu_data[p]["restore_times"] else 0
+        for p in programs
+    ]
+    restoretime_criu_stds = [
+        np.std(criu_data[p]["restore_times"]) if criu_data[p]["restore_times"] else 0
         for p in programs
     ]
 
@@ -177,175 +201,51 @@ def plot_migration_time(
     bar_width = 0.35
     index = np.arange(len(programs))
 
-    # Wasmの棒グラフ作成（checkpointとrestore）- 平均値
+    # Wasmの棒グラフ作成（checkpointとrestore）- 平均値＋エラー線
     bar1 = ax.bar(
         index - bar_width / 2,
         checkpointtime_wasm_means,
         bar_width,
+        yerr=checkpointtime_wasm_stds,
+        capsize=3,
         color=color_wasm_checkpoint,
         label="Wanco Checkpoint",
+        alpha=0.8,
     )
     bar2 = ax.bar(
         index - bar_width / 2,
         restoretime_wasm_means,
         bar_width,
+        yerr=restoretime_wasm_stds,
+        capsize=3,
         bottom=checkpointtime_wasm_means,
         color=color_wasm_restore,
         label="Wanco Restore",
+        alpha=0.8,
     )
 
-    # CRIUの棒グラフ作成（checkpointとrestore）- 平均値
+    # CRIUの棒グラフ作成（checkpointとrestore）- 平均値＋エラー線
     bar3 = ax.bar(
         index + bar_width / 2,
         checkpointtime_criu_means,
         bar_width,
+        yerr=checkpointtime_criu_stds,
+        capsize=3,
         color=color_criu_checkpoint,
         label="CRIU Checkpoint",
+        alpha=0.8,
     )
     bar4 = ax.bar(
         index + bar_width / 2,
         restoretime_criu_means,
         bar_width,
+        yerr=restoretime_criu_stds,
+        capsize=3,
         bottom=checkpointtime_criu_means,
         color=color_criu_restore,
         label="CRIU Restore",
+        alpha=0.8,
     )
-
-    # データの散らばりを表示するためのエラーバーとボックスプロット風の線を追加（線を細く）
-    for i, program in enumerate(programs):
-        # Wasm checkpoint - 散らばりを表示
-        if wasm_data[program]["checkpoint_times"]:
-            checkpoint_min = min(wasm_data[program]["checkpoint_times"])
-            checkpoint_max = max(wasm_data[program]["checkpoint_times"])
-            # 箱ひげ図風の線を追加 (checkpoint min-max範囲) - 線を細く
-            ax.plot(
-                [
-                    index[i] - bar_width / 2 - bar_width * 0.3,
-                    index[i] - bar_width / 2 + bar_width * 0.3,
-                ],
-                [checkpoint_min, checkpoint_min],
-                color="black",
-                linewidth=0.5,
-            )
-            ax.plot(
-                [
-                    index[i] - bar_width / 2 - bar_width * 0.3,
-                    index[i] - bar_width / 2 + bar_width * 0.3,
-                ],
-                [checkpoint_max, checkpoint_max],
-                color="black",
-                linewidth=0.5,
-            )
-            ax.plot(
-                [index[i] - bar_width / 2, index[i] - bar_width / 2],
-                [checkpoint_min, checkpoint_max],
-                color="black",
-                linewidth=0.5,
-            )
-
-            # Wasm total (checkpoint+restore) - 散らばりを表示
-            if wasm_data[program]["restore_times"]:
-                total_times = [
-                    c + r
-                    for c, r in zip(
-                        wasm_data[program]["checkpoint_times"],
-                        wasm_data[program]["restore_times"],
-                    )
-                ]
-                total_min = min(total_times)
-                total_max = max(total_times)
-                # 箱ひげ図風の線を追加 (total min-max範囲) - 線を細く
-                ax.plot(
-                    [
-                        index[i] - bar_width / 2 - bar_width * 0.3,
-                        index[i] - bar_width / 2 + bar_width * 0.3,
-                    ],
-                    [total_min, total_min],
-                    color="black",
-                    linewidth=0.5,
-                )
-                ax.plot(
-                    [
-                        index[i] - bar_width / 2 - bar_width * 0.3,
-                        index[i] - bar_width / 2 + bar_width * 0.3,
-                    ],
-                    [total_max, total_max],
-                    color="black",
-                    linewidth=0.5,
-                )
-                ax.plot(
-                    [index[i] - bar_width / 2, index[i] - bar_width / 2],
-                    [total_min, total_max],
-                    color="black",
-                    linewidth=0.5,
-                )
-
-        # CRIU checkpoint - 散らばりを表示
-        if criu_data[program]["checkpoint_times"]:
-            checkpoint_min = min(criu_data[program]["checkpoint_times"])
-            checkpoint_max = max(criu_data[program]["checkpoint_times"])
-            # 箱ひげ図風の線を追加 (checkpoint min-max範囲) - 線を細く
-            ax.plot(
-                [
-                    index[i] + bar_width / 2 - bar_width * 0.3,
-                    index[i] + bar_width / 2 + bar_width * 0.3,
-                ],
-                [checkpoint_min, checkpoint_min],
-                color="black",
-                linewidth=0.5,
-            )
-            ax.plot(
-                [
-                    index[i] + bar_width / 2 - bar_width * 0.3,
-                    index[i] + bar_width / 2 + bar_width * 0.3,
-                ],
-                [checkpoint_max, checkpoint_max],
-                color="black",
-                linewidth=0.5,
-            )
-            ax.plot(
-                [index[i] + bar_width / 2, index[i] + bar_width / 2],
-                [checkpoint_min, checkpoint_max],
-                color="black",
-                linewidth=0.5,
-            )
-
-            # CRIU total (checkpoint+restore) - 散らばりを表示
-            if criu_data[program]["restore_times"]:
-                total_times = [
-                    c + r
-                    for c, r in zip(
-                        criu_data[program]["checkpoint_times"],
-                        criu_data[program]["restore_times"],
-                    )
-                ]
-                total_min = min(total_times)
-                total_max = max(total_times)
-                # 箱ひげ図風の線を追加 (total min-max範囲) - 線を細く
-                ax.plot(
-                    [
-                        index[i] + bar_width / 2 - bar_width * 0.3,
-                        index[i] + bar_width / 2 + bar_width * 0.3,
-                    ],
-                    [total_min, total_min],
-                    color="black",
-                    linewidth=0.5,
-                )
-                ax.plot(
-                    [
-                        index[i] + bar_width / 2 - bar_width * 0.3,
-                        index[i] + bar_width / 2 + bar_width * 0.3,
-                    ],
-                    [total_max, total_max],
-                    color="black",
-                    linewidth=0.5,
-                )
-                ax.plot(
-                    [index[i] + bar_width / 2, index[i] + bar_width / 2],
-                    [total_min, total_max],
-                    color="black",
-                    linewidth=0.5,
-                )
 
     # X軸のラベルとtickを設定
     ax.set_xticks(index)
