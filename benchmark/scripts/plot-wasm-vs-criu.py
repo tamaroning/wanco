@@ -13,7 +13,7 @@ def remove_outliers_by_column(df, column):
     """特定の列に基づいてハズレ値を除外する"""
     if len(df) <= 3:  # データが少ない場合はそのまま返す
         return df
-    
+
     # IQRベースでハズレ値を判定
     q1 = df[column].quantile(0.25)
     q3 = df[column].quantile(0.75)
@@ -23,7 +23,9 @@ def remove_outliers_by_column(df, column):
 
     # ハズレ値の個数
     num_outliers = len(df[(df[column] < lower_bound) | (df[column] > upper_bound)])
-    print(f"Outliers in {column}: {num_outliers} ({(num_outliers / len(df)) * 100:.2f}%)")
+    print(
+        f"Outliers in {column}: {num_outliers} ({(num_outliers / len(df)) * 100:.2f}%)"
+    )
 
     # ハズレ値を除外
     return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
@@ -33,41 +35,45 @@ def plot_comparison(
     df_wasm_raw: pd.DataFrame, df_criu_raw: pd.DataFrame, column: str, output_file: str
 ) -> None:
     print("--- Plotting", column, "---")
-    
+
     # プログラム名の出現順序を保持
-    wasm_programs = df_wasm_raw['program'].unique()
-    criu_programs = df_criu_raw['program'].unique()
-    
+    wasm_programs = df_wasm_raw["program"].unique()
+    criu_programs = df_criu_raw["program"].unique()
+
     # 出現順序を保持したプログラムリスト作成
     programs = []
     for prog in wasm_programs:
         if prog not in programs:
             programs.append(prog)
-    
+
     for prog in criu_programs:
         if prog not in programs:
             programs.append(prog)
-    
+
     # ハズレ値を除外したデータフレーム作成
     wasm_data = {}
     criu_data = {}
-    
+
     for program in programs:
         # プログラムごとのデータ取得
-        wasm_program_data = df_wasm_raw[df_wasm_raw['program'] == program]
-        criu_program_data = df_criu_raw[df_criu_raw['program'] == program]
-        
+        wasm_program_data = df_wasm_raw[df_wasm_raw["program"] == program]
+        criu_program_data = df_criu_raw[df_criu_raw["program"] == program]
+
         # ハズレ値除外
         if len(wasm_program_data) > 0:
             wasm_program_data = remove_outliers_by_column(wasm_program_data, column)
-        
+
         if len(criu_program_data) > 0:
             criu_program_data = remove_outliers_by_column(criu_program_data, column)
-        
+
         # 各プログラムのデータ保存
-        wasm_data[program] = wasm_program_data[column].tolist() if len(wasm_program_data) > 0 else []
-        criu_data[program] = criu_program_data[column].tolist() if len(criu_program_data) > 0 else []
-    
+        wasm_data[program] = (
+            wasm_program_data[column].tolist() if len(wasm_program_data) > 0 else []
+        )
+        criu_data[program] = (
+            criu_program_data[column].tolist() if len(criu_program_data) > 0 else []
+        )
+
     # 平均値と標準偏差を計算
     values_wasm = [np.mean(wasm_data[p]) if wasm_data[p] else 0 for p in programs]
     stds_wasm = [np.std(wasm_data[p]) if wasm_data[p] else 0 for p in programs]
@@ -76,7 +82,11 @@ def plot_comparison(
 
     # 比率分析
     ratios = [
-        values_criu[i] / values_wasm[i] if values_wasm[i] != 0 and values_criu[i] != 0 else float("inf")
+        (
+            values_criu[i] / values_wasm[i]
+            if values_wasm[i] != 0 and values_criu[i] != 0
+            else float("inf")
+        )
         for i in range(len(values_wasm))
     ]
     # 最大の比を与えるプログラム
@@ -90,7 +100,7 @@ def plot_comparison(
         max_ratio_criu = values_criu[max_ratio_index]
         print(f"Max ratio: {max_ratio_program} ({round(max_ratio_value, 4)})")
         print(f"\tCRIU={round(max_ratio_criu, 4)} => Wasm={round(max_ratio_wasm,4)}")
-        
+
         # 最小の比を与えるプログラム
         min_ratio = min(valid_ratios)
         min_ratio_index = ratios.index(min_ratio)
@@ -103,7 +113,7 @@ def plot_comparison(
 
     # グラフ設定
     y_label = column.replace("_", " ").capitalize()
-    
+
     color_wasm = "blue"
     color_criu = "orange"
 
@@ -120,8 +130,8 @@ def plot_comparison(
         stds_wasm = [s / 1024 / 1024 for s in stds_wasm]
         values_criu = [v / 1024 / 1024 for v in values_criu]
         stds_criu = [s / 1024 / 1024 for s in stds_criu]
-        color_wasm = "lightseagreen"
-        color_criu = "hotpink"
+        color_wasm = "#1f77b4"
+        color_criu = "#ff7f0e"
 
     # プロット作成（高解像度設定）
     plt.figure(figsize=(12, 7), dpi=300)
@@ -155,7 +165,7 @@ def plot_comparison(
     plt.yticks(fontsize=20)
     plt.legend(fontsize=20)
     plt.tight_layout()
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close()
 
 
