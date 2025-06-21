@@ -53,69 +53,96 @@ def prepare_plot_data(data):
     return plot_data
 
 
-# グループ化された箱ひげ図を作成
-def create_grouped_box_plot(plot_data, filename="overhead.jpg"):
-    # プログラムごとにサブプロットを作成
-    n_programs = len(plot_data)
-    fig, axes = plt.subplots(1, n_programs, figsize=(1.5 * n_programs, 6), sharey=True)
+# 全プログラムを1つのグラフにまとめた棒グラフを作成（間隔調整版）
+def create_combined_bar_plot(plot_data, filename="overhead.jpg"):
+    fig, ax = plt.subplots(figsize=(16, 8))  # 幅を少し広げる
 
-    # プログラムが1つの場合は配列にする
-    if n_programs == 1:
-        axes = [axes]
+    programs = list(plot_data.keys())
+    runtimes = ["Wanco w/ C/R", "WAMR", "WasmEdge"]
 
-    colors = ["#ff7f0e", "#2ca02c", "#d62728", "#1f77b4"]
+    # カラーパレット
+    colors = {"Wanco w/ C/R": "#1f77b4", "WAMR": "#ff7f0e", "WasmEdge": "#d62728"}
 
-    # 全ランタイムを収集
-    all_runtimes = set()
-    for program_data in plot_data.values():
-        all_runtimes.update(k for k in program_data.keys())
-    all_runtimes = sorted(list(all_runtimes))
+    # 棒の幅と位置の設定（間隔を広げる）
+    bar_width = 0.2  # 棒の幅を少し細く
+    group_spacing = 0.0  # グループ間の間隔を調整
+    x = np.arange(len(programs)) * (1 + group_spacing)  # プログラム間の間隔を広げる
 
-    print(f"利用可能なランタイム: {all_runtimes}")
+    # 各ランタイムごとに棒グラフを描画
+    for i, runtime in enumerate(runtimes):
+        means = []
+        stds = []
 
-    # フォントサイズ設定
-    label_fontsize = 14
-    tick_fontsize = 11
-    title_fontsize = 14
+        for program in programs:
+            if runtime in plot_data[program]:
+                data = plot_data[program][runtime]
+                means.append(np.mean(data))
+                stds.append(np.std(data))
+            else:
+                means.append(0)
+                stds.append(0)
 
-    # 各プログラムについてサブプロットを作成
-    for idx, (program, runtime_data) in enumerate(plot_data.items()):
-        ax = axes[idx]
+        # 各ランタイムの棒の位置を調整（ランタイム間に間隔を作る）
+        runtime_spacing = 0.01  # ランタイム間の間隔
+        total_width = len(runtimes) * bar_width + (len(runtimes) - 1) * runtime_spacing
+        start_offset = -total_width / 2 + bar_width / 2
+        runtime_offset = start_offset + i * (bar_width + runtime_spacing)
 
-        runtimes = ["Wanco w/ C/R", "WAMR", "WasmEdge"]
-        data_to_plot = [runtime_data[runtime] for runtime in runtimes]
-
-        # 箱ひげ図を描画
-        bp = ax.boxplot(
-            data_to_plot,
-            labels=runtimes,
-            patch_artist=True,
-            showfliers=True,
-            meanline=True,
-            widths=0.6,  # デフォルトは0.5、これを小さく
+        bars = ax.bar(
+            x + runtime_offset,
+            means,
+            bar_width,
+            yerr=stds,
+            capsize=3,
+            label=runtime,
+            color=colors[runtime],
+            alpha=0.8,
         )
 
-        # 箱ひげ図の塗りつぶしを無効化（no fill）
-        for box in bp["boxes"]:
-            box.set_facecolor("none")
-            box.set_alpha(1.0)
+        # 棒の上に値を表示
+        # for j, (bar, mean) in enumerate(zip(bars, means)):
+        #    if mean > 0:  # データがある場合のみ
+        #        height = bar.get_height()
+        #        ax.text(
+        #            bar.get_x() + bar.get_width() / 2.0,
+        #            height + stds[j] + 0.02,
+        #            f"{mean:.2f}",
+        #            ha="center",
+        #            va="bottom",
+        #            fontsize=9,
+        #            fontweight="bold",
+        #        )
 
-        # サブプロットの設定
-        ax.set_title(f"{program}", fontsize=title_fontsize)
-        ax.grid(True, alpha=0.3)
+    # 基準線（線幅を細くする）
+    ax.axhline(y=1.0, color="gray", linestyle="--", alpha=0.7, linewidth=0.3)
 
-        # y軸ラベルは最初のサブプロットのみ
-        if idx == 0:
-            ax.set_ylabel("Ratio of Execution Time to Wanco wo/ C/R", fontsize=label_fontsize)
+    # グラフの設定
+    # ax.set_xlabel("Programs", fontsize=14)
+    ax.set_ylabel("Ratio of Execution Time to Wanco wo/ C/R", fontsize=14)
+    ax.set_xticks(x)  # 中央の位置にラベルを配置
+    ax.set_xticklabels(programs, rotation=45, ha="right", fontsize=14)
+    ax.legend(loc="upper left", fontsize=14)
+    ax.grid(True, alpha=0.3, axis="y")
 
-        # x軸のラベルを45度回転
-        ax.tick_params(axis="x", labelsize=tick_fontsize, rotation=45)
-        ax.tick_params(axis="y", labelsize=tick_fontsize)
-        for tick in ax.get_xticklabels():
-            tick.set_horizontalalignment("right")
+    # y軸の範囲を調整
+    all_means = []
+    all_stds = []
+    for program in programs:
+        for runtime in runtimes:
+            if runtime in plot_data[program]:
+                data = plot_data[program][runtime]
+                all_means.append(np.mean(data))
+                all_stds.append(np.std(data))
 
-    plt.tight_layout(pad=0.0, w_pad=0.2, h_pad=0.2)  # サブプロット間の余白を狭く
-    plt.savefig(filename, dpi=300, bbox_inches="tight")
+    if all_means:
+        y_max = max(all_means) + max(all_stds) + 0.2
+        ax.set_ylim(0, y_max)
+
+    # x軸の範囲を調整して余白を確保
+    ax.set_xlim(-0.5, x[-1] + 0.5)
+
+    plt.tight_layout()
+    plt.savefig(filename, dpi=300)
     plt.show()
 
 
@@ -134,10 +161,12 @@ def main():
         for program in plot_data.keys():
             print(f"  - {program}")
             for runtime, ratios in plot_data[program].items():
-                print(f"    {runtime}: 平均 {np.mean(ratios):.3f}")
+                print(
+                    f"    {runtime}: 平均 {np.mean(ratios):.3f} ± {np.std(ratios):.3f}"
+                )
 
-        print("グループ化された箱ひげ図を作成中...")
-        create_grouped_box_plot(plot_data)
+        print("棒グラフを作成中...")
+        create_combined_bar_plot(plot_data)
 
         print("完了！")
 

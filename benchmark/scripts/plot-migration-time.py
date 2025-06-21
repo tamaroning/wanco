@@ -348,7 +348,6 @@ def plot_migration_time(
                 )
 
     # X軸のラベルとtickを設定
-    ax.set_xlabel("Programs", fontsize=20)
     ax.set_xticks(index)
     ax.set_xticklabels(programs, rotation=45, ha="right", fontsize=20)
 

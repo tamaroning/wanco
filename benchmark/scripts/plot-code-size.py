@@ -113,31 +113,18 @@ def main():
     wasmedge_bars_mib = [size / (1024 * 1024) for size in wasmedge_bars]
 
     # 各棒の位置を計算（間隔を追加）
-    pos_wamrc = index - (bar_width * 2 + group_gap * 2)
-    pos_wasmedge = index - (bar_width + group_gap)
-    pos_wanco = index
-    pos_wanco_cr = index + (bar_width + group_gap)
-    pos_wanco_asyncify = index + (bar_width * 2 + group_gap * 2)
-
-    # プログラムごとに、wamrc, wasmedge, wanco, wanco_crの順に棒を並べる
-    bars_wamrc = plt.bar(
-        pos_wamrc, wamrc_bars_mib, bar_width, label="WAMR", color="lightseagreen"
-    )
-
-    bars_wasmedge = plt.bar(
-        pos_wasmedge,
-        wasmedge_bars_mib,
-        bar_width,
-        label="WasmEdge",
-        color="#1f77b4",  # 青系統
-    )
+    pos_wanco = index - (bar_width * 2 + group_gap * 2)
+    pos_wanco_cr = index - (bar_width + group_gap)
+    pos_wanco_asyncify = index
+    pos_wamrc = index + (bar_width + group_gap)
+    pos_wasmedge = index + (bar_width * 2 + group_gap * 2)
 
     bars_wanco = plt.bar(
         pos_wanco,
         wanco_bars_mib,
         bar_width,
         label="Wanco",
-        color="#ff7f0e",  # オレンジ系統
+        color="#1f77b4",  # 青
     )
 
     bars_wanco_cr = plt.bar(
@@ -145,7 +132,7 @@ def main():
         wanco_cr_bars_mib,
         bar_width,
         label="Wanco w/ C/R",
-        color="hotpink",
+        color="#9467bd",  # 紫（青に近い寒色）
     )
 
     bars_wanco_asyncify = plt.bar(
@@ -153,7 +140,23 @@ def main():
         wanco_asyncify_bars_mib,
         bar_width,
         label="Wanco w/ asyncify",
-        color="purple",
+        color="#17becf",  # シアン（青系の最後）
+    )
+
+    bars_wamrc = plt.bar(
+        pos_wamrc,
+        wamrc_bars_mib,
+        bar_width,
+        label="WAMR",
+        color="#ff7f0e",  # オレンジ
+    )
+
+    bars_wasmedge = plt.bar(
+        pos_wasmedge,
+        wasmedge_bars_mib,
+        bar_width,
+        label="WasmEdge",
+        color="#d62728",  # 赤
     )
 
     # 比率分析（提供されたコード例に類似した分析）
@@ -195,7 +198,6 @@ def main():
     FONT_SIZE = 20
 
     # グラフの装飾
-    plt.xlabel("Programs", fontsize=FONT_SIZE)
     plt.ylabel("Code size [MiB]", fontsize=FONT_SIZE)
     plt.xticks(index, programs_names, rotation=45, ha="right", fontsize=FONT_SIZE)
     plt.yticks(fontsize=FONT_SIZE)
