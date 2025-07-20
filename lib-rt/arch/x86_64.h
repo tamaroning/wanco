@@ -87,6 +87,8 @@ enum class Register {
   MM7 = 48,
 };
 
+constexpr Register BP_REGISTER = Register::RBP;
+
 inline auto reg_to_string(Register &reg) -> std::string {
   switch (reg) {
   case Register::RAX:

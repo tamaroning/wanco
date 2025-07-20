@@ -2,33 +2,41 @@
 
 ## Prerequisites
 
+- Linux on x86-64 or AArch64
 - [uv](https://github.com/astral-sh/uv): Python package and version manager
-- CRIU
-- Linux on x86-64
-- My custom Binaryen
+- Hyperfine
+- (optional) CRIU
+- (optional) [My fork of Binaryen](https://github.com/tamaroning/binaryen/tree/checkpoint-restore)
+- (optional) WASI SDK (set `WASI_SDK_PATH` environment variable to the path of the WASI SDK)
+- (optional) WasmEdge
+- (optional) WAMR
 
+Install deps:
 
-```bash
-# Install CRIU
+```sh
 sudo add-apt-repository ppa:criu/ppa
-sudo apt install criu
-
-cd benchmark
-# build the all benchmarks
-make all
-# Run as root because CRIU requires root privileges
-sudo env "PATH=$PATH" ./scripts/run-all-bench.sh
+sudo apt install criu hyperfine wasmedge uv
 ```
 
-
-## Build customized Binaryen
+Build customized Binaryen:
 
 ```
+cd <wanco_root_dir>/..
 git@github.com:tamaroning/binaryen.git
 cd binaryen
 git checkout checkpoint-restore
 mkdir build
 cd build
+```
+
+Run all benchmarks:
+
+```bash
+cd benchmark
+# build the all benchmarks
+make all
+# Run as root because CRIU requires root privileges
+sudo env "PATH=$PATH" ./scripts/run-all-bench.sh
 ```
 
 
